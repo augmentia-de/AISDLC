@@ -169,11 +169,43 @@ Schreibrechten gleichzeitig aktiv führen zu widersprüchlichen Rechten.
 ### 3. Wechseln ohne Neustart
 
 ```bash
-Shift+Tab                        # nächster Agent
+Tab                               # nächster Agent (vorwärts)
+Shift+Tab                         # vorheriger Agent (rückwärts)
 Ctrl+X, dann a                   # Agentenliste (oder /agents)
 opencode run --agent <agent-id> "Auftrag"
 opencode reload                  # Config ohne Neustart übernehmen
 ```
+
+`default_agent` in `.opencode/opencode.jsonc` wirkt **nur für neue Sessions** — eine
+bestehende Session behält ihren gespeicherten Agenten.
+
+### 3a. Wann wechseln? — nach der Freigabe, vor dem nächsten Schritt
+
+```
+Schritt N läuft  →  Agent committet  →  GATE: Artefakte vorstellen
+                                                    │
+                                     Freigabe?  ──────┴────── nein
+                                        ja                      │
+                                        ▼                       ▼
+                              Agent auf Schritt N+1        Korrekturen im
+                              wechseln, dann Schritt N+1    selben Agenten
+                              starten                       (bleibt aktiv)
+```
+
+**Nach der Freigabe wechseln, nicht vorher.** Grund:
+
+- Der Gate-Checkpoint gehört zu dem gerade abgeschlossenen Schritt. Der Agent, der den
+  Schritt geliefert hat, bleibt aktiv, bis du entschieden hast — Rückfragen und
+  Korrekturen landen bei demselben Agenten mit demselben Schreibrecht.
+- Vor der Freigabe zu wechseln nimmt dem Requirements-Agenten das Recht auf
+  `docs/requirements/`. Eine Korrektur an der PRD wäre dann blockiert.
+- Erst der Agent des nächsten Schritts darf aktiv sein, wenn dieser Schritt beginnt —
+  `aisdlc-architecture` darf nur `docs/architecture/`, `docs/api/`, `docs/adr/` schreiben.
+
+**Kontext:** Es gibt keinen automatischen Kontext-Transfer zwischen den Schritten — das
+ist gewollt. Der neue Agent liest die Artefakte vom Dateisystem (PRD, `openapi.yaml`,
+`.agent/artifacts/`). Deshalb ist der Commit **vor** dem Gate wichtig: der neue Agent
+arbeitet auf einem versionierten, sauberen Stand.
 
 ### 4. Skills nachladen, nicht improvisieren
 

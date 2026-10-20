@@ -46,6 +46,12 @@ Kontextkosten bleiben bei 0, bis der Schritt wirklich gebraucht wird.
 Gates stehen in `AGENTS.md` und werden von den Workflow-Dateien referenziert. Die
 Multi-Instanz-Prompts enthalten dieselben Gates an denselben Schrittgrenzen.
 
+**Agent-Wechsel am Gate:** Der Agent des abgeschlossenen Schritts bleibt aktiv, bis der
+Mensch die Freigabe erteilt. Erst danach wechselt der Mensch auf den Agenten des
+naechsten Schritts (Spalte "Agent" oben). Korrekturen nach einer Gate-Rueckfrage landen
+so beim selben Agenten mit demselben Schreibrecht — und die Schreibrechte des
+Folgeschritts sind erst aktiv, wenn dieser tatsaechlich beginnt.
+
 ## Commit pro Schritt
 
 Jeder Schritt erzeugt **genau einen** Commit. Der Commit entsteht **vor** dem Gate —

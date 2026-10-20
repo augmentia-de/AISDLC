@@ -33,6 +33,12 @@ Diese Datei ist die Single Source of Truth; bei Widerspruch gilt sie.
 
 Without approval, the pipeline does not advance. No exceptions.
 
+**Agent-Wechsel am Gate:** The agent of the finished step stays active until the human
+approves. Only then does the human switch to the agent of the next step. Corrections
+after a gate request therefore land with the agent that still has the write permission
+for that step's folder — and the next step's write permissions only become active when
+that step actually starts.
+
 ## Commit Convention
 
 **After every SDLC step exactly one commit.** A step is not finished until its commit
