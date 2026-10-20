@@ -1,0 +1,41 @@
+%% PromptGuard — Mandantentrennung auf Daten- und Nachrichtenebene (Invariante I-2)
+%% Quelle: FR-009, FR-023, SEC-002, SEC-003, CON-010; ADR-002
+
+flowchart TB
+    Start([Anfrage / Job]) --> Auth[JWT prüfen<br/>Claims: sub, organisation_id, role, exp]
+    Auth -->|ungültig oder abgelaufen| E401["401 Unauthorized<br/>keine Existenzinformation"]
+    Auth -->|gültig| Tenant["Mandanten-Kontext setzen<br/>organisation_id = organisation_id aus dem Token"]
+    Tenant --> Role{Rolle für die<br/>Operation erlaubt?}
+    Role -->|nein| E403["403 Forbidden<br/>keine Existenzinformation"]
+    Role -->|ja| Filter["Query-Ebene: organisation_id-Filter<br/>setzen — NIEMALS weglassen"]
+    Filter --> RLS{"PostgreSQL RLS<br/>zusätzlich aktiv?"}
+    RLS -->|ja| Row["RLS-Policy: USING (organisation_id = current_setting('app.organisation_id'))<br/>zweite Verteidigungslinie"]
+    RLS -->|nein| Leaked["Datenleck möglich — Review-Stopp"]
+    Row --> Treffer{Datensatz in der<br/>eigenen Organisation?}
+    Treffer -->|ja| Ok["200 / 201 / 202 / 204<br/>Daten der eigenen Organisation"]
+    Treffer -->|nein| E404["404 Not Found<br/>kein Titel, kein Eigentümer,<br/>kein Prüfstatus, keine Anzahl"]
+    E404 --> Leer["leeres Ergebnis:<br/>keine Treffer, totalElements = 0,<br/>keine Vorschau, keine Facette"]
+
+    subgraph Jobs["Hintergrundjobs (Prüflauf, Benachrichtigung, Retention)"]
+        J1["Job-Kontext enthält organisation_id"] --> J2{Job-Kontext<br/>auflösbar?}
+        J2 -->|nein| J3["Job verwerfen und protokollieren<br/>SEC-003"]
+        J2 -->|ja| J4["Ausführung strikt innerhalb der Organisation"]
+    end
+
+    subgraph Cache["Cache- und Suchschicht"]
+        C1["Cache-Key enthält organisation_id"] --> C2["Volltextsuche filtert organisation_id<br/>im Suchindex"]
+    end
+
+    subgraph Infra["Infrastruktur (CON-010)"]
+        I1["DB-Benutzer je Umgebung"] --> I2["keine Shared-Connections<br/>über Tenant-Grenzen"]
+    end
+
+    Treffer --> Jobs
+    Treffer --> Cache
+    Treffer --> Infra
+
+    style E404 fill:#fdecea,stroke:#b3261e,color:#611a15
+    style E403 fill:#fff4e5,stroke:#b26a00,color:#614000
+    style E401 fill:#fdecea,stroke:#b3261e,color:#611a15
+    style Leaked fill:#fdecea,stroke:#b3261e,color:#611a15
+    style Ok fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20

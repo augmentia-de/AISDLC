@@ -1,0 +1,33 @@
+%% PromptGuard — C4 Level 1: System Context
+%% Quelle: docs/requirements/PRD.md §7, §8; Architektur: docs/architecture/
+%% Alle Daten bleiben in der EU (FR-065). Kein Datenabfluss aus der EU (DP-005).
+
+C4Context
+  title "PromptGuard — System Context (C4 Level 1)"
+
+  Person(dev, "Entwickler:in", "Legt Prompts an, versioniert, sucht und liest den Prüfstatus.")
+  Person(secadmin, "Security-Admin", "Prüft geflaggte Prompts, gibt Ausnahmen frei, empfängt Warn-E-Mails. Organisationsintern (F3).")
+  Person(orgadmin, "Org-Admin", "Verwaltet Mitglieder, Rollen, Einladungen, Kategorien und Organisationseinstellungen.")
+  Person(dpo, "Datenschutzbeauftragte:r", "Prüft Auflagen, Verifikation, Löschvorgänge und Nachweise.")
+  Person(ops, "Plattform-Betrieb", "Betreibt den Dienst. KEIN fachlicher Zugriff auf Prompt-Inhalte (PRD §4).")
+
+  System(promptguard, "PromptGuard", "Mandantenfähige Plattform für zentrale Prompt-Verwaltung und asynchrone Compliance-Prüfung.")
+
+  System_Ext(llm, "KI-Dienst (EU)", "Gemini 2.0 Flash oder OpenAI, Region europe-west3, kein Training, keine dauerhafte Speicherung, AVV liegt vor (FR-065).")
+
+  System_Ext(smtp, "SMTP-Server", "Zustellung der Warn-E-Mails. Inhalt: nur Metadaten, nie Prompt-Inhalt (FR-051).")
+
+  System_Ext(idp, "Betriebswerkzeuge", "Monitoring, Metriken-Scrape, Log-Auswertung, Backup. Kein fachlicher Datenzugriff.")
+
+  Rel(dev, promptguard, "Legt Prompts an, bearbeitet, versioniert, sucht, liest Status und Ergebnisse", "HTTPS/JSON + SSE")
+  Rel(secadmin, promptguard, "Prüft Fundstellen, gibt Ausnahmen (Waiver) frei, liest Audit und Warnungen", "HTTPS/JSON")
+  Rel(orgadmin, promptguard, "Verwaltet Mitglieder, Rollen, Einladungen, Kategorien, Schwellen, Alarmempfänger", "HTTPS/JSON")
+  Rel(dpo, promptguard, "Prüft Provider-Verifikation, Löschvorgänge, Datenexport, Datenschutzhinweis", "HTTPS/JSON")
+  Rel(ops, promptguard, "Liest Health und Metriken, betreibt den Dienst", "HTTPS/JSON")
+
+  Rel(promptguard, llm, "Übermittelt Originalinhalt zur Klassifikation (F1, unredigiert) — nur nach bestandener Verifikation", "HTTPS, Langchain4j")
+  Rel(promptguard, smtp, "Sendet Warn-E-Mail mit Metadaten und Deep-Link", "SMTP")
+  Rel(idp, promptguard, "Liefert Metriken und Logs (ohne Prompt-Inhalt)", "Scrape/Logfile")
+
+  UpdateRelStyle(dev, $lineColor="#33517a", $textColor="#12233d")
+  UpdateRelStyle(promptguard, llm, $lineColor="#b3261e", $textColor="#b3261e")
