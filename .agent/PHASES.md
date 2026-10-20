@@ -23,7 +23,7 @@ Agenten sind Rollen, die unabhängig vom Betriebsmodus existieren.
 | 0 Legacy-Analyse | — | `phase0` | — | — | optional |
 | 1 Anforderungserhebung | `01-requirements.md` | `phase1` | `aisdlc-requirements` | — | — |
 | 1a Anforderungs-Grill-Me | (in 01) | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress` | — |
-| 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | — | **GATE 1** danach |
+| 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | `aisdlc-openapi-first` | **GATE 1** danach |
 | 3 Simplify & Reduktion | `03-simplify.md` | `phase2` | `aisdlc-architecture` | `aisdlc-simplify` | — |
 | 4 Grill-Me-Stresstest | `04-grill-me-stress.md` | `phase2` | `aisdlc-architecture` | `aisdlc-grill-stress` | — |
 | 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd` | — |

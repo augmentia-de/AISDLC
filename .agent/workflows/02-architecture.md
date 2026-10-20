@@ -18,7 +18,7 @@ description: Phase 2 — Architecture design for AI SDLC
 |---|---|
 | Agent | `aisdlc-architecture` |
 | Instanz (Multi-Instanz-Modus) | `phase2` |
-| Skill | — (kein Skill nötig) |
+| Skill | `aisdlc-openapi-first` |
 
 ## Steps
 
