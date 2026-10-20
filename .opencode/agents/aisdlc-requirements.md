@@ -46,3 +46,7 @@ downstream agents and OpenCode can execute precisely.
 ## Escalation
 On an incomplete requirement: emit `REQUIREMENT_GAP` as structured JSON and stop
 instead of guessing.
+
+## Phase-Skills
+
+`aisdlc-grill-stress` — für Schritt 1a (Anforderungs-Grill-Me).

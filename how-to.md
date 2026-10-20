@@ -1,158 +1,194 @@
-# How-To: Wann welcher Agent aktiv sein sollte
+# How-To: Wann welcher Agent und welcher Skill aktiv sein sollte
 
 ## Übersicht
 
-OpenCode hat sechs Primary-Agents für das AISDLC-Projekt. Jeder Agent hat eine
-eigene Rolle, eigene Schreibrechte und einen eigenen System-Prompt. Sie werden
-nicht gleichzeitig aktiv — **pro Phase ist genau einer der Haupt-Agent**.
+Das Projekt hat **6 Primary-Agents** und **7 Skills**. Die Agenten sind *Rollen*, die Skills
+sind *Verfahrens-Schritte*. Pro Schritt ist **genau ein** Agent der Haupt-Agent; Skills
+werden zusätzlich geladen, wenn der Schritt sie braucht.
 
-| Agent | Phase | Default? | Schreibt in | Liest von |
-|---|---|---|---|---|
-| `aisdlc-requirements` | 1 (Anforderungen) | **ja** | `docs/requirements/` | User Input, PRD, Domain-Modell |
-| `aisdlc-architecture` | 2 (Architektur) | nein | `docs/architecture/`, `docs/api/`, `docs/adr/` | PRD, Features, Domain-Modell |
-| `aisdlc-execution` | 3 (Implementierung) | nein | `src/`, `tests/`, `docs/execution/` | Stories, `openapi.yaml`, Plan |
-| `aisdlc-qa` | 4 (Testing/QA) | nein | `tests/`, `docs/qa/` | Features, `src/`, bestehende Tests |
-| `java-backend` | Stack (Backend) | nein | `src/`, `tests/` | `openapi.yaml`, `features/`, Code |
-| `react-frontend` | Stack (Frontend) | nein | `src/`, `tests/` | `openapi.yaml`, `features/`, Code |
+| Ebene | Umfang | Ort |
+|---|---|---|
+| **Schritt** | 9 Arbeits-Schritte (01–09) | `.agent/workflows/` |
+| **Instanz** | 5 Orchestrator-Prozesse (phase0–4) | `.agent/prompts/multi-instance/` |
+| **Agent** | 6 Rollen | `.opencode/agents/` |
+| **Skill** | 7 Verfahrens-Schritte | `.opencode/skills/` |
 
----
+**Single Source of Truth:** `.agent/PHASES.md` (Schritt → Instanz → Agent → Skill → Gate).
 
-## Phasen-Ablauf (empfohlene Reihenfolge)
+## Die 6 Agents
 
-```
-[1. Anforderungen] ──► [2. Architektur] ──► [3. Implementierung] ──► [4. Testing/QA]
-       │                       │                      │                      │
-       └── REQUIREMENT_GAP ────┘                      └── Blocker/Fehler ────┘
-                              [ARCHITECTURAL_BLOCKER ──► Redesign, Git-Reset, Re-Entry]
-```
+| Agent-ID | Rolle | Default? | Schreibt in |
+|---|---|---|---|
+| `aisdlc-requirements` | Requirements Orchestrator (Schritt 1 + 1a) | **ja** | `docs/requirements/` |
+| `aisdlc-architecture` | Architecture Orchestrator (Schritt 2–4) | nein | `docs/architecture/`, `docs/api/`, `docs/adr/` |
+| `aisdlc-execution` | Execution Orchestrator (Schritt 5–7) | nein | `src/`, `tests/`, `docs/execution/` |
+| `aisdlc-qa` | QA & Compliance Orchestrator (Schritt 8–9) | nein | `tests/`, `docs/qa/` |
+| `stack/java/backend` | Java/Spring-Backend-Implementierung | nein | `src/`, `tests/`, `docs/execution/` |
+| `stack/react/frontend` | React/TypeScript-Frontend-Implementierung | nein | `src/`, `tests/`, `docs/execution/` |
+| *(Original)* `build` | Generalist | nein | überall |
 
-### Schritt 1: Anforderungen erfassen
+**Default-Agent:** `aisdlc-requirements` — eine neue Session startet in Schritt 1.
 
-**Aktiver Agent:** `aisdlc-requirements` (ist der Default)
+## Die 7 Skills
 
-```bash
-cd /home/torsten/dev/my-projects/AISDLC
-opencode
-```
+| Skill | Wann | Herkunft |
+|---|---|---|
+| `aisdlc-grill-stress` | Schritt 1a + 4 — Designbaum, Deepening, Standards/Spec als zwei Achsen | mattpocock (grilling, codebase-design), wshobson |
+| `aisdlc-simplify` | Schritt 3 + 7 — verhaltenserhaltend vereinfachen, Dead Code, Schulden | ECC (code-simplifier, refactor-cleaner), wshobson |
+| `aisdlc-tdd` | Schritt 5 — RED/GREEN/REFACTOR, Failure-Paths, Workflow-Invarianten | superpowers, ECC, nnennandukwe |
+| `aisdlc-security-scan` | Schritt 8 — read-only Audit, OWASP Top 10 | ECC, wshobson |
+| `aisdlc-deploy` | Schritt 9 — Pipeline, Rollout, Validierung, Smoke, SLO, Runbook | wshobson, ECC |
+| `strangler-fig` | Legacy-Modul-Migration entwerfen | eigen |
+| `module-migration` | Legacy-Modul umsetzen (Characterization Tests) | eigen |
+| `test-self-correction` | Fehlgeschlagene Tests reparieren | eigen |
 
-Du startest in Phase 1. Der Agent liest deine Anforderung und erstellt:
-- PRD (`docs/requirements/PRD.md`)
-- User Stories (`docs/requirements/stories/<story_id>.json`)
-- BDD-Szenarien (`docs/requirements/features/<feature_name>.feature`)
-- Traceability Matrix (`docs/requirements/traceability_matrix.json`)
-
-**Wann zu Phase 2 wechseln:** Wenn PRD, Stories und Acceptance Criteria vollständig und
-geprüft sind. Wechsel mit `Shift+Tab` oder `/agents`.
-
-**Eskalation:** Bei unklaren Anforderungen meldet der Agent `REQUIREMENT_GAP` als
-strukturiertes JSON und stoppt — er rät nicht.
-
----
-
-### Schritt 2: Architektur entwerfen
-
-**Aktiver Agent:** `aisdlc-architecture`
-
-```bash
-opencode run --agent aisdlc-architecture "Entwirf die Architektur auf Basis des PRD"
-```
-
-Oder in der TUI: `Shift+Tab` bis `aisdlc-architecture` ausgewählt ist.
-
-Der Agent liest PRD, Features und Domain-Modell und erstellt:
-- API-Spezifikation (`docs/api/openapi.yaml`)
-- Architekturdiagramme (`docs/architecture/diagrams/*.mmd`)
-- Architecture Decision Records (`docs/adr/ADR-<ID>-<titel>.md`)
-
-**Wann zu Phase 3 wechseln:** Wenn `openapi.yaml` und ADRs vollständig sind und
-die Schnittstellen feststehen.
-
-**Eskalation:** Bei undurchführbarem Design meldet der Agent `ARCHITECTURAL_BLOCKER`
-als strukturiertes JSON und empfiehlt einen Git-Reset der betroffenen Dateien.
+**Warum Skills statt eigener Agents:** Simplify, TDD, Security und Deploy sind *Verfahren*,
+keine Rollen. Als Skill kostet der Schritt 0 Token, bis er gebraucht wird, und der
+zuständige Agent bleibt der einzige Schreiber.
 
 ---
 
-### Schritt 3: Implementieren
+## Schritt-für-Schritt
 
-**Aktiver Agent:** `aisdlc-execution` (oder `java-backend` / `react-frontend` für Stack-spezifische Arbeit)
+### Schritt 1 — Anforderungserhebung
 
-```bash
-opencode run --agent aisdlc-execution "Implementiere Task CRUD gemäß openapi.yaml"
-```
+**Agent:** `aisdlc-requirements` (Default) · **Instanz:** `phase1` · **Skill:** `aisdlc-grill-stress` (1a)
 
-Der Execution Orchestrator zerlegt den Implementierungsplan in atomare Tasks und
-übergibt sie an OpenCode. Er validiert Lint/Build nach jedem Schritt und bereitet
-Commits und PRs vor.
+Erstellt PRD, User Stories, `.feature`-Dateien, Traceability Matrix, Risk Register.
 
-**Stack-spezifisch:** Wenn du direkt im Backend oder Frontend arbeitest, nutze
-`java-backend` oder `react-frontend` statt des Execution Orchestrators:
+**Wechsel zu Schritt 2**, wenn PRD, Stories und Acceptance Criteria vollständig und geprüft sind.
+**Eskalation:** `REQUIREMENT_GAP` → zurück zu Schritt 1.
 
-```bash
-opencode run --agent java-backend "Implementiere den OrderService"
-opencode run --agent react-frontend "Erstelle die TaskList-Komponente"
-```
+### Schritt 2 — Konzept & Architektur-Design
 
-**Wann zu Phase 4 wechseln:** Wenn die Implementierung läuft und Code vorhanden ist,
-der getestet werden kann.
+**Agent:** `aisdlc-architecture` · **Instanz:** `phase2` · **Skill:** keiner
 
----
+Erstellt `docs/api/openapi.yaml`, C4-Diagramme, ADRs, Domain-Modell.
 
-### Schritt 4: Testen und Qualitätssicherung
+**🚧 GATE 1** — danach anhalten, Zusammenfassung zeigen, **menschliche Freigabe abwarten**.
 
-**Aktiver Agent:** `aisdlc-qa`
+### Schritt 3 — Simplify & Reduktion
 
-```bash
-opencode run --agent aisdlc-qa "Schreibe Tests für TaskService"
-```
+**Agent:** `aisdlc-architecture` · **Instanz:** `phase2` · **Skill:** `aisdlc-simplify`
 
-Der QA Orchestrator schreibt Tests, führt sie aus, analysiert Fehler und leitet
-Self-Correction-Schleifen ein. Er erstellt Bug-Reports bei Fehlern und prüft
-Quality Gates (Coverage ≥ 80 %, alle Tests grün, keine kritischen Vulnerabilities).
+Überdimensionierte Teile der Architektur reduzieren, **bevor** der Stresstest läuft.
 
-**Rückgabe an Phase 3:** Bei fehlgeschlagenen Tests oder Blockern übergibt der
-QA Orchestrator `{{TEST_RESULTS_JSON}}` an OpenCode zur Korrektur (Self-Correction-Loop).
+### Schritt 4 — Grill-Me-Stresstest
+
+**Agent:** `aisdlc-architecture` · **Instanz:** `phase2` · **Skill:** `aisdlc-grill-stress`
+
+Architektur stress-testen: Designbaum abfragen, Deepening-Opportunitäten finden,
+Standards- und Spec-Achse getrennt prüfen.
+
+**Eskalation:** Architekturfehler → zurück zu Schritt 2.
+
+### Schritt 5 — Test-Driven Setup
+
+**Agent:** `aisdlc-execution` · **Instanz:** `phase3` · **Skill:** `aisdlc-tdd`
+
+Teststrategie, Testebenen, Failure-Paths, Workflow-Invarianten.
+
+### Schritt 6 — KI-Code-Generation
+
+**Agent:** `aisdlc-execution` · **Instanz:** `phase3` · **Skill:** keiner
+
+Parallele Build-Streams (Backend / Frontend / Infra), synchronisiert über `openapi.yaml`.
+
+**Eskalation:** fehlende Tests → zurück zu Schritt 5.
+
+### Schritt 7 — Code-Refactoring & Clean-up
+
+**Agent:** `aisdlc-execution` · **Instanz:** `phase3` · **Skill:** `aisdlc-simplify`
+
+**Zweiter Simplify-Durchlauf** auf dem fertigen Code: jetzt sieht man defensiven Code,
+der durch Tests ersetzt wurde, und Abstraktionen, die sich nicht bewährt haben.
+
+**Eskalation:** unsauberer Code → zurück zu Schritt 6.
+
+### Schritt 8 — Sicherheit & Compliance Scan
+
+**Agent:** `aisdlc-qa` · **Instanz:** `phase4` · **Skill:** `aisdlc-security-scan`
+
+Read-only Audit: AuthN/AuthZ, Secrets, Injection, XSS, Container, Abhängigkeiten, OWASP Top 10.
+
+**🚧 GATE 2** — danach anhalten, Befunde zeigen, **menschliche Freigabe abwarten**.
+
+### Schritt 9 — Deployment & Betrieb
+
+**Agent:** `aisdlc-qa` · **Instanz:** `phase4` · **Skill:** `aisdlc-deploy`
+
+Pipeline, Rollout-Strategie, Pre-Flight, Smoke-Tests, Promotion, Rollback, SLOs, Runbook.
+
+**Eskalation:** Produktions-Incident → zurück zu Schritt 2.
 
 ---
 
 ## Regeln für den Agenten-Wechsel
 
-### 1. Phasenreihenfolge einhalten
+### 1. Schritt-Reihenfolge einhalten
 
-Die Phasen bauen aufeinander auf. Nicht Phase 3 starten, bevor Phase 2 abgeschlossen ist.
-Ausnahmen: bei `REQUIREMENT_GAP` zurück zu Phase 1, bei `ARCHITECTURAL_BLOCKER` zurück zu Phase 2.
+Die Schritte bauen aufeinander auf. Nicht Schritt 6 starten, bevor Schritt 2 freigegeben ist.
 
 ### 2. Agenten nicht mischen
 
-Pro Phase ist **genau ein** Agent der Haupt-Agent. Nicht gleichzeitig `aisdlc-requirements`
-und `aisdlc-architecture` aktiv haben — das führt zu widersprüchlichen Schreibrechten
-und unklarer Verantwortlichkeit.
+Pro Schritt ist **genau ein** Agent der Haupt-Agent. Zwei Agents mit verschiedenen
+Schreibrechten gleichzeitig aktiv führen zu widersprüchlichen Rechten.
 
 ### 3. Wechseln ohne Neustart
 
 ```bash
-# Agent durchschalten
-Shift+Tab
-
-# Agentenliste öffnen
-Ctrl+X, dann a   (oder /agents)
-
-# One-shot mit bestimmtem Agenten
+Shift+Tab                        # nächster Agent
+Ctrl+X, dann a                   # Agentenliste (oder /agents)
 opencode run --agent <agent-id> "Auftrag"
-
-# Config ohne Neustart übernehmen
-opencode reload
+opencode reload                  # Config ohne Neustart übernehmen
 ```
 
-### 4. Subagenten bei Bedarf delegieren
+### 4. Skills nachladen, nicht improvisieren
 
-Auch wenn der Haupt-Agent feststeht, können Subagenten bei Bedarf delegiert werden:
+Wenn ein Schritt ein Skill hat, dieses Skill laden statt das Verfahren zu improvisieren:
 
 ```text
-Nutze den security-reviewer-Subagenten, um die Authentifizierung zu prüfen.
+Nutze das Skill aisdlc-security-scan für den Security-Audit.
+```
+
+### 5. Subagenten bei Bedarf delegieren
+
+```text
+Nutze den stack/java/backend-Subagenten, um die Persistenzschicht zu prüfen.
 ```
 
 Subagenten laufen in eigener Kind-Session mit frischem Kontext — das Ergebnis kommt als
 Zusammenfassung zurück.
+
+---
+
+## Stack-Ebene
+
+Stack-Wissen kommt **nicht** aus eigenen Dateien, sondern per `skills.paths` direkt aus den
+Bibliotheken. Kein Kopieren, keine Drift:
+
+```jsonc
+"skills": { "paths": ["/…/ECC/skills", "/…/wshobson-agents/plugins/backend-development/skills", …] }
+```
+
+| Stack | Verfügbar über | ≈ Token Beschreibungen |
+|---|---|---|
+| Java + Spring | `stack/java/backend` + `springboot-*`, `java-*` | 342 |
+| React / TypeScript | `stack/react/frontend` + `react-*`, `typescript-*` | 1.029 |
+| Python, Go, Rust, .NET | Stack-Agent anlegen + `python-*` usw. | ≈ 2.281 gesamt |
+
+**Eigenen Stack-Agent anlegen:**
+
+```bash
+mkdir -p .opencode/agents/stack/python
+# .opencode/agents/stack/python/backend.md anlegen  →  ID: stack/python/backend
+```
+
+Dann in `opencode.jsonc` erlauben: `{ "action": "subagent", "resource": "stack/*", "effect": "allow" }`
+(der `stack/*`-Eintrag deckt alle Stacks ab).
+
+**Stack wechseln:** `default_agent` in `.opencode/opencode.jsonc` umsetzen, z. B. von
+`aisdlc-requirements` auf `stack/java/backend`, und `opencode reload` ausführen.
 
 ---
 
@@ -164,11 +200,12 @@ Zusammenfassung zurück.
 | `aisdlc-architecture` | alles | `docs/architecture/`, `docs/api/`, `docs/adr/` | ask |
 | `aisdlc-execution` | alles | `src/`, `tests/`, `docs/execution/` | ask |
 | `aisdlc-qa` | alles | `tests/`, `docs/qa/` | ask |
-| `java-backend` | alles | alles (Base-Policy) | ask (außer git status/diff/log) |
-| `react-frontend` | alles | alles (Base-Policy) | ask (außer git status/diff/log) |
+| `stack/java/backend` | alles | `src/`, `tests/`, `docs/execution/` | ask |
+| `stack/react/frontend` | alles | `src/`, `tests/`, `docs/execution/` | ask |
+| `build` | alles | alles | ask (außer git status/diff/log) |
 
-**Wichtig:** Ein Agent darf nur in seine zugewiesenen Verzeichnisse schreiben. Wenn ein Agent
-versucht, außerhalb seiner Rechte zu schreiben, wird die Operation blockiert.
+**Wichtig:** Ein Agent darf nur in seine zugewiesenen Verzeichnisse schreiben. Versuche
+außerhalb werden blockiert. `build` bleibt bewusst allmächtig.
 
 ---
 
@@ -176,12 +213,12 @@ versucht, außerhalb seiner Rechte zu schreiben, wird die Operation blockiert.
 
 | Situation | Signal | Rücksprung zu |
 |---|---|---|
-| Unklare oder unvollständige Anforderung | `REQUIREMENT_GAP` | Phase 1 (Requirements) |
-| Undurchführbares Design | `ARCHITECTURAL_BLOCKER` | Phase 2 (Architecture) |
-| Fehlende Tests bei Implementierung | (implizit) | Phase 5 (TDD) |
-| Unsauberer Code | (implizit) | Phase 7 (Refactoring) |
-| Security-Vulnerability | (implizit) | Phase 6 (Code-Generation) |
-| Produktions-Incident | (implizit) | Phase 2 (Architecture) |
+| Unklare oder unvollständige Anforderung | `REQUIREMENT_GAP` | Schritt 1 |
+| Undurchführbares Design | `ARCHITECTURAL_BLOCKER` | Schritt 2 |
+| Fehlende Tests bei Implementierung | (implizit) | Schritt 5 |
+| Unsauberer Code | (implizit) | Schritt 7 |
+| Security-Vulnerability | (implizit) | Schritt 6 |
+| Produktions-Incident | (implizit) | Schritt 2 |
 
 ---
 
@@ -191,34 +228,44 @@ versucht, außerhalb seiner Rechte zu schreiben, wird die Operation blockiert.
 |---|---|---|
 | Agent ändert Dateien außerhalb seines Bereichs | Falscher Agent aktiv | `Shift+Tab` zum richtigen Agenten wechseln |
 | Agent schreibt nicht in das erwartete Verzeichnis | Permissions zu restriktiv | `opencode debug agents` prüfen, Permissions in `opencode.jsonc` kontrollieren |
-| Agent kennt die API-Spec nicht | `docs/api/openapi.yaml` fehlt | Phase 2 (Architecture) zuerst abschließen |
-| Tests schlagen fehl, Agent gibt auf | Kein Self-Correction-Loop | QA-Agent nutzt `{{TEST_RESULTS_JSON}}` — bei manueller Ausführung: Fehlerlog an OpenCode zurückgeben |
-| Agent vergisst Kontext aus vorheriger Phase | Kein automatischer Kontext-Transfer | Artefakte (PRD, openapi.yaml, etc.) müssen vorhanden sein — der Agent liest sie beim Start |
+| Stack-Skill wird nicht gefunden | `skills.paths` zu eng gefiltert | `skill`-Allowlist in `opencode.jsonc` um das Präfix erweitern |
+| Agent kennt die API-Spec nicht | `docs/api/openapi.yaml` fehlt | Schritt 2 zuerst abschließen |
+| Tests schlagen fehl, Agent gibt auf | Kein Self-Correction-Loop | `aisdlc-qa` nutzt `{{TEST_RESULTS_JSON}}` — bei manueller Ausführung: Fehlerlog an OpenCode zurückgeben |
+| Agent vergisst Kontext aus vorherigem Schritt | Kein automatischer Kontext-Transfer | Artefakte (PRD, openapi.yaml) müssen vorhanden sein — der Agent liest sie beim Start |
+| Falsche Workflow-Datei gewählt | Zwei Prompt-Familien | `.agent/PHASES.md` als Single Source of Truth nutzen |
 
 ---
 
 ## Schnellreferenz
 
 ```bash
-# Phase 1: Anforderungen
-opencode run --agent aisdlc-requirements "Erstelle PRD für TaskFlow"
+# Phase starten (Default ist aisdlc-requirements)
+opencode
+opencode run --agent aisdlc-architecture "Entwirf die API für [Feature]"
+opencode run --agent stack/java/backend "Implementiere [Task] gemäß openapi.yaml"
+opencode run --agent stack/react/frontend "Baue [Komponente]"
 
-# Phase 2: Architektur
-opencode run --agent aisdlc-architecture "Entwirf die API für TaskFlow"
+# Agentenliste
+/agents
+Shift+Tab
 
-# Phase 3: Implementierung
-opencode run --agent aisdlc-execution "Implementiere Task CRUD gemäß openapi.yaml"
-opencode run --agent java-backend "Implementiere den OrderService"
-opencode run --agent react-frontend "Erstelle die TaskList-Komponente"
+# Skill manuell laden
+Nutze das Skill aisdlc-deploy für das Deployment.
 
-# Phase 4: Testing/QA
-opencode run --agent aisdlc-qa "Schreibe Tests für TaskService"
-
-# Interaktiv: Agent wechseln
-Shift+Tab                    # nächster Agent
-Ctrl+X, dann a               # Agentenliste
-/agents                      # alle Agents anzeigen
-
-# Config ohne Neustart
+# Config neu laden
 opencode reload
+
+# Nachsehen, was geladen ist
+opencode debug agents
 ```
+
+| Datei | Inhalt |
+|---|---|
+| `AGENTS.md` | Regeln, Gates, Folder Ownership, Phase-Skills |
+| `.agent/PHASES.md` | Schritt → Instanz → Agent → Skill → Gate |
+| `.agent/workflows/` | 9 Workflow-Dateien, je Schritt |
+| `.agent/prompts/orchestrator/` | Prompts für den Ein-Orchestrator-Modus |
+| `.agent/prompts/multi-instance/` | Prompts für den Server-Betrieb (0–4 Instanzen) |
+| `.opencode/agents/` | 6 Primary-Agents |
+| `.opencode/skills/` | 7 Skills |
+| `how-to.md` | dieses Dokument |

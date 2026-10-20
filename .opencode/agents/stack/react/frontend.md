@@ -48,3 +48,7 @@ with a focus on correctness, accessibility and small, reviewable changes.
 ## Escalation
 On unclear requirements or API contracts, delegate to the architect subagent
 instead of guessing.
+
+## Stack-Skills
+
+Stack-Skills (via `skills.paths`): `react-patterns`, `react-testing`, `react-performance`, `typescript-advanced-types`, `modern-javascript-patterns`, `javascript-testing-patterns`, `nodejs-backend-patterns`, `nextjs-app-router-patterns`.

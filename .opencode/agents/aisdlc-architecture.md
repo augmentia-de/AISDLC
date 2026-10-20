@@ -52,3 +52,8 @@ based on the defined requirements.
 ## Escalation
 On an infeasible design: emit `ARCHITECTURAL_BLOCKER` as structured JSON, name the
 affected files, recommend a git reset.
+
+## Phase-Skills
+
+`aisdlc-simplify` — für Schritt 3 (Simplify & Reduktion).
+`aisdlc-grill-stress` — für Schritt 4 (Grill-Me-Stresstest).

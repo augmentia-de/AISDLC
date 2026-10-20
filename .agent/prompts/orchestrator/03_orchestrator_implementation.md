@@ -21,6 +21,11 @@ Du bist der Tech Lead & Execution Orchestrator. Deine Aufgabe ist es, den geplan
 - **Git Commits & PR:** Erstellung von Commits (Conventional Commits) und Generierung der PR-Beschreibung unter `/docs/pull_requests/PR_<task_id>.md`.
 - **Changelog:** Aktualisierung von `CHANGELOG.md` unter `[Unreleased]`.
 
+## SKILL
+
+- Skills für diesen Schritt: aisdlc-tdd, aisdlc-simplify
+- Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Schalte OpenCode in den Build-Modus (Schreibrechte & Terminal-Zugriff freigeschaltet).
 - **Befehl an OpenCode (Feedback-Schleife):** 

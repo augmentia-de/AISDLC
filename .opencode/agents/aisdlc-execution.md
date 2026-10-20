@@ -53,3 +53,8 @@ and feed OpenCode with high-precision sub-tasks.
 ## Escalation
 On `REQUIREMENT_GAP` or `ARCHITECTURAL_BLOCKER`: stop immediately, emit structured
 JSON, wait for re-entry.
+
+## Phase-Skills
+
+`aisdlc-tdd` — für Schritt 5 (TDD-Setup).
+`aisdlc-simplify` — für Schritt 7 (zweiter Simplify-Durchlauf).

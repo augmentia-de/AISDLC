@@ -5,8 +5,17 @@ description: Phase 5 — Test-Driven Setup (TDD)
 # TDD Workflow
 
 ## Prerequisites
+
 - Read `AGENTS.md` in project root.
 - Read `.agent/artifacts/architecture.md` and `.agent/knowledge/openapi.yaml`.
+
+## Agent & Skill
+
+| Rolle | Wert |
+|---|---|
+| Agent | `aisdlc-execution` |
+| Instanz (Multi-Instanz-Modus) | `phase3` |
+| Skill | `aisdlc-tdd` |
 
 ## Steps
 

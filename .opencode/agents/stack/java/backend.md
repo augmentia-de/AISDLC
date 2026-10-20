@@ -47,3 +47,7 @@ with a focus on correctness, small changes and verifiable results.
 ## Escalation
 On unclear requirements or architectural questions, delegate to the architect subagent
 instead of guessing.
+
+## Stack-Skills
+
+Stack-Skills (via `skills.paths`): `springboot-patterns`, `springboot-security`, `springboot-tdd`, `springboot-verification`, `java-coding-standards`, `microservices-patterns`, `api-design-principles`.

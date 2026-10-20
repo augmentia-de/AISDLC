@@ -28,6 +28,11 @@ Du wirst aktiv, sobald du per REST eine Nachricht an `/api/messages` erhältst. 
 - **User Stories & Acceptance Criteria:** Erstelle BDD-Feature-Dateien unter `docs/requirements/features/<feature_name>.feature` (Gherkin-Syntax) ODER ein Issue-Set (`docs/requirements/stories/<story_id>.json`).
 - **Traceability Matrix:** Aktualisiere das Mapping unter `docs/requirements/traceability_matrix.json`.
 
+## SKILL
+
+- Skills für diesen Schritt: aisdlc-grill-stress
+- Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den Read-Only / Explore-Kontext (explizite Instruktion im Prompt: nur lesen, keine Datei-Änderungen in `src/`).
 - **Befehl an OpenCode:** "Prüfe die bestehende Codebasis unter `src` und erstelle eine Liste der betroffenen Module/Dateien für die Anforderung [Requirement-ID]."

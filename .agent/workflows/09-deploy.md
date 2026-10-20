@@ -5,10 +5,19 @@ description: Phase 9 — Deployment and operations
 # Deploy Workflow
 
 ## Prerequisites
+
 - Read `AGENTS.md` in project root.
 - Read `.agent/artifacts/test-report.md` — must show zero Critical issues.
 - Read `.agent/artifacts/security-audit.md` — must show zero Critical issues.
 - Phase 8 HARD GATE must have been passed (human-approved).
+
+## Agent & Skill
+
+| Rolle | Wert |
+|---|---|
+| Agent | `aisdlc-qa` |
+| Instanz (Multi-Instanz-Modus) | `phase4` |
+| Skill | `aisdlc-deploy` |
 
 ## Steps
 

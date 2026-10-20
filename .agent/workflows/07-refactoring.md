@@ -5,8 +5,17 @@ description: Phase 7 — Code refactoring and clean-up (second simplify pass)
 # Refactoring Workflow
 
 ## Prerequisites
+
 - Read `AGENTS.md` in project root.
 - All build phases (6) must be complete.
+
+## Agent & Skill
+
+| Rolle | Wert |
+|---|---|
+| Agent | `aisdlc-execution` |
+| Instanz (Multi-Instanz-Modus) | `phase3` |
+| Skill | `aisdlc-simplify` |
 
 ## Steps
 

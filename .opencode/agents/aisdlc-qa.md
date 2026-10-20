@@ -52,3 +52,8 @@ security vulnerabilities.
 ## Quality gates
 At least 80 % coverage, all tests green, no known critical vulnerabilities, no
 regressions. On failure: reject with reasoning, do not approve.
+
+## Phase-Skills
+
+`aisdlc-security-scan` — für Schritt 8 (Security & Compliance).
+`aisdlc-deploy` — für Schritt 9 (Deployment & Betrieb).

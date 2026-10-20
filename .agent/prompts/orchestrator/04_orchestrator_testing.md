@@ -20,6 +20,12 @@ Du bist der Quality & Compliance Orchestrator. Deine Aufgabe ist es, sicherzuste
 - **Coverage Reports:** Ausgegebene Berichte unter `/coverage/coverage-summary.json`.
 - **Bug Reports (bei Fehlern):** Strukturierte Fehlerbeschreibung unter `/docs/qa/bugs/BUG-<id>.json` mit Pfad, Zeile und Fehlerursache.
 
+## SKILL
+
+- Skills für diesen Schritt: aisdlc-security-scan, aisdlc-deploy
+- Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
+- **HARD GATE:** GATE 2 (nach Schritt 8) — vor dem Deployment. Produziere alle Artefakte, fasse zusammen und **warte auf menschliche Freigabe**.
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Schalte OpenCode in den Build-Modus (mit Fokus auf Ausführung von Test-Runnern).
 - **Befehl an OpenCode (Self-Correction Loop):** 

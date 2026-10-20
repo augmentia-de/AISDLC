@@ -5,11 +5,20 @@ description: Phase 2 — Architecture design for AI SDLC
 # Architecture Workflow
 
 ## Prerequisites
+
 - Read `AGENTS.md` in project root.
 - Read `.agent/artifacts/requirements.md` and `.agent/knowledge/stack.md`.
 - Bestehende Architektur-Dokumentation: `docs/architecture/`
 - Bestehende API-Spezifikation: `docs/api/openapi.yaml`
 - ADRs: `docs/adr/`
+
+## Agent & Skill
+
+| Rolle | Wert |
+|---|---|
+| Agent | `aisdlc-architecture` |
+| Instanz (Multi-Instanz-Modus) | `phase2` |
+| Skill | — (kein Skill nötig) |
 
 ## Steps
 

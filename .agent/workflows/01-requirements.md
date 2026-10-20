@@ -5,8 +5,17 @@ description: Phase 1 — Requirements gathering for AI SDLC
 # Requirements Workflow
 
 ## Prerequisites
+
 - Read `AGENTS.md` in project root first.
 - Read the orchestrator prompt: `.agent/prompts/01_orchestrator_requirements.md`.
+
+## Agent & Skill
+
+| Rolle | Wert |
+|---|---|
+| Agent | `aisdlc-requirements` |
+| Instanz (Multi-Instanz-Modus) | `phase1` |
+| Skill | `aisdlc-grill-stress` |
 
 ## Steps
 

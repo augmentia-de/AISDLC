@@ -5,8 +5,17 @@ description: Phase 4 — Grill-Me stress test for architecture validation
 # Grill-Me Stress Test Workflow
 
 ## Prerequisites
+
 - Read `AGENTS.md` in project root.
 - Read `.agent/artifacts/architecture.md` and `.agent/knowledge/openapi.yaml`.
+
+## Agent & Skill
+
+| Rolle | Wert |
+|---|---|
+| Agent | `aisdlc-architecture` |
+| Instanz (Multi-Instanz-Modus) | `phase2` |
+| Skill | `aisdlc-grill-stress` |
 
 ## Steps
 

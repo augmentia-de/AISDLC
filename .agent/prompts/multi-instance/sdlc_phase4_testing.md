@@ -30,6 +30,12 @@ Du wirst aktiv, sobald du per REST eine Handoff-Nachricht der Vorphase an `/api/
 - **Qualitätsbewertung:** `docs/qa/quality_gate_<datum>.json` mit GO/NO-GO und gemessener Coverage.
 - **Coverage:** aktualisierte `coverage/coverage-summary.json` (CI-schreibbar)
 
+## SKILL
+
+- Skills für diesen Schritt: aisdlc-security-scan, aisdlc-deploy
+- Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
+- **HARD GATE:** GATE 2 (nach Schritt 8) — vor dem Deployment. Produziere alle Artefakte, fasse zusammen und **warte auf menschliche Freigabe**.
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den QA-Modus (explizite Instruktion: Tests schreiben/ausführen, produktiven Code nur bei nachweislichem Bug ändern).
 - **Befehl an OpenCode:** `"Schreibe die Test-Suiten für <Story/Feature> gemäß `docs/requirements/features/<feature>.feature`. Lege Unit-Tests in tests/unit, Integrationstests in tests/integration ab. Führe die Suiten aus und gib mir JSON-Ergebnis + Coverage in `coverage/coverage-summary.json` zurück."`

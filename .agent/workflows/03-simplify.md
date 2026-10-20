@@ -5,8 +5,17 @@ description: Phase 3 — Simplify & Reduction (vor dem Stresstest)
 # Simplify Workflow
 
 ## Prerequisites
+
 - Read `AGENTS.md` in project root.
 - Read `.agent/artifacts/architecture.md` and `.agent/knowledge/stack.md`.
+
+## Agent & Skill
+
+| Rolle | Wert |
+|---|---|
+| Agent | `aisdlc-architecture` |
+| Instanz (Multi-Instanz-Modus) | `phase2` |
+| Skill | `aisdlc-simplify` |
 
 ## Steps
 

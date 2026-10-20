@@ -19,6 +19,11 @@ Du bist der Requirements Orchestrator. Deine Aufgabe ist es, vage Nutzeranforder
 - **User Stories & Acceptance Criteria:** Erstelle BDD-Feature-Dateien unter `/docs/requirements/features/<feature_name>.feature` (Gherkin-Syntax) ODER erstelle ein Issue-Set (`/docs/requirements/stories/<story_id>.json`).
 - **Traceability Matrix:** Aktualisiere das Mapping unter `/docs/requirements/traceability_matrix.json`.
 
+## SKILL
+
+- Skills für diesen Schritt: aisdlc-grill-stress
+- Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Schalte OpenCode in den Read-Only / Explore-Modus.
 - **Befehl an OpenCode:** "Prüfe die bestehende Codebasis unter `/src` und erstelle eine Liste der betroffenen Module/Dateien für die Anforderung [Requirement-ID]."

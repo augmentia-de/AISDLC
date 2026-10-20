@@ -124,11 +124,12 @@ Dieses Projekt wurde um Konzepte aus dem [Agentic Software Delivery Framework](h
 | `.agent/knowledge/` | Zentrale Knowledge Base: `openapi.yaml`, `schema.sql`, `stack.md` |
 | `.agent/artifacts/` | Zentraler Artefaktspeicher für alle Phasen-Ergebnisse |
 | `.agent/workflows/` | 9 Workflow-Dateien (01-requirements bis 09-deploy) mit Gates und Output-Definitionen |
+| `.agent/PHASES.md` | **Single Source of Truth**: Schritt → Instanz → Agent → Skill → Gate |
 
 ### Hard Gates
 
-- **GATE 1** (nach Phase 2): Human Approval vor Code-Generierung
-- **GATE 2** (nach Phase 8): Human Approval vor Deployment
+- **GATE 1** (nach Schritt 2 — Architektur): Human Approval vor Code-Generierung
+- **GATE 2** (nach Schritt 8 — Security): Human Approval vor Deployment
 
 ### Parallele Build-Phasen (Phase 6)
 
@@ -153,12 +154,39 @@ Das Projekt dient als Vorlage für eine Task-App mit folgenden Komponenten:
 ### OpenCode-Agents
 
 Sechs Primary-Agents sind in `.opencode/agents/` definiert:
-- `aisdlc-requirements` — Phase 1 (Anforderungen)
-- `aisdlc-architecture` — Phase 2 (Architektur)
-- `aisdlc-execution` — Phase 3 (Implementierung)
-- `aisdlc-qa` — Phase 4 (Testing/QA)
-- `java-backend` — Stack-Agent (Java/Spring Boot)
-- `react-frontend` — Stack-Agent (React/TypeScript)
+
+**Phasen-Agents (stack-agnostisch)**
+
+| Agent | Schritte | Schreibt in |
+|---|---|---|
+| `aisdlc-requirements` | 1 + 1a | `docs/requirements/` |
+| `aisdlc-architecture` | 2–4 | `docs/architecture/`, `docs/api/`, `docs/adr/` |
+| `aisdlc-execution` | 5–7 | `src/`, `tests/`, `docs/execution/` |
+| `aisdlc-qa` | 8–9 | `tests/`, `docs/qa/` |
+
+**Stack-Agents (austauschbar)**
+
+| Agent | Stack | Schreibt in |
+|---|---|---|
+| `stack/java/backend` | Java / Spring Boot | `src/`, `tests/`, `docs/execution/` |
+| `stack/react/frontend` | React / TypeScript | `src/`, `tests/`, `docs/execution/` |
+
+**Skills (Verfahrens-Schritte)**
+
+| Skill | Schritte |
+|---|---|
+| `aisdlc-grill-stress` | 1a + 4 |
+| `aisdlc-simplify` | 3 + 7 |
+| `aisdlc-tdd` | 5 |
+| `aisdlc-security-scan` | 8 |
+| `aisdlc-deploy` | 9 |
+| `strangler-fig`, `module-migration`, `test-self-correction` | nach Bedarf |
 
 Jeder Agent hat folder-scoped Schreibrechte und einen eigenen System-Prompt.
-Siehe `how-to/how-to.md` für Details.
+Details: `how-to/how-to.md`, Zuordnung: `.agent/PHASES.md`.
+
+### Stack-Wissen aus den Bibliotheken (ohne Kopien)
+
+Stack-Skills kommen per `skills.paths` direkt aus den geklonten Bibliotheken — kein Kopieren,
+keine Drift. Die `skill`-Permission in `opencode.jsonc` filtert auf Stack-Präfixe, damit nicht
+alle 496 Bibliotheks-Skills in den Kontext geladen werden (Java+Spring: 342 Token, React/TS: 1.029).

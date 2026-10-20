@@ -3,9 +3,12 @@
 ## Project Overview
 
 AI SDLC: KI-agentengestützter Softwareentwicklungszyklus. Ein Orchestrator-Agent steuert den
-Prozess und OpenCode führt die Entwicklung aus. Der Orchestrator wechselt je nach SDLC-Phase
+Prozess und OpenCode führt die Entwicklung aus. Der Orchestrator wechselt je nach SDLC-Schritt
 den Systemprompt (`.agent/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw.
 nur lesen darf.
+
+**Phasen-Zuordnung:** `.agent/PHASES.md` — Schritt → Instanz → Agent → Skill → Gate.
+Diese Datei ist die Single Source of Truth; bei Widerspruch gilt sie.
 
 ## Behaviour Rules
 
@@ -18,15 +21,33 @@ nur lesen darf.
 7. Flag any security risk with `[SECURITY]` prefix in your response.
 8. Quote the top 3 rules from this file before taking any action.
 9. Always re-read this file after context compaction or session reset.
+10. Load the phase skill when the step calls for it (see Phase Skills) — do not improvise the
+    procedure if a skill exists for it.
 
 ## HARD GATES — Agent Must Stop and Await Human Approval
 
-- **After Phase 2** (Architecture complete) — before any application code is written.
+- **After Step 2** (Architecture complete) — before any application code is written.
   The agent must produce all artifacts, present a summary, and wait for human approval.
-- **After Phase 8** (Security Audit complete) — before Deploy Agent runs.
+- **After Step 8** (Security & Compliance complete) — before Deploy runs.
   The agent must present QA and Security findings and wait for human approval.
 
 Without approval, the pipeline does not advance. No exceptions.
+
+## Phase Skills
+
+Verfahrens-Schritte werden als Skills geladen, nicht als eigene Agents:
+
+| Step | Skill | Wird geladen von |
+|---|---|---|
+| 1a | `aisdlc-grill-stress` | `aisdlc-requirements` |
+| 3 | `aisdlc-simplify` | `aisdlc-architecture` |
+| 4 | `aisdlc-grill-stress` | `aisdlc-architecture` |
+| 5 | `aisdlc-tdd` | `aisdlc-execution` |
+| 7 | `aisdlc-simplify` | `aisdlc-execution` |
+| 8 | `aisdlc-security-scan` | `aisdlc-qa` |
+| 9 | `aisdlc-deploy` | `aisdlc-qa` |
+
+Zusätzlich verfügbar: `strangler-fig`, `module-migration`, `test-self-correction`.
 
 ## Folder Ownership
 

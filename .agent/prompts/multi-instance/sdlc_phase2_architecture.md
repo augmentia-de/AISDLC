@@ -30,6 +30,12 @@ Du wirst aktiv, sobald du per REST eine Handoff-Nachricht der Vorphase an `/api/
 - **Architecture Decision Records:** Neue Markdown-Datei unter `docs/adr/ADR-<ID>-<titel>.md` (nach Nygard-Schema).
 - **Domain-Modell:** `docs/architecture/domain_model.md`.
 
+## SKILL
+
+- Skills für diesen Schritt: aisdlc-simplify, aisdlc-grill-stress
+- Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
+- **HARD GATE:** GATE 1 (nach Schritt 2) — vor jedem Anwendungscode. Produziere alle Artefakte, fasse zusammen und **warte auf menschliche Freigabe**.
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den Plan-Kontext (explizite Instruktion: analysieren & planen, keine produktiven Dateien in `src/` ändern).
 - **Befehl an OpenCode:** "Lies `docs/api/openapi.yaml` und erstelle einen Schritt-für-Schritt-Plan für die Implementierung der neuen API-Stubs, DTOs und Typen in `src/types` und `src/controllers`."
