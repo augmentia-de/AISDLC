@@ -1077,7 +1077,7 @@ print("features  :", len(os.listdir(FEATURES_DIR)))
 print("matrix    :", len(entries), "requirements,", sum(len(a) for _, a in story_index), "acceptance criteria")
 
 # ================================================================ human readable artefacts
-ART = os.path.join(OUT, "artifacts")
+ART = os.path.abspath(os.path.join(ROOT, ".agent", "artifacts"))
 os.makedirs(ART, exist_ok=True)
 
 REQ_RE = re.compile(r"^\|\s*((?:FR|NFR|SEC|DP|CON)-\d+)\s*\|\s*(.+?)\s*\|(.*)$")

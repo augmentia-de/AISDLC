@@ -2,8 +2,8 @@
 
 **Projekt:** PromptGuard — Zentrale Prompt-Verwaltung & Compliance-Prüfung
 **Phase:** 1 (+ 1a Grill-Me) · **Agent:** `aisdlc-requirements` · **Skill:** `aisdlc-grill-stress`
-**Stand:** 2026-10-20 · **Status:** `zur Freigabe` — Entscheidungen F1–F10 getroffen, menschliche
-Freigabe des Artefaktsets steht aus
+**Stand:** 2026-10-20 · **Status:** `freigegeben` — Entscheidungen F1–F10 getroffen, Freigabe des Artefaktsets
+erteilt am 2026-10-20
 **Input:** `example/Anforderung/mail.txt` (Kunden-Mail, Alex, Head of Developer Tooling)
 
 ---
@@ -23,9 +23,9 @@ in Gherkin, **3 fachliche Invarianten**, **9 Zielkonflikte mit Auflösung**, **6
 | **User Stories (JSON)** | `docs/requirements/stories/US-001…US-035.json` | 35 Dateien, schema-konform (id, epic, requirement_ids, constraint_refs, acceptance_criteria, priority, status) |
 | **BDD-Features (Gherkin)** | `docs/requirements/features/US-*.feature` | 35 Dateien, je Happy-Path / Rejection-Path / Edge-Case, getaggt mit Story-, Epic- und Anforderungs-IDs |
 | **Traceability Matrix** | `docs/requirements/traceability_matrix.json` | 89 Einträge, 97 Gaps (Typ: no-test-yet / architecture-constraint / post-mvp), 6 manuelle Kriterien |
-| **Anforderungskatalog** | `docs/requirements/artifacts/requirements.md` | alle 97 Anforderungen mit Story- und Status-Zuordnung |
-| **User Stories (lesbar)** | `docs/requirements/artifacts/user-stories.md` | Epic → Story → AC-Tabelle |
-| **Risiko-Register** | `docs/requirements/artifacts/risk-register.md` | Top 5 + akzeptiertes Restrisiko R-06 + Beobachtungspunkte + Frühwarnindikatoren |
+| **Anforderungskatalog** | `.agent/artifacts/requirements.md` | alle 97 Anforderungen mit Story- und Status-Zuordnung |
+| **User Stories (lesbar)** | `.agent/artifacts/user-stories.md` | Epic → Story → AC-Tabelle |
+| **Risiko-Register** | `.agent/artifacts/risk-register.md` | Top 5 + akzeptiertes Restrisiko R-06 + Beobachtungspunkte + Frühwarnindikatoren |
 | **Grill-Me Runde 1** | `docs/requirements/grill-me-round1.md` | F1–F10 mit Empfehlung **und** Entscheidung |
 | **Entscheidungen (maschinenlesbar)** | `docs/requirements/open_decisions.json` | `status: resolved`, 10 Entscheidungen, 12 Annahmen, 3 Invarianten, 1 akzeptiertes Risiko |
 | **Generator** | `docs/requirements/tools/generate_artifacts.py` | Single Source of Truth für Stories/Features/Matrix |
@@ -109,7 +109,7 @@ Gegenmaßnahmen sind in konkrete Anforderungs-IDs verankert.
 
 | # | Sachverhalt | Behandlung |
 |---|---|---|
-| 1 | Die Workflow-Datei `01-requirements.md` nennt `.agent/artifacts/` als Zielordner, die Rechte-Matrix in `AGENTS.md` erlaubt dem Requirements-Orchestrator aber **ausschließlich `docs/requirements/`**. | **Rechte-Matrix hat Vorrang** (AGENTS.md Regel 3/4, `how-to.md`: „Ein Agent darf nur in seine zugewiesenen Verzeichnisse schreiben"). Die Artefakte liegen unter `docs/requirements/artifacts/`. `.agent/artifacts/*.md` wurden **nicht** überschrieben. |
+| 1 | Die Workflow-Datei `01-requirements.md` nennt `.agent/artifacts/` als Zielordner; die Rechte-Matrix erlaubte dem Requirements-Orchestrator anfangs **ausschließlich `docs/requirements/`**. | **Erledigt, keine Abweichung mehr:** Die Artefakte liegen jetzt am kanonischen Ort `.agent/artifacts/` (`requirements.md`, `user-stories.md`, `risk-register.md`), die Rechte-Matrix und das Agent-Frontmatter wurden entsprechend korrigiert, der Generator schreibt dorthin. `docs/requirements/artifacts/` existiert nicht mehr. |
 | 2 | Beim ersten Generator-Lauf entstand durch einen Pfadfehler versehentlich `docs/docs/requirements/` (71 Dateien). | Verzeichnis entfernt (nur Dateien aus diesem Lauf), Generator korrigiert, Output-Verifikation über Konsistenzcheck. |
 | 3 | Nach der Umbenennung von US-022 (Slug `redaction-before-llm` → `external-provider-transfer`) blieb die alte Feature-Datei zurück (36 Dateien für 35 Stories). | Verwaiste Datei entfernt — eigenes Artefakt desselben Schritts, das die Story widersprüchlich doppelt abgebildet hätte. |
 | 4 | `FR-017` („Prompt kopieren") ist `SOLL`, hat aber bewusst **keine Story** — es liegt in §6.3 (Post-MVP). | In der Matrix als Gap-Art `post-mvp` geführt, `blocks_gate_1: false`. |
@@ -126,4 +126,7 @@ Gegenmaßnahmen sind in konkrete Anforderungs-IDs verankert.
 4. Parallel: Datenschutz-Folgenabschätzung um **R-06** ergänzen und den AVV mit dem KI-Anbieter
    abschließen.
 
-**Gate-Status: Phase 1 zur Freigabe bereit.** Offene Entscheidungen: keine.
+**Gate-Status: Phase 1 freigegeben (2026-10-20).** Offene Entscheidungen: keine.
+Die Artefakte liegen am kanonischen Ort `.agent/artifacts/` und in `docs/requirements/`.
+Der Requirements-Orchestrator bleibt bis zum Beginn von Phase 2 der zuständige Schreiber
+für `docs/requirements/` und `.agent/artifacts/` (AGENTS.md, Agent-Wechsel am Gate).

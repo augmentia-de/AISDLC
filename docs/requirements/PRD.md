@@ -4,7 +4,7 @@
 |---|---|
 | Produkt | **PromptGuard** — Zentrale Prompt-Verwaltung & Compliance-Prüfung |
 | Version | **1.0** (Grill-Me Runde 1 beantwortet — 2026-10-20) |
-| Status | `zur Freigabe` — Entscheidungen F1–F10 getroffen; menschliche Freigabe des Artefaktsets steht aus |
+| Status | **`freigegeben`** — Entscheidungen F1–F10 getroffen; Freigabe des Artefaktsets am 2026-10-20 erteilt |
 | Datum | 2026-10-20 |
 | Quelle | `example/Anforderung/mail.txt` (Kunden-Mail) + `AGENTS.md` / `.agent/knowledge/stack.md` |
 | Phase | 1 — Anforderungserhebung (SDLC-Schritt 1 + 1a) |
@@ -568,9 +568,9 @@ Redaktion (F1), ADR-007 Duplikatverfahren (F8), ADR-008 Live-Transport (SSE vs. 
 | User Stories (JSON) | `docs/requirements/stories/US-*.json` (35) |
 | BDD-Features (Gherkin) | `docs/requirements/features/*.feature` (35) |
 | Traceability Matrix | `docs/requirements/traceability_matrix.json` |
-| Anforderungen kompakt | `docs/requirements/artifacts/requirements.md` |
-| User Stories lesbar | `docs/requirements/artifacts/user-stories.md` |
-| Risiko-Register | `docs/requirements/artifacts/risk-register.md` |
+| Anforderungen kompakt | `.agent/artifacts/requirements.md` |
+| User Stories lesbar | `.agent/artifacts/user-stories.md` |
+| Risiko-Register | `.agent/artifacts/risk-register.md` |
 | Grill-Me Runde 1 (F1–F10) | `docs/requirements/grill-me-round1.md` |
 | Offene Entscheidungen (maschinenlesbar) | `docs/requirements/open_decisions.json` |
 | Generator (Single Source of Truth für Stories/Features/Matrix) | `docs/requirements/tools/generate_artifacts.py` |
