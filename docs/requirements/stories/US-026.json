@@ -1,0 +1,48 @@
+{
+  "id": "US-026",
+  "epic": "E6 — Alarmierung",
+  "title": "Warn-E-Mail an den Security-Admin",
+  "description": "As a security admin, I want to be alerted by e-mail when a prompt is flagged, so that I can react without watching the interface.",
+  "requirement_ids": [
+    "FR-050",
+    "FR-051"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-026-1",
+      "given": "an organisation has two security admin recipients configured",
+      "when": "a version of that organisation becomes FLAGGED",
+      "then": "one alert e-mail is delivered to each of the two recipients",
+      "and": [
+        "the delivery attempt is recorded with timestamp and recipients"
+      ],
+      "test_level": "manual",
+      "scenario_ref": "US-026-security-alert-email.feature: A flagged version triggers an alert to all configured recipients"
+    },
+    {
+      "id": "AC-026-2",
+      "given": "a version containing a secret was flagged",
+      "when": "the alert e-mail is inspected",
+      "then": "the body contains only organisation, prompt id and title, version, finding categories and severities, timestamp and a deep link",
+      "and": [
+        "neither the prompt text nor the secret nor the finding excerpts appear in the mail body"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-026-security-alert-email.feature: The alert contains no prompt content"
+    },
+    {
+      "id": "AC-026-3",
+      "given": "an organisation has no security admin recipient configured",
+      "when": "a version of that organisation becomes FLAGGED",
+      "then": "the alert is delivered to the organisation admins and the fallback is recorded",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-026-security-alert-email.feature: The alert is sent even without configured recipients"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-026-security-alert-email.feature",
+  "notes": []
+}

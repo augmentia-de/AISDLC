@@ -1,0 +1,49 @@
+{
+  "id": "US-002",
+  "epic": "E1 — Identität & Zugriff",
+  "title": "Registrierung erzeugt eine eigene Organisation",
+  "description": "As a new user, I want to register and create my own organisation, so that my team and I can start managing prompts.",
+  "requirement_ids": [
+    "FR-002"
+  ],
+  "constraint_refs": [
+    "A-07"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-002-1",
+      "given": "no account exists for the given e-mail address",
+      "when": "the user registers with e-mail and password",
+      "then": "the API responds with 201, creates a new organisation and assigns the role ORG_ADMIN to the user",
+      "and": [
+        "the access token contains the id of the newly created organisation"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-002-registration.feature: Registration creates an organisation and makes the user its admin"
+    },
+    {
+      "id": "AC-002-2",
+      "given": "an account already exists for the given e-mail address",
+      "when": "the user tries to register again",
+      "then": "the API responds with 409 and no organisation is created",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-002-registration.feature: Registration with an existing e-mail is rejected"
+    },
+    {
+      "id": "AC-002-3",
+      "given": "an existing organisation with developers already exists",
+      "when": "a new user registers and tries to select that organisation",
+      "then": "the API ignores the attempted organisation selection",
+      "and": [
+        "the new user is a member of a separate new organisation only"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-002-registration.feature: Registration cannot join an existing organisation"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-002-registration.feature",
+  "notes": []
+}

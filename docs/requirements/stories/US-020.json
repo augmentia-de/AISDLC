@@ -1,0 +1,47 @@
+{
+  "id": "US-020",
+  "epic": "E4 — Asynchrone KI-Prüfung",
+  "title": "Erkennung personenbezogener Daten",
+  "description": "As a data protection officer, I want personal data inside prompts to be detected, so that no customer data stays in the registry unnoticed.",
+  "requirement_ids": [
+    "FR-035"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-020-1",
+      "given": "a developer creates a prompt that contains a customer e-mail address and a customer name",
+      "when": "the scan runs",
+      "then": "the version reaches status FLAGGED with findings of category PII",
+      "and": [
+        "the excerpts are masked and the positions are reported"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-020-pii-detection.feature: Personal data leads to a flagged prompt"
+    },
+    {
+      "id": "AC-020-2",
+      "given": "a developer creates a prompt that contains the address support@example.com",
+      "when": "the scan runs",
+      "then": "a finding of category PII with severity LOW is reported",
+      "and": [
+        "the version is not flagged because the configured threshold is MEDIUM"
+      ],
+      "test_level": "unit",
+      "scenario_ref": "US-020-pii-detection.feature: Example data stays below the flagging threshold"
+    },
+    {
+      "id": "AC-020-3",
+      "given": "a developer creates a prompt that mentions a customer with a full name in running text",
+      "when": "the scan runs",
+      "then": "a PII finding is reported with the semantic reasoning of the classifier",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-020-pii-detection.feature: Semantic personal data is detected as well"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-020-pii-detection.feature",
+  "notes": []
+}

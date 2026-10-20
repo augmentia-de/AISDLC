@@ -1,0 +1,166 @@
+{
+  "schema_version": "1.1",
+  "generated_at": "2026-10-20T00:00:00Z",
+  "project": "PromptGuard",
+  "phase": "1 — Anforderungserhebung",
+  "status": "resolved",
+  "severity": "none",
+  "escalation": null,
+  "summary": "Alle 10 Grill-Me-Fragen (F1-F10) sind beantwortet. 9 Entscheidungen folgen der Empfehlung; F1 weicht bewusst ab: der Originalinhalt eines Prompts wird unredigiert an den externen KI-Dienst uebermittelt. Die daraus folgenden Pflichtmassnahmen sind als MUSS in FR-038, FR-065, FR-074, DP-002, DP-005, SEC-006 und US-022/US-034 verankert; das Restrisiko ist als R-06 akzeptiert dokumentiert.",
+  "source_of_truth": [
+    "docs/requirements/PRD.md",
+    "docs/requirements/grill-me-round1.md",
+    "docs/requirements/stories/US-*.json",
+    "docs/requirements/features/US-*.feature",
+    "docs/requirements/traceability_matrix.json"
+  ],
+  "decisions": [
+    {
+      "id": "F1",
+      "title": "Datenübermittlung an den externen KI-Dienst",
+      "question": "Dürfen Prompt-Inhalte an ein externes KI-Modell übermittelt werden?",
+      "recommendation": "Ja, aber ausschließlich redigiert: lokale Vorprüfung erkennt und redigiert Secrets/PII, danach erst externe Übermittlung.",
+      "decision": "Unredigierte Übermittlung des Originalinhalts — keine Redaktion vor dem Aufruf.",
+      "deviates_from_recommendation": true,
+      "decided_by": "Product Owner",
+      "decided_at": "2026-10-20",
+      "affects": ["FR-038", "FR-065", "FR-074", "DP-002", "DP-005", "SEC-006", "A-12", "R-06"],
+      "stories": ["US-019", "US-022", "US-034"],
+      "mandatory_controls": [
+        "Vertrag zur Auftragsverarbeitung (AVV) mit dem KI-Anbieter",
+        "EU-Region, Trainingsverbot, Löschgarantie (FR-065, DP-005)",
+        "Provider-Konfigurationsprüfung vor dem ersten Aufruf; bei Verstoß bricht der Scan ab, ohne dass Inhalt das System verlässt (FR-038, US-022)",
+        "Metadaten-Audit jeder Übermittlung ohne Inhalt (FR-074)",
+        "Lokale deterministische Vorprüfung bleibt Pflicht und fließt in das Gesamturteil ein (FR-031)"
+      ],
+      "residual_risk": "R-06 — akzeptiertes Restrisiko (hoch/hoch); Aufnahme in die Datenschutz-Folgenabschätzung"
+    },
+    {
+      "id": "F2",
+      "title": "Mandantenmodell",
+      "question": "Sind Abteilungen eigenständige Mandanten oder Abteilungen innerhalb einer Organisation?",
+      "recommendation": "Eine Organisation pro Abteilung; ein Nutzer gehört genau einer Organisation.",
+      "decision": "Eine Organisation pro Abteilung; ein Nutzer gehört genau einer Organisation.",
+      "deviates_from_recommendation": false,
+      "affects": ["A-01", "CON-003", "SEC-002", "FR-009"],
+      "stories": ["US-002", "US-005"]
+    },
+    {
+      "id": "F3",
+      "title": "Geltungsbereich des Security-Admins",
+      "question": "Ist der Security-Admin global über alle Organisationen oder organisationsintern?",
+      "recommendation": "Organisationsintern; ergänzend ein Plattform-Betrieb ohne Fachdatenzugriff.",
+      "decision": "Organisationsintern; Empfänger-Fallback auf die ORG_ADMINs.",
+      "deviates_from_recommendation": false,
+      "affects": ["A-02", "FR-050", "FR-053", "SEC-002"],
+      "stories": ["US-006", "US-023", "US-026"]
+    },
+    {
+      "id": "F4",
+      "title": "Nutzbarkeit ungeprüfter Prompts",
+      "question": "Darf ein Prompt verwendet werden, solange die Prüfung nicht abgeschlossen oder fehlgeschlagen ist?",
+      "recommendation": "Nein — nur APPROVED und WAIVED gelten als nutzbar.",
+      "decision": "Nein — nur APPROVED und WAIVED sind nutzbar; SECURITY_ADMIN kann eine ungeprüfte Version begründet freigeben.",
+      "deviates_from_recommendation": false,
+      "affects": ["A-04", "I-3", "FR-036", "FR-039"],
+      "stories": ["US-016", "US-023", "US-033"]
+    },
+    {
+      "id": "F5",
+      "title": "Geltungsbereich der 90-Tage-Löschung",
+      "question": "Gilt die Löschpflicht auch für Prompt-Inhalte oder nur für Logs und Telemetrie?",
+      "recommendation": "Nur Logs, Rohtelemetrie und KI-Rohpayloads (letztere nach 24 h).",
+      "decision": "Nur Logs, Rohtelemetrie und KI-Rohpayloads; Prompt-Inhalte bleiben bis zur expliziten Löschung.",
+      "deviates_from_recommendation": false,
+      "affects": ["A-03", "DP-003", "FR-060", "FR-061"],
+      "stories": ["US-028"]
+    },
+    {
+      "id": "F6",
+      "title": "Pflegerechte für Kategorien",
+      "question": "Legen alle Nutzer Kategorien selbst an oder nur der ORG_ADMIN?",
+      "recommendation": "Nur ORG_ADMIN pflegt; Seed-Liste je Organisation.",
+      "decision": "Nur ORG_ADMIN pflegt; alle Nutzer wählen aus der Seed-Liste.",
+      "deviates_from_recommendation": false,
+      "affects": ["A-06", "FR-014"],
+      "stories": ["US-010"]
+    },
+    {
+      "id": "F7",
+      "title": "SSO/OIDC und MFA im MVP",
+      "question": "Werden enterprise-SSO und MFA für den MVP benötigt?",
+      "recommendation": "Für den MVP nein; MFA für SECURITY_ADMIN/ORG_ADMIN als Nachrüstung einplanen.",
+      "decision": "Nein für den MVP; Einbaupunkt für MFA wird in Phase 2 per ADR und Datenmodell festgeschrieben.",
+      "deviates_from_recommendation": false,
+      "affects": ["O6", "SEC-001", "FR-001"],
+      "stories": ["US-001", "US-034"]
+    },
+    {
+      "id": "F8",
+      "title": "Duplikaterkennung: Verfahren und Schwelle",
+      "question": "Wie streng ist der Ähnlichkeitsvergleich und blockiert er das Anlegen?",
+      "recommendation": "Vektor-Ähnlichkeit >= 0.90 plus normalisierter Textvergleich, konfigurierbar, nie blockierend.",
+      "decision": "Vektor-Ähnlichkeit >= 0.90 plus normalisierter Textvergleich, organisationsweit konfigurierbar, nie blockierend.",
+      "deviates_from_recommendation": false,
+      "affects": ["A-08", "FR-032"],
+      "stories": ["US-017"]
+    },
+    {
+      "id": "F9",
+      "title": "80-Prozent-Abdeckung: Blocker oder Bericht",
+      "question": "Wird die Testabdeckung in der CI hart durchgesetzt oder nur gemeldet?",
+      "recommendation": "Hart durchsetzen (Blocker); Messgröße Line Coverage ohne generierten Code.",
+      "decision": "Harter Blocker in der CI; Line Coverage über Backend und Frontend.",
+      "deviates_from_recommendation": false,
+      "affects": ["NFR-009", "FR-073", "CON-008"],
+      "stories": ["US-031", "US-034"]
+    },
+    {
+      "id": "F10",
+      "title": "Bestätigung des Technologie-Frameworks",
+      "question": "Bestätigt der Kunde React 19 + Spring Boot 3 / Java 21 + PostgreSQL 16, oder besteht er auf FastAPI?",
+      "recommendation": "React 19 + Spring Boot 3 / Java 21 bestätigen — Langchain4j ist eine JVM-Bibliothek.",
+      "decision": "React 19 + Spring Boot 3 / Java 21 + PostgreSQL 16.",
+      "deviates_from_recommendation": false,
+      "affects": ["A-11", "CON-001", "CON-002", "CON-004"],
+      "stories": []
+    }
+  ],
+  "assumptions": [
+    { "id": "A-01", "statement": "Mandant = Organisation, ein Nutzer genau eine Organisation", "status": "confirmed", "decision": "F2" },
+    { "id": "A-02", "statement": "Security-Admin ist organisationsintern", "status": "confirmed", "decision": "F3" },
+    { "id": "A-03", "statement": "90-Tage-Loeschung gilt fuer Logs und Telemetrie, nicht fuer Prompt-Inhalte", "status": "confirmed", "decision": "F5" },
+    { "id": "A-04", "statement": "Ohne bestandenen Scan ist ein Prompt nicht nutzbar", "status": "confirmed", "decision": "F4" },
+    { "id": "A-05", "statement": "Ein Prompt ist ein Entwurf mit Pruefstatus, kein ausfuehrbares Artefakt", "status": "confirmed", "decision": "Scope O1" },
+    { "id": "A-06", "statement": "Kategorien sind organisationsspezifisch mit Seed-Liste", "status": "confirmed", "decision": "F6" },
+    { "id": "A-07", "statement": "Registrierung erzeugt eine neue Organisation, Beitritt nur per Einladung", "status": "confirmed", "decision": "F7" },
+    { "id": "A-08", "statement": "Duplikatschwelle organisationsweit konfigurierbar, Default 0.90", "status": "confirmed", "decision": "F8" },
+    { "id": "A-09", "statement": "KI-Anbieter EU-basiert, kein Training, keine dauerhafte Speicherung, AVV", "status": "confirmed", "decision": "F1" },
+    { "id": "A-10", "statement": "Mengengeruest 100 Organisationen, 10000 Nutzer, 1000000 Prompts", "status": "confirmed", "decision": "NFR-008" },
+    { "id": "A-11", "statement": "Kunde akzeptiert React + Spring Boot (Java)", "status": "confirmed", "decision": "F10" },
+    { "id": "A-12", "statement": "Prompt-Inhalte werden unredigiert an den KI-Dienst uebermittelt", "status": "accepted-with-residual-risk", "decision": "F1", "residual_risk": "R-06" }
+  ],
+  "invariants": [
+    { "id": "I-1", "statement": "Freigabe ist an den content_hash der Version gebunden; jede inhaltliche Aenderung erzeugt eine neue Version mit Status PENDING", "verified_by": ["US-008"] },
+    { "id": "I-2", "statement": "Jede Lese- und Schreiboperation ist auf organisation_id beschraenkt - ohne Ausnahme, auch fuer Jobs, Cache, Suche und Fehlermeldungen", "verified_by": ["US-005", "US-034"] },
+    { "id": "I-3", "statement": "Nur APPROVED und WAIVED gelten als freigegeben; alles andere ist gespeichert, aber nicht nutzbar", "verified_by": ["US-016", "US-023", "US-033"] }
+  ],
+  "accepted_risks": [
+    {
+      "id": "R-06",
+      "title": "Unredigierte Übermittlung von Prompt-Inhalten an den KI-Dienst",
+      "likelihood": "hoch",
+      "impact": "hoch",
+      "status": "accepted",
+      "accepted_by": "Product Owner",
+      "decision_ref": "F1",
+      "required_mitigations": ["FR-038", "FR-065", "FR-074", "DP-002", "DP-005", "US-022", "US-034"]
+    }
+  ],
+  "next_actions": [
+    { "order": 1, "actor": "Product Owner", "action": "Artefaktset freigeben (Gate vor Phase 2)" },
+    { "order": 2, "actor": "Requirements Orchestrator", "action": "Commit docs(sdlc-1) — genau ein Commit pro Schritt" },
+    { "order": 3, "actor": "Architecture Orchestrator", "action": "Phase 2 starten: openapi.yaml, domain_model.md, ADRs 001-008, schema.sql — insbesondere ADR-006 (Provider, Auftragsverarbeitung, Übermittlung unredigiert)" },
+    { "order": 4, "actor": "Data Protection Officer", "action": "Datenschutz-Folgenabschätzung um R-06 ergänzen und AVV mit dem KI-Anbieter abschließen" }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "id": "US-018",
+  "epic": "E4 — Asynchrone KI-Prüfung",
+  "title": "Erkennung von Prompt Injection und Jailbreak",
+  "description": "As a security admin, I want attempts to manipulate the model or the checker to be detected, so that malicious prompts do not enter the registry.",
+  "requirement_ids": [
+    "FR-033",
+    "SEC-006",
+    "SEC-007"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-018-1",
+      "given": "a developer creates a prompt whose content tries to override previous instructions",
+      "when": "the scan runs",
+      "then": "the version reaches status FLAGGED with a finding of category PROMPT_INJECTION",
+      "and": [
+        "the finding contains a redacted excerpt, the position and the reasoning"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-018-injection-jailbreak-detection.feature: An injection attempt is detected and blocks the prompt"
+    },
+    {
+      "id": "AC-018-2",
+      "given": "a developer creates an ordinary customer support prompt",
+      "when": "the scan runs",
+      "then": "the version reaches status APPROVED and no finding is reported",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-018-injection-jailbreak-detection.feature: A benign prompt is approved"
+    },
+    {
+      "id": "AC-018-3",
+      "given": "a prompt contains text that instructs the classifier to report APPROVED",
+      "when": "the scan runs",
+      "then": "the version is classified by the content itself and the injected instruction has no effect",
+      "and": [
+        "the checker prompt keeps its system instruction and the finding is recorded"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-018-injection-jailbreak-detection.feature: The checker is not manipulable by the content it checks"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-018-injection-jailbreak-detection.feature",
+  "notes": []
+}

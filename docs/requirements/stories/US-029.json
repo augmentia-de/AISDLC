@@ -1,0 +1,48 @@
+{
+  "id": "US-029",
+  "epic": "E7 — Datenschutz & Aufbewahrung",
+  "title": "Recht auf Löschung",
+  "description": "As a user, I want my account and personal references to be deletable, so that my personal data is removed when I request it.",
+  "requirement_ids": [
+    "FR-063",
+    "DP-004",
+    "DP-007",
+    "DP-008"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-029-1",
+      "given": "a user authored three prompts and holds an active session",
+      "when": "the organisation admin triggers the erasure",
+      "then": "the account, its tokens and its sessions are deleted and the authorship in the three prompts is anonymised",
+      "and": [
+        "the prompts themselves remain and are queued for a new scan"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-029-right-to-erasure.feature: Erasing a user removes the account and anonymises authorship"
+    },
+    {
+      "id": "AC-029-2",
+      "given": "a user belongs to organisation B",
+      "when": "an admin of organisation A attempts the erasure",
+      "then": "the API responds with 403 and nothing is deleted",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-029-right-to-erasure.feature: A user of another organisation cannot be erased"
+    },
+    {
+      "id": "AC-029-3",
+      "given": "the erased user performed security relevant actions",
+      "when": "the erasure is executed",
+      "then": "the audit entries remain with actor and timestamp but without the personal reference and without content",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-029-right-to-erasure.feature: Erasure does not destroy the audit trail"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-029-right-to-erasure.feature",
+  "notes": []
+}

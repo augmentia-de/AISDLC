@@ -1,0 +1,52 @@
+{
+  "id": "US-033",
+  "epic": "E8 — Qualität & Betrieb",
+  "title": "Degraded Mode und manuelle Wiederholung",
+  "description": "As a developer, I want the platform to keep working while the AI service is down and to let me retry later, so that an outage does not stop my team.",
+  "requirement_ids": [
+    "FR-070",
+    "FR-071",
+    "NFR-006",
+    "NFR-007"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-033-1",
+      "given": "the AI service is down and the queue fills up",
+      "when": "the developer creates and reads prompts",
+      "then": "the API responds normally and the queued scans wait",
+      "and": [
+        "no request fails with an AI related error and no data is lost"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-033-degraded-mode.feature: An AI outage does not stop the write path"
+    },
+    {
+      "id": "AC-033-2",
+      "given": "several scan jobs are queued while the AI service is down",
+      "when": "the AI service becomes available again",
+      "then": "the jobs are processed in their original order",
+      "and": [
+        "each version ends in a final status"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-033-degraded-mode.feature: Queued jobs are processed in order after recovery"
+    },
+    {
+      "id": "AC-033-3",
+      "given": "a version is in status FAILED",
+      "when": "the author triggers a retry",
+      "then": "a new scan job is created and the version moves to PENDING and later to a final status",
+      "and": [
+        "the manual retry is recorded in the audit trail"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-033-degraded-mode.feature: A failed scan can be retried manually"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-033-degraded-mode.feature",
+  "notes": []
+}

@@ -1,0 +1,53 @@
+{
+  "id": "US-022",
+  "epic": "E4 — Asynchrone KI-Prüfung",
+  "title": "Übermittlung an den KI-Dienst unter festen Auflagen",
+  "description": "As a data protection officer, I want every transfer to the AI service to run only against a verified provider configuration, so that the data transfer is provably compliant.",
+  "requirement_ids": [
+    "FR-038",
+    "FR-074",
+    "DP-002",
+    "DP-005",
+    "SEC-006"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-022-1",
+      "given": "the provider configuration has been verified and a prompt is ready to be classified",
+      "when": "the scanner calls the AI service",
+      "then": "the provider receives the original prompt text without redaction",
+      "and": [
+        "the transmission is recorded in the audit trail as metadata without content"
+      ],
+      "test_level": "unit",
+      "scenario_ref": "US-022-external-provider-transfer.feature: The prompt content is transmitted unchanged"
+    },
+    {
+      "id": "AC-022-2",
+      "given": "the configured provider does not guarantee retention free processing in the EU",
+      "when": "the scanner would call the AI service",
+      "then": "the call is not executed and the version moves to FAILED",
+      "and": [
+        "no prompt content leaves the system"
+      ],
+      "test_level": "unit",
+      "scenario_ref": "US-022-external-provider-transfer.feature: A provider configuration that violates the terms aborts the scan"
+    },
+    {
+      "id": "AC-022-3",
+      "given": "the provider is reachable but the call fails with a timeout",
+      "when": "the scan runs",
+      "then": "the version moves to FAILED and can be retried manually",
+      "and": [
+        "no partial scan result is stored"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-022-external-provider-transfer.feature: A failing provider call leaves the version in a recoverable state"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-022-external-provider-transfer.feature",
+  "notes": []
+}

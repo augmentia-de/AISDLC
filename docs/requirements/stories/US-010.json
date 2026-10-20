@@ -1,0 +1,47 @@
+{
+  "id": "US-010",
+  "epic": "E2 — Prompt-Verwaltung",
+  "title": "Kategorien verwalten",
+  "description": "As an organisation admin, I want to maintain the category list, so that prompts are classified consistently.",
+  "requirement_ids": [
+    "FR-014"
+  ],
+  "constraint_refs": [
+    "A-06"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-010-1",
+      "given": "an organisation has just been created",
+      "when": "the developer lists the categories",
+      "then": "the API responds with 200 and the seed categories Customer Support, Code Gen, Data Analysis, Documentation and Other",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-010-categories.feature: A new organisation starts with the seed category list"
+    },
+    {
+      "id": "AC-010-2",
+      "given": "the acting user has the role ORG_ADMIN",
+      "when": "the admin creates the category Support Bot and later renames it",
+      "then": "the API responds with 201 and later 200 and the category keeps its id",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-010-categories.feature: The organisation admin creates and renames categories"
+    },
+    {
+      "id": "AC-010-3",
+      "given": "a category is referenced by at least one prompt",
+      "when": "the admin attempts to delete it",
+      "then": "the API responds with 409 and the category remains usable but inactive",
+      "and": [
+        "existing prompts keep their reference"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-010-categories.feature: A category in use can only be deactivated, not deleted"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-010-categories.feature",
+  "notes": []
+}

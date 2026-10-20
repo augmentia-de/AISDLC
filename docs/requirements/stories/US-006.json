@@ -1,0 +1,49 @@
+{
+  "id": "US-006",
+  "epic": "E1 — Identität & Zugriff",
+  "title": "Mitglieder einladen und Alarmempfänger pflegen",
+  "description": "As an organisation admin, I want to invite colleagues and configure who receives security alerts, so that the right people are notified.",
+  "requirement_ids": [
+    "FR-005",
+    "FR-006",
+    "FR-053"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-006-1",
+      "given": "the acting user has the role ORG_ADMIN",
+      "when": "the admin invites a colleague with the role DEVELOPER",
+      "then": "the API responds with 202 and creates a single-use, time-limited invitation",
+      "and": [
+        "the invitation is bound to the acting organisation and to the role DEVELOPER"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-006-membership-and-alert-recipients.feature: An invitation adds a member with a chosen role"
+    },
+    {
+      "id": "AC-006-2",
+      "given": "the acting user has the role DEVELOPER",
+      "when": "the user attempts to send an invitation",
+      "then": "the API responds with 403 and no invitation is created",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-006-membership-and-alert-recipients.feature: A developer cannot invite members"
+    },
+    {
+      "id": "AC-006-3",
+      "given": "an organisation has no security admin recipient configured",
+      "when": "a prompt version of that organisation becomes flagged",
+      "then": "the alert is delivered to the organisation admins",
+      "and": [
+        "the delivery attempt is recorded with the actual recipients"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-006-membership-and-alert-recipients.feature: Without a configured security admin the alert goes to the organisation admins"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-006-membership-and-alert-recipients.feature",
+  "notes": []
+}

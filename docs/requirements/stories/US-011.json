@@ -1,0 +1,47 @@
+{
+  "id": "US-011",
+  "epic": "E2 — Prompt-Verwaltung",
+  "title": "Tags vergeben",
+  "description": "As a developer, I want to label prompts with free tags, so that I can find them later.",
+  "requirement_ids": [
+    "FR-015"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-011-1",
+      "given": "an authenticated developer is present",
+      "when": "the developer assigns the tags Support, deutsch and support",
+      "then": "the API responds with 200 and stores the two distinct normalised tags Support and deutsch",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-011-tags.feature: Tags are normalised and stored once per organisation"
+    },
+    {
+      "id": "AC-011-2",
+      "given": "an authenticated developer is present",
+      "when": "the developer assigns eleven tags to one prompt",
+      "then": "the API responds with 422 and names the limit",
+      "and": [
+        "the prompt keeps its previous tag set"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-011-tags.feature: Too many tags are rejected"
+    },
+    {
+      "id": "AC-011-3",
+      "given": "the organisation already uses the maximum number of distinct tags",
+      "when": "the developer assigns a completely new tag",
+      "then": "the API responds with 422 and the tag limit is reported",
+      "and": [
+        "an already existing tag can still be assigned"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-011-tags.feature: The organisation tag limit is enforced"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-011-tags.feature",
+  "notes": []
+}

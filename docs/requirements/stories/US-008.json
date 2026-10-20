@@ -1,0 +1,49 @@
+{
+  "id": "US-008",
+  "epic": "E2 — Prompt-Verwaltung",
+  "title": "Bearbeiten erzeugt eine neue Version und setzt die Freigabe zurück",
+  "description": "As a security admin, I want every content change to create a new version that must be scanned again, so that an approved prompt can never carry unapproved content.",
+  "requirement_ids": [
+    "FR-012"
+  ],
+  "constraint_refs": [
+    "I-1"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-008-1",
+      "given": "version 1 of a prompt is APPROVED",
+      "when": "the author changes the content and saves",
+      "then": "the API responds with 200 and creates version 2 with status PENDING",
+      "and": [
+        "version 1 remains APPROVED and unchanged"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-008-prompt-edit-new-version.feature: Editing an approved prompt creates a new pending version"
+    },
+    {
+      "id": "AC-008-2",
+      "given": "a prompt exists in organisation B",
+      "when": "a developer of organisation A submits an edit for that prompt",
+      "then": "the API responds with 404 and no version is created",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-008-prompt-edit-new-version.feature: Editing a prompt of another organisation is not possible"
+    },
+    {
+      "id": "AC-008-3",
+      "given": "version 1 of a prompt is APPROVED",
+      "when": "the author saves without changing title, content, category or tags",
+      "then": "the API responds with 200 and returns version 1 unchanged",
+      "and": [
+        "the number of versions stays at one and no scan is triggered"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-008-prompt-edit-new-version.feature: A save without content change creates no new version"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-008-prompt-edit-new-version.feature",
+  "notes": []
+}

@@ -1,0 +1,45 @@
+{
+  "id": "US-014",
+  "epic": "E3 — Suche & Filterung",
+  "title": "Filtern nach Kategorie, Tag und Prüfstatus",
+  "description": "As a developer, I want to combine filters, so that I can narrow down a large registry.",
+  "requirement_ids": [
+    "FR-021"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-014-1",
+      "given": "the own organisation owns prompts in several categories, tags and scan statuses",
+      "when": "the developer filters by category Code Gen, tag python and status FLAGGED",
+      "then": "the API responds with 200 and only prompts matching all three criteria",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-014-filtering.feature: Combined filters narrow the result set"
+    },
+    {
+      "id": "AC-014-2",
+      "given": "a category belongs to another organisation",
+      "when": "the developer filters by that category id",
+      "then": "the API responds with 200 and an empty list without any hint that the category exists",
+      "and": [],
+      "test_level": "integration",
+      "scenario_ref": "US-014-filtering.feature: A foreign category id yields no results"
+    },
+    {
+      "id": "AC-014-3",
+      "given": "the filtered result set spans several pages",
+      "when": "the developer requests the second page with the same filters",
+      "then": "the API responds with 200 and returns the next page of the same filtered set",
+      "and": [
+        "the total count matches the filtered set, not the unfiltered one"
+      ],
+      "test_level": "integration",
+      "scenario_ref": "US-014-filtering.feature: Pagination stays stable while filters are active"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-014-filtering.feature",
+  "notes": []
+}

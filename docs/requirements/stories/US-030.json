@@ -1,0 +1,38 @@
+{
+  "id": "US-030",
+  "epic": "E7 — Datenschutz & Aufbewahrung",
+  "title": "Datenschutzhinweis in Deutsch und Englisch",
+  "description": "As a user, I want a clear privacy notice in my language, so that I know what happens with my data.",
+  "requirement_ids": [
+    "FR-064",
+    "DP-001",
+    "DP-006"
+  ],
+  "constraint_refs": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-030-1",
+      "given": "the application is running",
+      "when": "a user opens the privacy notice",
+      "then": "the API responds with the notice in German and in English including purpose, legal basis, retention periods and rights",
+      "and": [],
+      "test_level": "manual",
+      "scenario_ref": "US-030-privacy-notice.feature: The notice is reachable in both languages"
+    },
+    {
+      "id": "AC-030-2",
+      "given": "the notice text has been changed in a new release",
+      "when": "a user opens the notice",
+      "then": "the API returns the current version and the version identifier is exposed",
+      "and": [
+        "the previous version is archived for proof"
+      ],
+      "test_level": "manual",
+      "scenario_ref": "US-030-privacy-notice.feature: The notice is versioned"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "feature_file": "docs/requirements/features/US-030-privacy-notice.feature",
+  "notes": []
+}
