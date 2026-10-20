@@ -129,23 +129,27 @@ Pipeline, Rollout-Strategie, Pre-Flight, Smoke-Tests, Promotion, Rollback, SLOs,
 Commit existiert. Der Commit entsteht **vor** dem Gate — das Gate prüft den fertigen Commit.
 
 ```bash
-git add docs/requirements/ .agent/artifacts/
-git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
-  -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
-  -- docs/requirements/ .agent/artifacts/
+git add -A .
+git diff --cached --name-only -- docs/requirements/ .agent/artifacts/ \
+  | git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
+             -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
+             --pathspec-from-file=-
+git restore --staged .
 ```
 
 | Regel | Bedeutung |
 |---|---|
 | Subject | `<type>(sdlc-<n>): <Kurzbeschreibung>` |
 | Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
-| Scope | nur die Pfade des Schritts — technisch erzwungen durch `-- <pfade>` |
+| Scope | nur die geänderten/neuen Dateien des Schritts — technisch erzwungen |
 | Reihenfolge | Commit vor dem Gate bzw. vor dem Handoff |
 | Leer | nichts geändert → kein Commit, keine Leer-Commits |
 | Push | die Pipeline pusht nie — `git push` bleibt menschliche Entscheidung |
 
-Das Pfad-Scope ist kein blosses Dokumentations-Versprechen: `git commit -- <pfade>` committet
-selbst dann nur die genannten Pfade, wenn zuvor `git add -A` alles gestaged hat.
+Das Scope ist kein blosses Dokumentations-Versprechen: committet werden nur Dateien, die
+im Pfad-Scope geändert oder neu sind. Die Form mit `--pathspec-from-file` ist nötig, weil
+`git commit -- <pfade>` abbricht, sobald ein Scope-Pfad leer oder noch nicht vorhanden ist
+— dann würde gar nichts committet.
 
 Subject und Pfade pro Schritt: `.agent/PHASES.md` → "Commit pro Schritt".
 

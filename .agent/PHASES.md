@@ -69,13 +69,25 @@ das Gate prueft den fertigen Commit. Ohne Commit ist der Schritt nicht abgeschlo
 **Befehl:**
 
 ```bash
-git commit -m "<Subject>" -m "<Body>" -- <pfade>
+git add -A .
+git diff --cached --name-only -- <pfade> \
+  | git commit -m "<Subject>" \
+             -m "<Body>" \
+             --pathspec-from-file=-
+git restore --staged .
 ```
+
+Das Scope laeuft ueber `--pathspec-from-file`: committet werden nur Dateien, die im
+Pfad-Scope geaendert oder neu sind. Die Form ist gewaehlt, weil `git commit -- <pfade>`
+mit einem leeren oder noch nicht existierenden Pfad mit "pathspec did not match any
+files" abbricht — dann wuerde gar nichts committet.
 
 Regeln:
 - Genau ein Commit pro Schritt. Wenn sich nichts geaendert hat, kein Commit erzeugen.
-- Nur die Pfade des Schritts committen — fremde Aenderungen werden nie mitgestaged.
+- Nur die Pfade des Schritts committen — fremde Aenderungen werden nie mitcommittet.
 - Kein `git push` — die Pipeline pusht nicht.
+- Der Roh-Input des Schritts (z. B. die Anforderungs-Mail) gehoert in denselben Commit
+  wie das daraus erzeugte Artefakt — die Traceability laeuft sonst ins Leere.
 
 ## Betriebsmodi
 

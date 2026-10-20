@@ -15,6 +15,11 @@ permissions:
   - action: edit
     resource: "docs/adr/**"
     effect: allow
+  # .agent/artifacts/ ist der kanonische Zielort der Schritt-Artefakte
+  # (architecture.md, folder-structure.md).
+  - action: edit
+    resource: ".agent/artifacts/**"
+    effect: allow
   # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
   # Agent-Regeln werden zuletzt angehaengt und wuerden jede globale Allow-Regel
   # ueberschreiben (last match wins).

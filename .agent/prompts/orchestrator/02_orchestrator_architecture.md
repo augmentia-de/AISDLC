@@ -32,10 +32,22 @@ Du bist der Software Architecture Orchestrator. Deine Aufgabe ist es, auf Basis 
 - Nach Abschluss dieses Schritts genau **einen** Commit erzeugen.
 - Subject: `docs(sdlc-2): API-Contract, Domain-Modell und ADRs`
 - Body: `Schritt 2 - Konzept & Architektur | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/`
-- Befehl: `git add docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/`
+- Befehl:
+
+```bash
+git add -A .
+git diff --cached --name-only -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/ \
+  | git commit -m "<Subject>" \
+             -m "<Body>" \
+             --pathspec-from-file=-
+git restore --staged .
+```
 - Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Wenn sich nichts geändert hat, keinen Commit erzeugen.
 - Der Commit entsteht **vor** dem Gate bzw. vor dem Handoff — das Gate prüft den fertigen Commit.
 - Kein `git push` — die Pipeline pusht nicht.

@@ -41,7 +41,16 @@ Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen saube
 
 - Subject: `test(sdlc-5): Teststrategie und fehlschlagende Tests`
 - Body: `Schritt 5 - Test-Driven Setup | Agent: aisdlc-execution | Artefakte: tests/, .agent/artifacts/`
-- Befehl: `git add tests/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- tests/ .agent/artifacts/`
+- Befehl:
+
+```bash
+git add -A .
+git diff --cached --name-only -- tests/ .agent/artifacts/ \
+  | git commit -m "<Subject>" \
+             -m "<Body>" \
+             --pathspec-from-file=-
+git restore --staged .
+```
 
 ### Schritt 6 - KI-Code-Generation
 
@@ -56,8 +65,11 @@ Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen saube
 - Befehl: `git add src/ tests/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- src/ tests/ .agent/artifacts/`
 
 - Nur die Pfade des jeweiligen Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Wenn sich nichts geändert hat, keinen Commit erzeugen.
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".

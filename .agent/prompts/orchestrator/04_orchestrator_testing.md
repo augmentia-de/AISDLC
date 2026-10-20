@@ -31,10 +31,22 @@ Du bist der Quality & Compliance Orchestrator. Deine Aufgabe ist es, sicherzuste
 - Nach Abschluss dieses Schritts genau **einen** Commit erzeugen.
 - Subject: `docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen`
 - Body: `Schritt 4 - Grill-Me-Stresstest | Agent: aisdlc-architecture | Artefakte: docs/architecture/, .agent/artifacts/`
-- Befehl: `git add docs/architecture/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/architecture/ .agent/artifacts/`
+- Befehl:
+
+```bash
+git add -A .
+git diff --cached --name-only -- docs/architecture/ .agent/artifacts/ \
+  | git commit -m "<Subject>" \
+             -m "<Body>" \
+             --pathspec-from-file=-
+git restore --staged .
+```
 - Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Wenn sich nichts geändert hat, keinen Commit erzeugen.
 - Der Commit entsteht **vor** dem Gate bzw. vor dem Handoff — das Gate prüft den fertigen Commit.
 - Kein `git push` — die Pipeline pusht nicht.

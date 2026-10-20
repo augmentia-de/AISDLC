@@ -34,16 +34,21 @@ description: Phase 9 — Deployment and operations
 ## Commit
 
 ```bash
-git add docs/execution/ infra/ .github/ .agent/artifacts/
-git commit -m "build(sdlc-9): Deployment-Pipeline und Deploy-Report" \
-  -m "Schritt 9 - Deployment & Betrieb | Agent: aisdlc-qa | Artefakte: docs/execution/, infra/, .github/, .agent/artifacts/" \
-  -- docs/execution/ infra/ .github/ .agent/artifacts/
+git add -A .
+git diff --cached --name-only -- docs/execution/ infra/ .github/ .agent/artifacts/ \
+  | git commit -m "build(sdlc-9): Deployment-Pipeline und Deploy-Report" \
+             -m "Schritt 9 - Deployment & Betrieb | Agent: aisdlc-qa | Artefakte: docs/execution/, infra/, .github/, .agent/artifacts/" \
+             --pathspec-from-file=-
+git restore --staged .
 ```
 
 - Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
 - Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".

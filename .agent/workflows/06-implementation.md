@@ -54,16 +54,21 @@ Commits (Conventional Commits) and PR descriptions.
 ## Commit
 
 ```bash
-git add src/ tests/ docs/execution/
-git commit -m "feat(sdlc-6): Implementierung der Stories" \
-  -m "Schritt 6 - KI-Code-Generation | Agent: aisdlc-execution | Artefakte: src/, tests/, docs/execution/" \
-  -- src/ tests/ docs/execution/
+git add -A .
+git diff --cached --name-only -- src/ tests/ docs/execution/ \
+  | git commit -m "feat(sdlc-6): Implementierung der Stories" \
+             -m "Schritt 6 - KI-Code-Generation | Agent: aisdlc-execution | Artefakte: src/, tests/, docs/execution/" \
+             --pathspec-from-file=-
+git restore --staged .
 ```
 
 - Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
 - Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".

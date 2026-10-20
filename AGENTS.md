@@ -42,17 +42,24 @@ exists. The commit is the checkpoint the human reviews at the gate.
 |---|---|
 | Subject | `<type>(sdlc-<n>): <Kurzbeschreibung>` |
 | Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
-| Scope | only the paths of this step — enforced by the `-- <pfade>` pathspec |
+| Scope | only the files of this step that changed or are new — enforced by the pathspec |
 | Order | commit **before** the gate — the gate reviews the finished commit |
 | Empty | if nothing changed, no commit — no empty commits |
 | Push | the pipeline never pushes — `git push` is not part of the pipeline |
 
 ```bash
-git add docs/requirements/ .agent/artifacts/
-git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
-  -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
-  -- docs/requirements/ .agent/artifacts/
+git add -A .
+git diff --cached --name-only -- docs/requirements/ .agent/artifacts/ \
+  | git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
+             -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
+             --pathspec-from-file=-
+git restore --staged .
 ```
+
+The scope is enforced technically, not by convention: only files that changed or are new
+inside the path scope are committed. The `--pathspec-from-file` form is used because
+`git commit -- <pfade>` aborts with "pathspec did not match any files" as soon as one
+scope path is empty or does not exist yet — then nothing would be committed at all.
 
 Types: `docs` Requirements/Architecture/Security · `refactor` Simplify/Refactoring ·
 `test` TDD · `feat` Implementation · `build` Deploy.
@@ -86,8 +93,19 @@ Zusätzlich verfügbar: `strangler-fig`, `module-migration`, `test-self-correcti
 | `docs/execution/` | Execution Orchestrator | QA, OpenCode, menschl. Reviewer |
 | `docs/qa/` | QA Orchestrator | Execution, OpenCode (Self-Correction) |
 | `coverage/` | CI/Test-Runner | QA, Execution |
+| `.agent/artifacts/` | zustaendiger Rollen-Agent des Schritts | Alle (Read-Only) |
+| `.agent/knowledge/` | Architecture Orchestrator | Alle (Read-Only) |
 | `how-to/` | Menschlicher Reviewer | Alle (Read-Only) |
 | `.opencode/` | OpenCode-System | Alle (Read-Only) |
+
+**`.agent/artifacts/` ist der kanonische Zielort der Schritt-Artefakte**
+(`requirements.md`, `user-stories.md`, `risk-register.md`, `architecture.md`,
+`folder-structure.md`, `test-report.md`, `security-audit.md`, `deploy-report.md`).
+Jeder Schritt schreibt eigene Dateien — der Bereich ist geteilt, nicht exklusiv.
+Dort schreiben zu duerfen: die vier Rollen-Agenten (`aisdlc-requirements`,
+`aisdlc-architecture`, `aisdlc-execution`, `aisdlc-qa`). Ein Rollen-Agent, dessen
+Workflow `.agent/artifacts/` als Ziel nennt, aber das Schreibrecht nicht besitzt,
+schreibt sonst an einen Ort, den niemand mehr findet.
 
 ## Escalation
 
@@ -125,16 +143,8 @@ Zusätzlich verfügbar: `strangler-fig`, `module-migration`, `test-self-correcti
 - **LLM**: Gemini 2.0 Flash oder OpenAI (konfigurierbar)
 - **GDPR**: EU-hosted, 90-day retention, right to erasure
 
-## Rechte-Matrix (eigener Schreiber, andere lesen nur)
+## Rechte-Matrix
 
-| Verzeichnis | Schreibender Agent (exklusiv) | Lesende Agenten (Read-Only) |
-|---|---|---|
-| `docs/requirements/` | Requirements Orchestrator | Architecture, Execution, QA, OpenCode |
-| `docs/architecture/`, `docs/api/`, `docs/adr/` | Architecture Orchestrator | Execution, QA, OpenCode |
-| `src/` | OpenCode (Build-Phase) | Requirements, Architecture, QA |
-| `tests/` | OpenCode (Test-Phase) | QA, Execution |
-| `docs/execution/` | Execution Orchestrator | QA, OpenCode, menschl. Reviewer |
-| `docs/qa/` | QA Orchestrator | Execution, OpenCode (Self-Correction) |
-| `coverage/` | CI/Test-Runner | QA, Execution |
-| `how-to/` | Menschlicher Reviewer | Alle (Read-Only) |
-| `.opencode/` | OpenCode-System | Alle (Read-Only) |
+Siehe **Folder Ownership** oben — eine einzige Quelle, keine zweite Kopie.
+Die technische Durchsetzung steht in den `permissions` der Agent-Frontmatter
+(`.opencode/agents/`) und in `.opencode/opencode.jsonc`.

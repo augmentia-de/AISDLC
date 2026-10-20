@@ -42,11 +42,23 @@ Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen saube
 
 - Subject: `docs(sdlc-1): PRD, User Stories und Traceability-Matrix`
 - Body: `Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/`
-- Befehl: `git add docs/requirements/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/requirements/ .agent/artifacts/`
+- Befehl:
+
+```bash
+git add -A .
+git diff --cached --name-only -- docs/requirements/ .agent/artifacts/ \
+  | git commit -m "<Subject>" \
+             -m "<Body>" \
+             --pathspec-from-file=-
+git restore --staged .
+```
 
 - Nur die Pfade des jeweiligen Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Wenn sich nichts geändert hat, keinen Commit erzeugen.
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".

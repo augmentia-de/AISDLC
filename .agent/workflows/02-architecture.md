@@ -35,16 +35,21 @@ description: Phase 2 — Architecture design for AI SDLC
 ## Commit
 
 ```bash
-git add docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/
-git commit -m "docs(sdlc-2): API-Contract, Domain-Modell und ADRs" \
-  -m "Schritt 2 - Konzept & Architektur | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/" \
-  -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/
+git add -A .
+git diff --cached --name-only -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/ \
+  | git commit -m "docs(sdlc-2): API-Contract, Domain-Modell und ADRs" \
+             -m "Schritt 2 - Konzept & Architektur | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/" \
+             --pathspec-from-file=-
+git restore --staged .
 ```
 
 - Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
 - Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".

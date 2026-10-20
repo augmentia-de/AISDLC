@@ -30,16 +30,21 @@ Refactored code in `src/`, `tests/`.
 ## Commit
 
 ```bash
-git add src/ tests/ .agent/artifacts/
-git commit -m "refactor(sdlc-7): Refactoring und Clean-up" \
-  -m "Schritt 7 - Refactoring & Clean-up | Agent: aisdlc-execution | Artefakte: src/, tests/, .agent/artifacts/" \
-  -- src/ tests/ .agent/artifacts/
+git add -A .
+git diff --cached --name-only -- src/ tests/ .agent/artifacts/ \
+  | git commit -m "refactor(sdlc-7): Refactoring und Clean-up" \
+             -m "Schritt 7 - Refactoring & Clean-up | Agent: aisdlc-execution | Artefakte: src/, tests/, .agent/artifacts/" \
+             --pathspec-from-file=-
+git restore --staged .
 ```
 
 - Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
 - Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
-- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
-  nur der angegebene Pfad.
+- Das Scope ist technisch erzwungen: committet werden nur Dateien, die im Pfad-Scope
+  geaendert oder neu sind — fremde Aenderungen bleiben unangetastet.
+- Der Commit-Scope laeuft ueber `--pathspec-from-file`, damit ein leerer oder noch nicht
+  existierender Pfad den Commit nicht verhindert (git bricht sonst mit "pathspec did not
+  match any files" ab und es wird gar nichts committet).
 - Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
