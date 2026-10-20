@@ -1,0 +1,32 @@
+TASK: Migration des Moduls '{{MODULE_NAME}}' (Strangler-Fig-Pattern)
+
+Hallo OpenCode,
+deine Aufgabe ist es, das Modul '{{MODULE_NAME}}' aus `/legacy/` neu in `/src/` zu implementieren und über den Router umzuleiten, ohne dass bestehende Funktionalitäten brechen.
+
+### 1. VORBEDINGUNGEN & LESEN (INPUT DATA)
+- Lies die Routing-Vorgaben in `/docs/02_architecture/strangler_routes.json`.
+- Lies das Migration-ADR in `/docs/02_architecture/adr/ADR-STRANGLER-{{MODULE_NAME}}.md`.
+- Analysiere das Alt-Modul unter `/legacy/{{MODULE_PATH}}`.
+
+### 2. DEINE ZU ERFÜLLENDEN SCHRITTE
+1. **Characterization Tests (Golden Master):**
+   - Schreibe vor jeglicher Code-Änderung einen Integrationstest in `/tests/legacy/{{MODULE_NAME}}_spec.ts`, der das genaue Ist-Verhalten des alten Moduls in `/legacy/` prüft.
+   - Führe `npm test` aus und stelle sicher, dass dieser Test **GRÜN** ist.
+
+2. **Neu-Implementierung:**
+   - Erstelle die neue Implementierung sauber, strukturiert und typensicher unter `/src/modules/{{MODULE_NAME}}/`.
+   - Greife **nicht** direkt auf Alt-Code aus `/legacy/` zu, sondern nutze Interfaces/DTOs gemäß OpenAPI-Spec.
+
+3. **Routing-Umlenkung:**
+   - Passe den zentralen Proxy/Router an (`/src/router/gateway.ts`), sodass Anfragen für `{{MODULE_NAME}}` ab sofort an das neue Modul in `/src/modules/{{MODULE_NAME}}/` geleitet werden.
+
+4. **Verifizierung & Parallellauf:**
+   - Führe erneut alle Tests aus: `npm test`.
+   - Die ursprünglichen Characterization-Tests müssen weiterhin **GRÜN** sein (Regressionstest bestanden).
+
+### 3. OUTPUT-FORMAT BEI ERFOLG
+Antworte nach erfolgreicher Umsetzung mit:
+- **Ersetztes Legacy-Modul:** `/legacy/{{MODULE_PATH}}`
+- **Neues Modul:** `/src/modules/{{MODULE_NAME}}/`
+- **Aktivierte Routen:** [Liste der umgeleiteten API-Endpunkte]
+- **Test-Ergebnis:** [Bestätigung, dass alle Legacy- & New-Tests bestanden wurden]
