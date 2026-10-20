@@ -1,6 +1,6 @@
 # AI SDLC – KI-agentengestützter Softwareentwicklungszyklus
 
-Ein SDLC-Template, in dem ein **Orchestrator-Agent** den Prozess steuert und **OpenCode** die Entwicklung ausführt. Der Orchestrator wechselt je nach SDLC-Phase den Systemprompt (`docs/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw. nur lesen darf.
+Ein SDLC-Template, in dem ein **Orchestrator-Agent** den Prozess steuert und **OpenCode** die Entwicklung ausführt. Der Orchestrator wechselt je nach SDLC-Phase den Systemprompt (`.agent/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw. nur lesen darf.
 
 ## Ablauf (Iterationsschleifen)
 
@@ -45,18 +45,22 @@ AISDLC/
 │   │   └── CHANGELOG.md                     # Versionshistorie unter [Unreleased]
 │   ├── qa/                           (✍️ QA Orchestrator)
 │   │   └── bugs/BUG-*.json                  # Strukturierte Bug-Reports (Pfad, Zeile, Ursache)
-│   └── prompts/                             # System-Prompts für Orchestrator & OpenCode
-│       ├── sdlc_phase0_legacy.md            # Prompt Phase 0: Legacy-Analyse (optional)
-│       ├── sdlc_phase1_requirements.md      # Prompt Phase 1: Anforderungen in Stories/ACs zerlegen
-│       ├── sdlc_phase2_architecture.md      # Prompt Phase 2: Architektur, API-Spec, ADRs entwerfen
-│       ├── sdlc_phase3_implementation.md    # Prompt Phase 3: Tasks an OpenCode übergeben, validieren
-│       ├── sdlc_phase4_testing.md           # Prompt Phase 4: Tests steuern, Coverage & Quality Gates
-│       ├── 00_orchestrator_analysis.md      # Legacy-Prompt-Variante (1 Orchestrator für alles)
-│       ├── 01_orchestrator_requirements.md  # Requirements-Prompt-Variante (1 Orchestrator)
-│       ├── 02_orchestrator_architecture.md  # Architektur-Prompt-Variante (1 Orchestrator)
-│       ├── 03_orchestrator_implementation.md# Implementierungs-Prompt-Variante (1 Orchestrator)
-│       ├── 04_orchestrator_testing.md       # Testing-Prompt-Variante (1 Orchestrator)
-│       └── opencode_task_self_correction.md # OpenCode-Task: fehlgeschlagene Tests selbst beheben
+├── .agent/                          # Agent Control Layer (ASDF-Stil)
+│   ├── prompts/                     # System-Prompts für Orchestrator & OpenCode
+│   │   ├── sdlc_phase0_legacy.md    # Prompt Phase 0: Legacy-Analyse (optional)
+│   │   ├── sdlc_phase1_requirements.md  # Prompt Phase 1: Anforderungen in Stories/ACs zerlegen
+│   │   ├── sdlc_phase2_architecture.md  # Prompt Phase 2: Architektur, API-Spec, ADRs entwerfen
+│   │   ├── sdlc_phase3_implementation.md # Prompt Phase 3: Tasks an OpenCode übergeben, validieren
+│   │   ├── sdlc_phase4_testing.md   # Prompt Phase 4: Tests steuern, Coverage & Quality Gates
+│   │   ├── 00_orchestrator_analysis.md  # Legacy-Prompt-Variante (1 Orchestrator für alles)
+│   │   ├── 01_orchestrator_requirements.md  # Requirements-Prompt-Variante (1 Orchestrator)
+│   │   ├── 02_orchestrator_architecture.md  # Architektur-Prompt-Variante (1 Orchestrator)
+│   │   ├── 03_orchestrator_implementation.md# Implementierungs-Prompt-Variante (1 Orchestrator)
+│   │   ├── 04_orchestrator_testing.md   # Testing-Prompt-Variante (1 Orchestrator)
+│   │   └── opencode_task_self_correction.md # OpenCode-Task: fehlgeschlagene Tests selbst beheben
+│   ├── workflows/                   # Workflow-Definitionen pro Phase
+│   ├── knowledge/                   # openapi.yaml, schema.sql, stack.md
+│   └── artifacts/                   # Ergebnisse jeder Phase
 ├── src/                             (✍️ OpenCode Build-Modus)
 │   └── ...                                  # Produktiver Quellcode (nur vom Orchestrator gelesen)
 ├── tests/                           (✍️ OpenCode QA-Modus)
@@ -83,7 +87,7 @@ AISDLC/
 
 ## Nutzung
 
-1. Orchestrator startet mit `docs/prompts/01_orchestrator_requirements.md`, liest die Anforderung und legt PRD, Stories, `.feature`-Dateien und die Traceability Matrix an.
+1. Orchestrator startet mit `.agent/prompts/01_orchestrator_requirements.md`, liest die Anforderung und legt PRD, Stories, `.feature`-Dateien und die Traceability Matrix an.
 2. Phase 2 (`02_orchestrator_architecture.md`, Plan-Modus): Architekturdiagramme, `openapi.yaml`, ADRs entstehen.
 3. Phase 3 (`03_orchestrator_implementation.md`, Build-Modus): OpenCode bekommt atomare Tasks, der Orchestrator validiert Linter/Build und bereitet Commits & PRs vor.
 4. Phase 4 (`04_orchestrator_testing.md`): Test-Suiten schreiben und ausführen; bei Fehlern übergibt der Orchestrator `{{TEST_RESULTS_JSON}}` an `opencode_task_self_correction.md` (Self-Correction-Loop).
@@ -99,7 +103,7 @@ phase0 (18082) → phase1 (18083) → phase2 (18084) → phase3 (18085) → phas
      ↑ REST-Handoff pro Phase (send_message → nächste Instanz /api/messages)
 ```
 
-- Jede Instanz trägt ihren eigenen System-Prompt (`docs/prompts/sdlc_phaseN_*.md`) per `agent.prompt.path`.
+- Jede Instanz trägt ihren eigenen System-Prompt (`.agent/prompts/sdlc_phaseN_*.md`) per `agent.prompt.path`.
 - Ein Wechsel bleibt ohne `docs/00_legacy_analysis/` (Phase 0 optional, Einstieg in Phase 1 direkt möglich).
 - Die gemeinsame SQLite-`trace.db` macht den Phasen-Wechsel im Observer als "aktive Phase" sichtbar.
 ---

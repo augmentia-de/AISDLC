@@ -6,7 +6,7 @@ description: Phase 1 — Requirements gathering for AI SDLC
 
 ## Prerequisites
 - Read `AGENTS.md` in project root first.
-- Read the orchestrator prompt: `docs/prompts/01_orchestrator_requirements.md`.
+- Read the orchestrator prompt: `.agent/prompts/01_orchestrator_requirements.md`.
 
 ## Steps
 

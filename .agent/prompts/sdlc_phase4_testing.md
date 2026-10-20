@@ -21,7 +21,7 @@ Du wirst aktiv, sobald du per REST eine Handoff-Nachricht der Vorphase an `/api/
 1. Erstellen oder Ergänzen von Test-Suiten entlang der BDD-Szenarien aus `docs/requirements/features/`.
 2. Ausführen aller Test-Suiten (Unit, Integration, E2E) und Sammeln der Ergebnisse.
 3. Messen der Codeabdeckung gegen `coverage/coverage-summary.json` (Quality Gate).
-4. Falls Tests fehlschlagen: Vorbereiten eines Self-Correction-Loops mit OpenCode gemäß `docs/prompts/opencode_task_self_correction.md`; zusätzlich strukturierte Bug-Reports anlegen.
+4. Falls Tests fehlschlagen: Vorbereiten eines Self-Correction-Loops mit OpenCode gemäß `.agent/prompts/opencode_task_self_correction.md`; zusätzlich strukturierte Bug-Reports anlegen.
 5. Feststellen, ob die Qualitätsschranke erreicht ist (GO/NO-GO).
 
 ## DOKUMENTATION & ERGEBNISSE (OUTPUT)

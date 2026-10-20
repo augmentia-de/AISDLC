@@ -4,7 +4,7 @@
 
 AI SDLC: KI-agentengestützter Softwareentwicklungszyklus. Ein Orchestrator-Agent steuert den
 Prozess und OpenCode führt die Entwicklung aus. Der Orchestrator wechselt je nach SDLC-Phase
-den Systemprompt (`docs/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw.
+den Systemprompt (`.agent/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw.
 nur lesen darf.
 
 ## Behaviour Rules
