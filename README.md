@@ -47,20 +47,24 @@ AISDLC/
 │   │   └── bugs/BUG-*.json                  # Strukturierte Bug-Reports (Pfad, Zeile, Ursache)
 ├── .agent/                          # Agent Control Layer (ASDF-Stil)
 │   ├── prompts/                     # System-Prompts für Orchestrator & OpenCode
-│   │   ├── sdlc_phase0_legacy.md    # Prompt Phase 0: Legacy-Analyse (optional)
-│   │   ├── sdlc_phase1_requirements.md  # Prompt Phase 1: Anforderungen in Stories/ACs zerlegen
-│   │   ├── sdlc_phase2_architecture.md  # Prompt Phase 2: Architektur, API-Spec, ADRs entwerfen
-│   │   ├── sdlc_phase3_implementation.md # Prompt Phase 3: Tasks an OpenCode übergeben, validieren
-│   │   ├── sdlc_phase4_testing.md   # Prompt Phase 4: Tests steuern, Coverage & Quality Gates
-│   │   ├── 00_orchestrator_analysis.md  # Legacy-Prompt-Variante (1 Orchestrator für alles)
-│   │   ├── 01_orchestrator_requirements.md  # Requirements-Prompt-Variante (1 Orchestrator)
-│   │   ├── 02_orchestrator_architecture.md  # Architektur-Prompt-Variante (1 Orchestrator)
-│   │   ├── 03_orchestrator_implementation.md# Implementierungs-Prompt-Variante (1 Orchestrator)
-│   │   ├── 04_orchestrator_testing.md   # Testing-Prompt-Variante (1 Orchestrator)
-│   │   └── opencode_task_self_correction.md # OpenCode-Task: fehlgeschlagene Tests selbst beheben
-│   ├── workflows/                   # Workflow-Definitionen pro Phase
+│   │   ├── orchestrator/            # Ein-Orchestrator-Modus (1 Agent, wechselt Phasen)
+│   │   │   ├── 00_orchestrator_analysis.md
+│   │   │   ├── 01_orchestrator_requirements.md
+│   │   │   ├── 02_orchestrator_architecture.md
+│   │   │   ├── 03_orchestrator_implementation.md
+│   │   │   └── 04_orchestrator_testing.md
+│   │   └── multi-instance/         # Multi-Instanz-Modus (jede Phase als eigene Instanz)
+│   │       ├── sdlc_phase0_legacy.md
+│   │       ├── sdlc_phase1_requirements.md
+│   │       ├── sdlc_phase2_architecture.md
+│   │       ├── sdlc_phase3_implementation.md
+│   │       └── sdlc_phase4_testing.md
+│   ├── workflows/                   # Workflow-Definitionen pro Phase (9 Dateien)
 │   ├── knowledge/                   # openapi.yaml, schema.sql, stack.md
 │   └── artifacts/                   # Ergebnisse jeder Phase
+├── .opencode/                       # OpenCode-System
+│   ├── agents/                      # 6 Primary-Agents
+│   └── skills/                      # Skills (inkl. strangler-fig, module-migration, test-self-correction)
 ├── src/                             (✍️ OpenCode Build-Modus)
 │   └── ...                                  # Produktiver Quellcode (nur vom Orchestrator gelesen)
 ├── tests/                           (✍️ OpenCode QA-Modus)
