@@ -12,9 +12,9 @@ permissions:
   - action: edit
     resource: "docs/qa/**"
     effect: allow
-  - action: shell
-    resource: "*"
-    effect: ask
+  # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
+  # Agent-Regeln werden zuletzt angehaengt und wuerden jede globale Allow-Regel
+  # ueberschreiben (last match wins).
 ---
 
 You are the Quality & Compliance Orchestrator. You ensure that newly developed parts

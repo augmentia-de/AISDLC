@@ -44,9 +44,19 @@
     { "action": "skill", "resource": "quarkus-*", "effect": "allow" },
     { "action": "skill", "resource": "dotnet-*", "effect": "allow" },
 
+    // Shell: alles fragt, ausser Lese- und Test-Kommandos.
+    // WICHTIG: Das globale rtk-Plugin rewritet Kommandos VOR der Permission-
+    // Pruefung ('git status' -> 'rtk git status'). Das Muster muss deshalb
+    // tolerant sein: '*git status*' matcht beide Formen.
+    // Reihenfolge: letzter Treffer gewinnt - spezifisch nach allgemein.
     { "action": "shell", "resource": "*", "effect": "ask" },
-    { "action": "shell", "resource": "git status *", "effect": "allow" },
-    { "action": "shell", "resource": "git diff *", "effect": "allow" },
-    { "action": "shell", "resource": "git log *", "effect": "allow" }
+    { "action": "shell", "resource": "*git status*", "effect": "allow" },
+    { "action": "shell", "resource": "*git diff*", "effect": "allow" },
+    { "action": "shell", "resource": "*git log*", "effect": "allow" },
+    { "action": "shell", "resource": "*pytest*", "effect": "allow" },
+    { "action": "shell", "resource": "*npm test*", "effect": "allow" },
+    { "action": "shell", "resource": "*npm run test*", "effect": "allow" },
+    { "action": "shell", "resource": "*mvn test*", "effect": "allow" },
+    { "action": "shell", "resource": "*gradle test*", "effect": "allow" }
   ]
 }

@@ -12,9 +12,9 @@ permissions:
   - action: edit
     resource: "docs/execution/**"
     effect: allow
-  - action: shell
-    resource: "*"
-    effect: ask
+  # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
+  # Agent-Regeln werden zuletzt angehaengt und wuerden jede globale Allow-Regel
+  # ueberschreiben (last match wins).
 ---
 
 You are a senior Java/Spring Boot engineer. You build, test and refactor backend code
