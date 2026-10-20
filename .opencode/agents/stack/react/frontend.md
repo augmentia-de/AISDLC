@@ -1,6 +1,8 @@
 ---
 description: Primary agent for React/TypeScript frontend work. Build permissions, component and state conventions, accessible and testable UI. Use for implementing, testing and refactoring frontend code.
-mode: primary
+# 'all' = primary (vom Menschen direkt waehlbar) und subagent (vom
+# Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
+mode: all
 color: "#e74c3c"
 permissions:
   - action: edit

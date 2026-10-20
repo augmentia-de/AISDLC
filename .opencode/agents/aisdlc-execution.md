@@ -1,6 +1,8 @@
 ---
 description: Primary agent for Phase 3 (Implementation & Coding). Decomposes implementation plans into atomic tasks, feeds them to OpenCode, validates lint/build and styleguide compliance, prepares commits and PRs. Writes in src, tests, docs/execution. Use during implementation.
-mode: primary
+# 'all' = primary (vom Menschen direkt waehlbar) und subagent (vom
+# Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
+mode: all
 color: "#e67e22"
 permissions:
   - action: edit

@@ -50,6 +50,9 @@
     // tolerant sein: '*git status*' matcht beide Formen.
     // Reihenfolge: letzter Treffer gewinnt - spezifisch nach allgemein.
     { "action": "shell", "resource": "*", "effect": "ask" },
+    // Git-Muster sind tolerant gegen Varianten wie 'git -C <pfad> log'.
+    // Das rtk-Plugin rewritet Kommandos vor der Pruefung ('git log' ->
+    // 'rtk git log'), das fuehrende '*' deckt das mit ab.
     { "action": "shell", "resource": "*git status*", "effect": "allow" },
     { "action": "shell", "resource": "*git diff*", "effect": "allow" },
     { "action": "shell", "resource": "*git log*", "effect": "allow" },

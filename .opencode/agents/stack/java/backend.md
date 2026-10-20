@@ -1,6 +1,8 @@
 ---
 description: Primary agent for Java/Spring Boot backend work. Build permissions, Java/Spring conventions, TDD-first. Use for implementing, testing and refactoring backend code.
-mode: primary
+# 'all' = primary (vom Menschen direkt waehlbar) und subagent (vom
+# Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
+mode: all
 color: "#f39c12"
 permissions:
   - action: edit

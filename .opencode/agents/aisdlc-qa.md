@@ -1,6 +1,8 @@
 ---
 description: Primary agent for Phase 4 (Testing & Quality Assurance). Ensures new code meets acceptance criteria, reaches coverage thresholds and has no regressions or security issues. Writes in tests and docs/qa. Use in the test phase.
-mode: primary
+# 'all' = primary (vom Menschen direkt waehlbar) und subagent (vom
+# Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
+mode: all
 color: "#2ecc71"
 permissions:
   - action: edit

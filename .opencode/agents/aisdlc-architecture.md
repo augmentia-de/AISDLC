@@ -1,6 +1,8 @@
 ---
 description: Primary agent for Phase 2 (Architecture & System Design). Designs technical architecture, specifies APIs, creates C4 diagrams and ADRs on top of the PRD. Writes in docs/architecture, docs/api, docs/adr. Use after requirements are complete.
-mode: primary
+# 'all' = primary (vom Menschen direkt waehlbar) und subagent (vom
+# Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
+mode: all
 color: "#7b68ee"
 permissions:
   - action: edit

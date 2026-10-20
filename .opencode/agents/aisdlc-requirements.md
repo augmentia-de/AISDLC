@@ -1,6 +1,8 @@
 ---
 description: Primary agent for Phase 1 (Requirements & Analysis). Translates vague requirements into PRD, User Stories, BDD scenarios, acceptance criteria and traceability matrix. Writes only in docs/requirements. Use at the start of a feature or on REQUIREMENT_GAP.
-mode: primary
+# 'all' = primary (vom Menschen direkt waehlbar) und subagent (vom
+# Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
+mode: all
 color: "#4a90d9"
 permissions:
   - action: edit
