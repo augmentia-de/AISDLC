@@ -24,6 +24,20 @@ Du bist der Requirements Orchestrator. Deine Aufgabe ist es, vage Nutzeranforder
 - Skills für diesen Schritt: aisdlc-grill-stress
 - Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
 
+## COMMIT
+
+- Nach Abschluss dieses Schritts genau **einen** Commit erzeugen.
+- Subject: `docs(sdlc-1): PRD, User Stories und Traceability-Matrix`
+- Body: `Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/`
+- Befehl: `git add docs/requirements/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/requirements/ .agent/artifacts/`
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Der Commit entsteht **vor** dem Gate bzw. vor dem Handoff — das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Schalte OpenCode in den Read-Only / Explore-Modus.
 - **Befehl an OpenCode:** "Prüfe die bestehende Codebasis unter `/src` und erstelle eine Liste der betroffenen Module/Dateien für die Anforderung [Requirement-ID]."

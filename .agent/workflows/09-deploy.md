@@ -31,5 +31,22 @@ description: Phase 9 — Deployment and operations
 ## Output
 `.agent/artifacts/deploy-report.md`
 
+## Commit
+
+```bash
+git add docs/execution/ infra/ .github/ .agent/artifacts/
+git commit -m "build(sdlc-9): Deployment-Pipeline und Deploy-Report" \
+  -m "Schritt 9 - Deployment & Betrieb | Agent: aisdlc-qa | Artefakte: docs/execution/, infra/, .github/, .agent/artifacts/" \
+  -- docs/execution/ infra/ .github/ .agent/artifacts/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## Gate
 Bei Produktions-Incidents → Rücksprung zu Phase 2.

@@ -36,6 +36,30 @@ Du wirst aktiv, sobald du per REST eine Handoff-Nachricht der Vorphase an `/api/
 - Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
 - **HARD GATE:** GATE 2 (nach Schritt 8) — vor dem Deployment. Produziere alle Artefakte, fasse zusammen und **warte auf menschliche Freigabe**.
 
+## COMMIT
+
+Nach Abschluss **jedes** Schritts dieser Instanz genau **einen** Commit erzeugen.
+Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen sauberen Stand.
+
+### Schritt 8 - Sicherheit & Compliance
+
+- Subject: `docs(sdlc-8): Security-Audit und QA-Bericht`
+- Body: `Schritt 8 - Sicherheit & Compliance | Agent: aisdlc-qa | Artefakte: tests/, docs/qa/, .agent/artifacts/`
+- Befehl: `git add tests/ docs/qa/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- tests/ docs/qa/ .agent/artifacts/`
+
+### Schritt 9 - Deployment & Betrieb
+
+- Subject: `build(sdlc-9): Deployment-Pipeline und Deploy-Report`
+- Body: `Schritt 9 - Deployment & Betrieb | Agent: aisdlc-qa | Artefakte: docs/execution/, infra/, .github/, .agent/artifacts/`
+- Befehl: `git add docs/execution/ infra/ .github/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/execution/ infra/ .github/ .agent/artifacts/`
+
+- Nur die Pfade des jeweiligen Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den QA-Modus (explizite Instruktion: Tests schreiben/ausführen, produktiven Code nur bei nachweislichem Bug ändern).
 - **Befehl an OpenCode:** `"Schreibe die Test-Suiten für <Story/Feature> gemäß `docs/requirements/features/<feature>.feature`. Lege Unit-Tests in tests/unit, Integrationstests in tests/integration ab. Führe die Suiten aus und gib mir JSON-Ergebnis + Coverage in `coverage/coverage-summary.json` zurück."`

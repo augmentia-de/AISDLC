@@ -35,5 +35,22 @@ All artifacts written to `.agent/artifacts/` and `docs/requirements/`.
 - `docs/requirements/stories/*.json` — User Stories als Tasks
 - `docs/requirements/traceability_matrix.json` — Requirement → Test → Code
 
+## Commit
+
+```bash
+git add docs/requirements/ .agent/artifacts/
+git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
+  -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
+  -- docs/requirements/ .agent/artifacts/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## Gate
 Await human review of all artifacts before proceeding to Phase 2.

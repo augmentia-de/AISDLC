@@ -33,6 +33,24 @@ Du wirst aktiv, sobald du per REST eine Nachricht an `/api/messages` erhältst. 
 - Skills für diesen Schritt: aisdlc-grill-stress
 - Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
 
+## COMMIT
+
+Nach Abschluss **jedes** Schritts dieser Instanz genau **einen** Commit erzeugen.
+Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen sauberen Stand.
+
+### Schritt 1 - Anforderungserhebung
+
+- Subject: `docs(sdlc-1): PRD, User Stories und Traceability-Matrix`
+- Body: `Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/`
+- Befehl: `git add docs/requirements/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/requirements/ .agent/artifacts/`
+
+- Nur die Pfade des jeweiligen Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den Read-Only / Explore-Kontext (explizite Instruktion im Prompt: nur lesen, keine Datei-Änderungen in `src/`).
 - **Befehl an OpenCode:** "Prüfe die bestehende Codebasis unter `src` und erstelle eine Liste der betroffenen Module/Dateien für die Anforderung [Requirement-ID]."

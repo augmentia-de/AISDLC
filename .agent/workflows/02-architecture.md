@@ -32,6 +32,23 @@ description: Phase 2 — Architecture design for AI SDLC
 - Artifacts to `.agent/artifacts/` (architecture.md, folder-structure.md).
 - Docs to `docs/architecture/`, `docs/api/`, `docs/adr/`.
 
+## Commit
+
+```bash
+git add docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/
+git commit -m "docs(sdlc-2): API-Contract, Domain-Modell und ADRs" \
+  -m "Schritt 2 - Konzept & Architektur | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/" \
+  -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## HARD GATE
 **Stop here. Await human approval before any code is written.**
 

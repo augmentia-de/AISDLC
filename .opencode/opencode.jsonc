@@ -53,6 +53,12 @@
     { "action": "shell", "resource": "*git status*", "effect": "allow" },
     { "action": "shell", "resource": "*git diff*", "effect": "allow" },
     { "action": "shell", "resource": "*git log*", "effect": "allow" },
+    // Commits: die Pipeline committet nach jedem SDLC-Schritt. Das Pfad-Scope
+    // erzwingt der Workflow (git commit -- <pfade>), nicht die Permission.
+    { "action": "shell", "resource": "*git add*", "effect": "allow" },
+    { "action": "shell", "resource": "*git commit*", "effect": "allow" },
+    // Die Pipeline pusht nie - Push bleibt eine bewusste menschliche Entscheidung.
+    { "action": "shell", "resource": "*git push*", "effect": "ask" },
     { "action": "shell", "resource": "*pytest*", "effect": "allow" },
     { "action": "shell", "resource": "*npm test*", "effect": "allow" },
     { "action": "shell", "resource": "*npm run test*", "effect": "allow" },

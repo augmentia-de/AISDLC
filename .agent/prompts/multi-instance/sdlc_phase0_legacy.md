@@ -29,6 +29,24 @@ Schreibe die Ergebnisse ausschließlich in folgende Zielpfade (flache Struktur):
 - **Schnittstellen-Dokumentation:** `docs/00_legacy_analysis/API_CONTRACTS_OLD.md`
 - **Analyse-Report:** `docs/00_legacy_analysis/LEGACY_TECH_DEBT.md`
 
+## COMMIT
+
+Nach Abschluss **jedes** Schritts dieser Instanz genau **einen** Commit erzeugen.
+Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen sauberen Stand.
+
+### Schritt 0 - Legacy-Analyse
+
+- Subject: `docs(sdlc-0): Legacy-Analyse`
+- Body: `Schritt 0 - Legacy-Analyse | Agent: phase0 | Artefakte: docs/00_legacy_analysis/, .agent/artifacts/`
+- Befehl: `git add docs/00_legacy_analysis/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/00_legacy_analysis/ .agent/artifacts/`
+
+- Nur die Pfade des jeweiligen Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den Read-Only / Explore-Kontext (explizite Instruktion im Prompt: nur lesen, keine Datei-Änderungen im `/legacy/`).
 - **Befehl an OpenCode:** Veranlasse OpenCode zur Ausführung des Tasks `opencode_task_legacy_discovery.md` (falls vorhanden) oder formuliere eine gleichwertige Analyse-Aufgabe.

@@ -26,6 +26,20 @@ Du bist der Tech Lead & Execution Orchestrator. Deine Aufgabe ist es, den geplan
 - Skills für diesen Schritt: aisdlc-tdd, aisdlc-simplify
 - Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
 
+## COMMIT
+
+- Nach Abschluss dieses Schritts genau **einen** Commit erzeugen.
+- Subject: `refactor(sdlc-3): Architektur vereinfacht`
+- Body: `Schritt 3 - Simplify & Reduktion | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/`
+- Befehl: `git add docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/`
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Der Commit entsteht **vor** dem Gate bzw. vor dem Handoff — das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Schalte OpenCode in den Build-Modus (Schreibrechte & Terminal-Zugriff freigeschaltet).
 - **Befehl an OpenCode (Feedback-Schleife):** 

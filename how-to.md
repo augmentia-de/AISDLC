@@ -123,6 +123,34 @@ Pipeline, Rollout-Strategie, Pre-Flight, Smoke-Tests, Promotion, Rollback, SLOs,
 
 ---
 
+## Commit pro Schritt
+
+**Jeder Schritt erzeugt genau einen Commit.** Ein Schritt ist erst abgeschlossen, wenn sein
+Commit existiert. Der Commit entsteht **vor** dem Gate — das Gate prüft den fertigen Commit.
+
+```bash
+git add docs/requirements/ .agent/artifacts/
+git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
+  -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
+  -- docs/requirements/ .agent/artifacts/
+```
+
+| Regel | Bedeutung |
+|---|---|
+| Subject | `<type>(sdlc-<n>): <Kurzbeschreibung>` |
+| Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
+| Scope | nur die Pfade des Schritts — technisch erzwungen durch `-- <pfade>` |
+| Reihenfolge | Commit vor dem Gate bzw. vor dem Handoff |
+| Leer | nichts geändert → kein Commit, keine Leer-Commits |
+| Push | die Pipeline pusht nie — `git push` bleibt menschliche Entscheidung |
+
+Das Pfad-Scope ist kein blosses Dokumentations-Versprechen: `git commit -- <pfade>` committet
+selbst dann nur die genannten Pfade, wenn zuvor `git add -A` alles gestaged hat.
+
+Subject und Pfade pro Schritt: `.agent/PHASES.md` → "Commit pro Schritt".
+
+---
+
 ## Regeln für den Agenten-Wechsel
 
 ### 1. Schritt-Reihenfolge einhalten

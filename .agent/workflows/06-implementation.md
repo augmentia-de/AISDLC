@@ -51,5 +51,22 @@ Working application code in `src/`, `tests/`, `infra/`.
 Inline documentation (JSDoc/Docstrings).
 Commits (Conventional Commits) and PR descriptions.
 
+## Commit
+
+```bash
+git add src/ tests/ docs/execution/
+git commit -m "feat(sdlc-6): Implementierung der Stories" \
+  -m "Schritt 6 - KI-Code-Generation | Agent: aisdlc-execution | Artefakte: src/, tests/, docs/execution/" \
+  -- src/ tests/ docs/execution/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## Gate
 Bei fehlenden Tests → Rücksprung zu Phase 5.

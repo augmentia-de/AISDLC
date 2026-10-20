@@ -17,7 +17,7 @@ Diese Datei ist die Single Source of Truth; bei Widerspruch gilt sie.
 3. Write all output artifacts to the designated directories (see Folder Ownership).
 4. Never modify files outside your assigned folder (see Folder Ownership).
 5. Never delete files without explicit human approval.
-6. Write atomic commits: one commit per logical change, not per file.
+6. Write atomic commits: **exactly one commit per SDLC step** (see Commit Convention) — never one commit per file, never several commits for one step.
 7. Flag any security risk with `[SECURITY]` prefix in your response.
 8. Quote the top 3 rules from this file before taking any action.
 9. Always re-read this file after context compaction or session reset.
@@ -32,6 +32,32 @@ Diese Datei ist die Single Source of Truth; bei Widerspruch gilt sie.
   The agent must present QA and Security findings and wait for human approval.
 
 Without approval, the pipeline does not advance. No exceptions.
+
+## Commit Convention
+
+**After every SDLC step exactly one commit.** A step is not finished until its commit
+exists. The commit is the checkpoint the human reviews at the gate.
+
+| Field | Rule |
+|---|---|
+| Subject | `<type>(sdlc-<n>): <Kurzbeschreibung>` |
+| Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
+| Scope | only the paths of this step — enforced by the `-- <pfade>` pathspec |
+| Order | commit **before** the gate — the gate reviews the finished commit |
+| Empty | if nothing changed, no commit — no empty commits |
+| Push | the pipeline never pushes — `git push` is not part of the pipeline |
+
+```bash
+git add docs/requirements/ .agent/artifacts/
+git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
+  -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
+  -- docs/requirements/ .agent/artifacts/
+```
+
+Types: `docs` Requirements/Architecture/Security · `refactor` Simplify/Refactoring ·
+`test` TDD · `feat` Implementation · `build` Deploy.
+
+Subject, paths and command per step: `.agent/PHASES.md` -> "Commit pro Schritt".
 
 ## Phase Skills
 

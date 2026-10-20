@@ -30,6 +30,23 @@ description: Phase 8 — Security and compliance scan
 ## Output
 `.agent/artifacts/security-audit.md` with findings rated: Critical / High / Medium / Low.
 
+## Commit
+
+```bash
+git add tests/ docs/qa/ .agent/artifacts/
+git commit -m "docs(sdlc-8): Security-Audit und QA-Bericht" \
+  -m "Schritt 8 - Sicherheit & Compliance | Agent: aisdlc-qa | Artefakte: tests/, docs/qa/, .agent/artifacts/" \
+  -- tests/ docs/qa/ .agent/artifacts/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## HARD GATE
 **After Security is complete, stop and await human approval before Deploy Agent runs.**
 

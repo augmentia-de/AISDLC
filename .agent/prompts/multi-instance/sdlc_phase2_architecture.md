@@ -36,6 +36,36 @@ Du wirst aktiv, sobald du per REST eine Handoff-Nachricht der Vorphase an `/api/
 - Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
 - **HARD GATE:** GATE 1 (nach Schritt 2) — vor jedem Anwendungscode. Produziere alle Artefakte, fasse zusammen und **warte auf menschliche Freigabe**.
 
+## COMMIT
+
+Nach Abschluss **jedes** Schritts dieser Instanz genau **einen** Commit erzeugen.
+Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen sauberen Stand.
+
+### Schritt 2 - Konzept & Architektur
+
+- Subject: `docs(sdlc-2): API-Contract, Domain-Modell und ADRs`
+- Body: `Schritt 2 - Konzept & Architektur | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/`
+- Befehl: `git add docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/`
+
+### Schritt 3 - Simplify & Reduktion
+
+- Subject: `refactor(sdlc-3): Architektur vereinfacht`
+- Body: `Schritt 3 - Simplify & Reduktion | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/`
+- Befehl: `git add docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/`
+
+### Schritt 4 - Grill-Me-Stresstest
+
+- Subject: `docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen`
+- Body: `Schritt 4 - Grill-Me-Stresstest | Agent: aisdlc-architecture | Artefakte: docs/architecture/, .agent/artifacts/`
+- Befehl: `git add docs/architecture/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/architecture/ .agent/artifacts/`
+
+- Nur die Pfade des jeweiligen Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den Plan-Kontext (explizite Instruktion: analysieren & planen, keine produktiven Dateien in `src/` ändern).
 - **Befehl an OpenCode:** "Lies `docs/api/openapi.yaml` und erstelle einen Schritt-für-Schritt-Plan für die Implementierung der neuen API-Stubs, DTOs und Typen in `src/types` und `src/controllers`."

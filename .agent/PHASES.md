@@ -46,6 +46,37 @@ Kontextkosten bleiben bei 0, bis der Schritt wirklich gebraucht wird.
 Gates stehen in `AGENTS.md` und werden von den Workflow-Dateien referenziert. Die
 Multi-Instanz-Prompts enthalten dieselben Gates an denselben Schrittgrenzen.
 
+## Commit pro Schritt
+
+Jeder Schritt erzeugt **genau einen** Commit. Der Commit entsteht **vor** dem Gate —
+das Gate prueft den fertigen Commit. Ohne Commit ist der Schritt nicht abgeschlossen.
+
+| Schritt | Agent | Type | Subject | Pfade |
+|---|---|---|---|---|
+| 0 Legacy-Analyse | `phase0` | docs | `docs(sdlc-0): Legacy-Analyse` | `docs/00_legacy_analysis/`, `.agent/artifacts/` |
+| 1 Anforderungserhebung | `aisdlc-requirements` | docs | `docs(sdlc-1): PRD, User Stories und Traceability-Matrix` | `docs/requirements/`, `.agent/artifacts/` |
+| 2 Konzept & Architektur | `aisdlc-architecture` | docs | `docs(sdlc-2): API-Contract, Domain-Modell und ADRs` | `docs/architecture/`, `docs/api/`, `docs/adr/`, `.agent/artifacts/` |
+| 3 Simplify & Reduktion | `aisdlc-architecture` | refactor | `refactor(sdlc-3): Architektur vereinfacht` | `docs/architecture/`, `docs/api/`, `docs/adr/`, `.agent/artifacts/` |
+| 4 Grill-Me-Stresstest | `aisdlc-architecture` | docs | `docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen` | `docs/architecture/`, `.agent/artifacts/` |
+| 5 Test-Driven Setup | `aisdlc-execution` | test | `test(sdlc-5): Teststrategie und fehlschlagende Tests` | `tests/`, `.agent/artifacts/` |
+| 6 KI-Code-Generation | `aisdlc-execution` | feat | `feat(sdlc-6): Implementierung der Stories` | `src/`, `tests/`, `docs/execution/` |
+| 7 Refactoring & Clean-up | `aisdlc-execution` | refactor | `refactor(sdlc-7): Refactoring und Clean-up` | `src/`, `tests/`, `.agent/artifacts/` |
+| 8 Sicherheit & Compliance | `aisdlc-qa` | docs | `docs(sdlc-8): Security-Audit und QA-Bericht` | `tests/`, `docs/qa/`, `.agent/artifacts/` |
+| 9 Deployment & Betrieb | `aisdlc-qa` | build | `build(sdlc-9): Deployment-Pipeline und Deploy-Report` | `docs/execution/`, `infra/`, `.github/`, `.agent/artifacts/` |
+
+**Body-Format:** `Schritt <n> - <Schrittname> | Agent: <agent-id> | Artefakte: <pfade>`
+
+**Befehl:**
+
+```bash
+git commit -m "<Subject>" -m "<Body>" -- <pfade>
+```
+
+Regeln:
+- Genau ein Commit pro Schritt. Wenn sich nichts geaendert hat, kein Commit erzeugen.
+- Nur die Pfade des Schritts committen — fremde Aenderungen werden nie mitgestaged.
+- Kein `git push` — die Pipeline pusht nicht.
+
 ## Betriebsmodi
 
 | Modus | Prompt-Familie | Nutzung | Session-Steuerung |

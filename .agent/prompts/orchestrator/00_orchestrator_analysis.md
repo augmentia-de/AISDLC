@@ -20,6 +20,20 @@ Schreibe die Ergebnisse ausschließlich in folgende Zielpfade:
 - **Schnittstellen-Dokumentation:** `/docs/00_legacy_analysis/API_CONTRACTS_OLD.md`
 - **Analyse-Report:** `/docs/00_legacy_analysis/LEGACY_TECH_DEBT.md`
 
+## COMMIT
+
+- Nach Abschluss dieses Schritts genau **einen** Commit erzeugen.
+- Subject: `docs(sdlc-0): Legacy-Analyse`
+- Body: `Schritt 0 - Legacy-Analyse | Agent: phase0 | Artefakte: docs/00_legacy_analysis/, .agent/artifacts/`
+- Befehl: `git add docs/00_legacy_analysis/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- docs/00_legacy_analysis/ .agent/artifacts/`
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Der Commit entsteht **vor** dem Gate bzw. vor dem Handoff — das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Schalte OpenCode exklusiv in den Read-Only / Explore-Modus (Dateiapplikation in `/legacy/` gesperrt).
 - **Befehl an OpenCode:** Veranlasse OpenCode zur Ausführung des Prompts `opencode_task_legacy_discovery.md`.

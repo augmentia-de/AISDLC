@@ -27,5 +27,22 @@ description: Phase 7 — Code refactoring and clean-up (second simplify pass)
 ## Output
 Refactored code in `src/`, `tests/`.
 
+## Commit
+
+```bash
+git add src/ tests/ .agent/artifacts/
+git commit -m "refactor(sdlc-7): Refactoring und Clean-up" \
+  -m "Schritt 7 - Refactoring & Clean-up | Agent: aisdlc-execution | Artefakte: src/, tests/, .agent/artifacts/" \
+  -- src/ tests/ .agent/artifacts/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## Gate
 Bei unsauberem Code → Rücksprung zu Phase 6.

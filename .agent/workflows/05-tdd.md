@@ -29,5 +29,22 @@ description: Phase 5 — Test-Driven Setup (TDD)
 ## Output
 `.agent/artifacts/` (Test-Strategie, Testfälle)
 
+## Commit
+
+```bash
+git add tests/ .agent/artifacts/
+git commit -m "test(sdlc-5): Teststrategie und fehlschlagende Tests" \
+  -m "Schritt 5 - Test-Driven Setup | Agent: aisdlc-execution | Artefakte: tests/, .agent/artifacts/" \
+  -- tests/ .agent/artifacts/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## Gate
 Bei unklarem Interface → Rücksprung zu Phase 3 (Simplify).

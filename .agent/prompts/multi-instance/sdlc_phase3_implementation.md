@@ -32,6 +32,36 @@ Du wirst aktiv, sobald du per REST eine Handoff-Nachricht der Vorphase an `/api/
 - Skills für diesen Schritt: aisdlc-tdd, aisdlc-simplify
 - Phasen-Zuordnung (Schritt → Instanz → Agent → Skill → Gate): `.agent/PHASES.md`
 
+## COMMIT
+
+Nach Abschluss **jedes** Schritts dieser Instanz genau **einen** Commit erzeugen.
+Der Commit entsteht vor dem Handoff — die nächste Instanz bekommt einen sauberen Stand.
+
+### Schritt 5 - Test-Driven Setup
+
+- Subject: `test(sdlc-5): Teststrategie und fehlschlagende Tests`
+- Body: `Schritt 5 - Test-Driven Setup | Agent: aisdlc-execution | Artefakte: tests/, .agent/artifacts/`
+- Befehl: `git add tests/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- tests/ .agent/artifacts/`
+
+### Schritt 6 - KI-Code-Generation
+
+- Subject: `feat(sdlc-6): Implementierung der Stories`
+- Body: `Schritt 6 - KI-Code-Generation | Agent: aisdlc-execution | Artefakte: src/, tests/, docs/execution/`
+- Befehl: `git add src/ tests/ docs/execution/ && git commit -m "<Subject>" -m "<Body>" -- src/ tests/ docs/execution/`
+
+### Schritt 7 - Refactoring & Clean-up
+
+- Subject: `refactor(sdlc-7): Refactoring und Clean-up`
+- Body: `Schritt 7 - Refactoring & Clean-up | Agent: aisdlc-execution | Artefakte: src/, tests/, .agent/artifacts/`
+- Befehl: `git add src/ tests/ .agent/artifacts/ && git commit -m "<Subject>" -m "<Body>" -- src/ tests/ .agent/artifacts/`
+
+- Nur die Pfade des jeweiligen Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Wenn sich nichts geändert hat, keinen Commit erzeugen.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## STEUERUNG VON OPENCODE
 - **Modus:** Versetze OpenCode in den Build-Kontext (explizite Instruktion: produktiven Code unter `src/` schreiben, Tests nach Schema aus `tests/` ablegen).
 - **Befehl an OpenCode:** `"Implementiere Task <ID> gemäß <docs/api/openapi.yaml> und der Story <FEATURE>.ff._ Nur Dateien unter src/ ändern. Zeige mir am Ende: geänderte Dateien, Build-Exit-Code, Lint-Ergebnis."`

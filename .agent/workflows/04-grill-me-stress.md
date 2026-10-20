@@ -27,5 +27,22 @@ description: Phase 4 — Grill-Me stress test for architecture validation
 ## Output
 `.agent/artifacts/` (Stresstest-Bericht, gefundenen Fehler, offene Fragen)
 
+## Commit
+
+```bash
+git add docs/architecture/ .agent/artifacts/
+git commit -m "docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen" \
+  -m "Schritt 4 - Grill-Me-Stresstest | Agent: aisdlc-architecture | Artefakte: docs/architecture/, .agent/artifacts/" \
+  -- docs/architecture/ .agent/artifacts/
+```
+
+- Genau **ein** Commit pro Schritt. Wenn sich nichts geändert hat, kein Commit erzeugen.
+- Nur die Pfade dieses Schritts committen — fremde Änderungen niemals stagen.
+- Das `-- <pfade>`-Scope ist technisch erzwungen: selbst bei `git add -A` committet
+  nur der angegebene Pfad.
+- Der Commit entsteht **vor** dem Gate: das Gate prüft den fertigen Commit.
+- Kein `git push` — die Pipeline pusht nicht.
+- Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
+
 ## Gate
 Await human review. Bei Architekturfehlern → Rücksprung zu Phase 2.
