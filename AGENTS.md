@@ -1,0 +1,93 @@
+# AGENTS.md — AI SDLC Orchestrator Framework
+
+## Project Overview
+
+AI SDLC: KI-agentengestützter Softwareentwicklungszyklus. Ein Orchestrator-Agent steuert den
+Prozess und OpenCode führt die Entwicklung aus. Der Orchestrator wechselt je nach SDLC-Phase
+den Systemprompt (`docs/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw.
+nur lesen darf.
+
+## Behaviour Rules
+
+1. Always read this file before starting any task.
+2. Read the orchestrator prompt for the current phase before starting.
+3. Write all output artifacts to the designated directories (see Folder Ownership).
+4. Never modify files outside your assigned folder (see Folder Ownership).
+5. Never delete files without explicit human approval.
+6. Write atomic commits: one commit per logical change, not per file.
+7. Flag any security risk with `[SECURITY]` prefix in your response.
+8. Quote the top 3 rules from this file before taking any action.
+9. Always re-read this file after context compaction or session reset.
+
+## HARD GATES — Agent Must Stop and Await Human Approval
+
+- **After Phase 2** (Architecture complete) — before any application code is written.
+  The agent must produce all artifacts, present a summary, and wait for human approval.
+- **After Phase 8** (Security Audit complete) — before Deploy Agent runs.
+  The agent must present QA and Security findings and wait for human approval.
+
+Without approval, the pipeline does not advance. No exceptions.
+
+## Folder Ownership
+
+| Folder | Owner (exclusive write) | Lesende Agenten (Read-Only) |
+|---|---|---|
+| `docs/requirements/` | Requirements Orchestrator | Architecture, Execution, QA, OpenCode |
+| `docs/architecture/`, `docs/api/`, `docs/adr/` | Architecture Orchestrator | Execution, QA, OpenCode |
+| `src/` | OpenCode (Build-Phase) | Requirements, Architecture, QA |
+| `tests/` | OpenCode (Test-Phase) | QA, Execution |
+| `docs/execution/` | Execution Orchestrator | QA, OpenCode, menschl. Reviewer |
+| `docs/qa/` | QA Orchestrator | Execution, OpenCode (Self-Correction) |
+| `coverage/` | CI/Test-Runner | QA, Execution |
+| `how-to/` | Menschlicher Reviewer | Alle (Read-Only) |
+| `.opencode/` | OpenCode-System | Alle (Read-Only) |
+
+## Escalation
+
+- `REQUIREMENT_GAP`: Anforderung unvollständig → Rücksprung zu Phase 1
+- `ARCHITECTURAL_BLOCKER`: Design undurchführbar → Rücksprung zu Phase 2, Git-Reset der betroffenen `src/`-Dateien
+
+## Secrets
+
+- All environment variables in `.env` (never hardcoded).
+- `.env` is in `.gitignore`.
+- Secret-Scan in CI/CD (z. B. `gitleaks` oder `trufflehog`).
+- No API keys, tokens, or passwords in source code, config files, or logs.
+- No hardcoded credentials in Dockerfiles or CI/CD pipelines.
+
+## Code Style
+
+- TypeScript: strict mode always on.
+- Python: type hints on all functions, Black formatter, Python 3.11+.
+- All APIs must follow the `openapi.yaml` contract in `docs/api/`.
+- All environment variables stored in `.env`, never hardcoded.
+
+## Output
+
+- Always write a summary artifact at the end of every task.
+- All artifacts go to the designated directories per Folder Ownership.
+- All artifacts are written as files, not just in the conversation.
+
+## Tech Stack (Sovereign Stack)
+
+- **Backend**: FastAPI (Python 3.11+) oder Spring Boot (Java 21+)
+- **Frontend**: Next.js 15 (TypeScript, App Router) oder React 19
+- **Database**: PostgreSQL 16 (local: raw via docker-compose, prod: Supabase)
+- **Auth**: Custom JWT (scoped by `organisation_id`) — no Supabase required locally
+- **Deployment**: Cloud Run (Docker) oder Docker Compose
+- **LLM**: Gemini 2.0 Flash oder OpenAI (konfigurierbar)
+- **GDPR**: EU-hosted, 90-day retention, right to erasure
+
+## Rechte-Matrix (eigener Schreiber, andere lesen nur)
+
+| Verzeichnis | Schreibender Agent (exklusiv) | Lesende Agenten (Read-Only) |
+|---|---|---|
+| `docs/requirements/` | Requirements Orchestrator | Architecture, Execution, QA, OpenCode |
+| `docs/architecture/`, `docs/api/`, `docs/adr/` | Architecture Orchestrator | Execution, QA, OpenCode |
+| `src/` | OpenCode (Build-Phase) | Requirements, Architecture, QA |
+| `tests/` | OpenCode (Test-Phase) | QA, Execution |
+| `docs/execution/` | Execution Orchestrator | QA, OpenCode, menschl. Reviewer |
+| `docs/qa/` | QA Orchestrator | Execution, OpenCode (Self-Correction) |
+| `coverage/` | CI/Test-Runner | QA, Execution |
+| `how-to/` | Menschlicher Reviewer | Alle (Read-Only) |
+| `.opencode/` | OpenCode-System | Alle (Read-Only) |

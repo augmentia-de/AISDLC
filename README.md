@@ -102,3 +102,55 @@ phase0 (18082) → phase1 (18083) → phase2 (18084) → phase3 (18085) → phas
 - Jede Instanz trägt ihren eigenen System-Prompt (`docs/prompts/sdlc_phaseN_*.md`) per `agent.prompt.path`.
 - Ein Wechsel bleibt ohne `docs/00_legacy_analysis/` (Phase 0 optional, Einstieg in Phase 1 direkt möglich).
 - Die gemeinsame SQLite-`trace.db` macht den Phasen-Wechsel im Observer als "aktive Phase" sichtbar.
+---
+
+## Upgrade: ASDF-Stil (Immune System, Hard Gates, Knowledge Base)
+
+Dieses Projekt wurde um Konzepte aus dem [Agentic Software Delivery Framework](https://github.com/kasampra/Agentic-Software-Delivery-Framework) erweitert:
+
+### Neue Dateien und Verzeichnisse
+
+| Datei/Verzeichnis | Beschreibung |
+|---|---|
+| `AGENTS.md` | Immune System — Behaviour Rules, Hard Gates, Folder Ownership, Secrets. Jeder Agent liest diese Datei zuerst. |
+| `.agent/knowledge/` | Zentrale Knowledge Base: `openapi.yaml`, `schema.sql`, `stack.md` |
+| `.agent/artifacts/` | Zentraler Artefaktspeicher für alle Phasen-Ergebnisse |
+| `.agent/workflows/` | 9 Workflow-Dateien (01-requirements bis 09-deploy) mit Gates und Output-Definitionen |
+
+### Hard Gates
+
+- **GATE 1** (nach Phase 2): Human Approval vor Code-Generierung
+- **GATE 2** (nach Phase 8): Human Approval vor Deployment
+
+### Parallele Build-Phasen (Phase 6)
+
+Backend, Frontend und Infra werden gleichzeitig gebaut (3 parallele Streams), synchronisiert über den `openapi.yaml`-Contract aus Phase 2.
+
+### Referenz-App: TaskFlow
+
+Das Projekt dient als Vorlage für eine Task-App mit folgenden Komponenten:
+- Backend: FastAPI oder Spring Boot (JWT-Auth, CRUD, Status-Workflow)
+- Frontend: Next.js oder React (Task-Liste, Filter, Sortierung)
+- Infra: Docker Compose, GitHub Actions CI/CD
+- Tests: Unit, Integration, E2E, Coverage ≥ 80%
+- Security: OWASP Top 10 Audit
+
+### Nutzung der neuen Struktur
+
+1. `AGENTS.md` lesen — enthält alle Regeln und Gates.
+2. `.agent/knowledge/` — Tech-Stack-Entscheidungen und API-Spec.
+3. `.agent/workflows/` — Workflow-Anweisungen pro Phase.
+4. `.agent/artifacts/` — Ergebnisse jeder Phase landen hier.
+
+### OpenCode-Agents
+
+Sechs Primary-Agents sind in `.opencode/agents/` definiert:
+- `aisdlc-requirements` — Phase 1 (Anforderungen)
+- `aisdlc-architecture` — Phase 2 (Architektur)
+- `aisdlc-execution` — Phase 3 (Implementierung)
+- `aisdlc-qa` — Phase 4 (Testing/QA)
+- `java-backend` — Stack-Agent (Java/Spring Boot)
+- `react-frontend` — Stack-Agent (React/TypeScript)
+
+Jeder Agent hat folder-scoped Schreibrechte und einen eigenen System-Prompt.
+Siehe `how-to/how-to.md` für Details.
