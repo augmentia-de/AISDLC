@@ -1,185 +1,187 @@
-# Anforderung: EchoBox — Ereignis-Briefkasten mit Zustellgarantie
+# Anforderung: Ereignis-Briefkasten mit Zustellgarantie
 
-> **Status:** Eingang für den AI-SDLC-Lauf. Das ist die **Ausgangsbeschreibung**, nicht
-> das fertige PRD — Phase 1 erzeugt daraus PRD, User Stories, Features und die
-> Traceability-Matrix.
->
-> **Warum dieser Dienst:** Er ist bewusst klein genug, um die Pipeline in **einem**
-> Durchlauf zu Ende zu bringen (PromptGuard brauchte drei Rücksprünge und 97
-> Anforderungen), aber technisch anstrengend genug, um die interessanten Stellen des
-> Ablaufs zu treffen — Asynchronität, Zustandsautomat, Kryptografie, Mandantentrennung,
-> ein externes System und ein echtes Frontend.
+**Von:** Plattform-Team Interne Systeme
+**An:** Team AI-SDLC
+**Datum:** 2026-10-21
+**Fachlicher Ansprechpartner:** Lena Hofmann (Platform Engineering)
 
-## 1. Worum es geht
+---
 
-Unsere interne Plattform produziert Ereignisse (Bestellung geändert, Freigabe erteilt,
-Scan abgeschlossen). Die abonnierenden Systeme — Warenwirtschaft, Rechnungswesen, ein
-externes Partnerportal — wollen diese Ereignisse **zuverlässig** bekommen, ohne dass
-jedes Abonnenten-Team sich selbst eine Zustelllogik bauen muss.
+## 1. Ausgangslage
 
-EchoBox nimmt Ereignisse entgegen und stellt sie an registrierte Empfänger-URLs weiter.
-Der Kern ist die **Zustellgarantie**: Was einmal eingeliefert wurde, wird zugestellt —
-und wenn es nicht klappt, weiß der Absender genau, warum.
+Wir produzieren Ereignisse — Bestellung geändert, Freigabe erteilt, Scan
+abgeschlossen, Benutzer angelegt. Bis heute bekommen die abonnierenden Systeme diese
+Ereignisse auf zwei Wegen: über einen gemeinsamen Message-Broker, den sich jeder
+Selbst gebaut, oder über einen nächtlichen Batch.
 
-Der Dienst ist **kein** Message-Broker und **kein** Event-Store. Er ist ein
-Zustell-Wrapper: eingehende Ereignisse, ausgehende Webhooks, ein sichtbares
-Zustellprotokoll.
+Beides hat in den letzten zwei Quartalen wiederholt Ärger gemacht:
 
-## 2. Nutzer und Rollen
+- **Der Batch verliert Ereignisse.** Ein Ausfall des Batch-Jobs um 02:00 heißt: die
+  Daten des Vortags fehlen, und niemand merkt es, weil der Batch still fehlschlägt.
+- **Der Broker kennt keine Zustellgarantie.** Wir wissen nicht, ob ein abonnierendes
+  Team die Nachricht tatsächlich verarbeitet hat — nur, dass sie im Broker lag.
+- **Jedes Team baut sich die Wiederholungslogik selbst.** Drei Teams haben inzwischen
+  drei Varianten von Retry, Backoff und „was tun wir bei 500" gebaut. Eine davon
+  überschlägt nach elf Fehlversuchen still Fehler.
+- **Doppelte Zustellungen.** Unser Bestellservice sendet bei einem Timeout unklarerweise
+  nochmal. Weil wir den Status nicht kennen, bauen die Empfänger eigene
+  Duplikaterkennungen — jede für sich.
+
+Kurz: die Zustellung liegt bei den Empfängern, aber die Verantwortung für die
+Zuverlässigkeit liegt bei uns.
+
+## 2. Worum es geht
+
+Wir wollen einen zentralen Dienst, der Ereignisse **entgegennimmt** und sie an
+registrierte Empfänger-URLs **weiterleitet** — mit Protokoll, mit Wiederholung und mit
+einer nachvollziehbaren Antwort auf die Frage „ist das angekommen?".
+
+Der Dienst ist bewusst **kein** Message-Broker und **kein** Event-Store. Er ersetzt
+nicht unseren internen Bus. Er ist ein Zustell-Wrapper für ausgehende Webhooks:
+eingehende Ereignisse, ausgehende HTTP-Zustellung, sichtbares Protokoll.
+
+Warum kein Broker: wir wollen keine zweite Zustandshaltung, die wir gegen die erste
+konsistent halten müssen. Der Dienst hält nur, was er für die Zustellung braucht, und
+das so kurz wie möglich.
+
+## 3. Nutzer und Rollen
 
 | Rolle | Wer | Was er darf |
 |---|---|---|
 | **Entwickler** | Team, das das Ereignis erzeugt | Ereignisse einliefern, Zustellprotokoll einsehen, totes Endpunkt-Ziel neu auslösen |
 | **Empfänger-Admin** | Team des abonnierenden Systems | Endpunkte registrieren, pausieren, Secret rotieren |
-| **Service-Admin** | Plattform-Betrieb | Endpunkte aller Mandanten sehen, Totgeburtsliste abholen, Aufbewahrung erzwingen |
+| **Service-Admin** | Plattform-Betrieb | Endpunkte aller Mandanten sehen, Tote-Zustellungsliste abholen, Aufbewahrung erzwingen |
 
-Alle Daten sind **mandantenbegrenzt**: ein Team sieht nur seine eigenen Endpunkte und
-Ereignisse. Mandant ist Teil der Identität, nicht ein Filterparameter.
+Alle Daten sind **mandantenbegrenzt**. Ein Team sieht nur seine eigenen Endpunkte und
+Ereignisse — in der Oberfläche genauso wie in der Schnittstelle. Der Mandant steckt
+in der Identität, er ist kein Filterparameter, den ein Aufrufer frei wählen darf.
 
-## 3. Fachbegriffe
+## 4. Fachbegriffe
 
-- **Endpunkt** — eine Registrierung: Ziel-URL,_secret, gewünschte Ereignistypen, Zustand.
+- **Endpunkt** — eine Registrierung: Ziel-URL, Secret, gewünschte Ereignistypen, Zustand.
 - **Ereignis** — eine eingelieferte Nutzlast mit Typ, Zeitpunkt und Idempotenzschlüssel.
-- **Lieferung** — der Versuch, ein Ereignis an einen Endpunkt zu senden, mit Protokoll.
-- **Zustellung** — die Sendung an den Empfänger (Zustand, Versuche, Antwort).
+- **Zustellung** — ein Versuch, ein Ereignis an einen Endpunkt zu senden.
+- **Lieferung** — das Protokoll einer Zustellung über alle Versuche.
 - **Tote Zustellung** — eine Zustellung, die nach erschöpften Versuchen aufgegeben wurde.
 
-## 4. Die fachliche Geschichte
+## 5. Die Geschichte, die wir erzählen wollen
 
 Ein Warenwirtschafts-Team registriert bei uns eine URL und ein Secret. Unser
-Bestellservice liefert danach Ereignisse. EchoBox nimmt sie an, versieht sie mit einer
-Signatur, schickt sie an die URL und behält den Verlauf. Wenn die URL mal nicht
-erreichbar ist, wird später erneut versucht. Wenn der Empfänger unsere Signatur nicht
-prüfen kann, ist das sein Problem — wir dokumentieren es, aber wir liefern das Format.
+Bestellservice liefert danach Ereignisse. Der Dienst nimmt sie an, versieht sie mit
+einer Signatur, schickt sie an die URL und behält den Verlauf.
 
-Ein Problem, das wir heute haben: Empfänger bekommen dasselbe Ereignis zweimal, weil
-ihr Bestellservice bei Timeouts unklarerweise nochmal sendet. Und wir wissen nicht, ob ein
-Ereignis angekommen ist oder nur gesendet wurde. Beides soll EchoBox klären.
+Ist die URL gerade nicht erreichbar, versucht er es später erneut. Ist der Empfänger
+der Meinung, das Ereignis will er nicht (unbekannter Typ zum Beispiel), sagt er uns
+das — und wir hören auf. Der Empfänger kann das Ergebnis jeder Zustellung nachlesen,
+und wir können im Betrieb sagen, wie hoch die Erfolgsquote je Endpunkt ist.
 
-## 5. Fachliche Anforderungen
+## 6. Anforderungen an die Endpunkte
 
-### Endpunkte
-
-- **FR-001** Ein Empfänger-Admin registriert einen Endpunkt mit Ziel-URL, Secret und
+- **FR-001** Ein Empfänger-Admin registriert einen Endpunkt mit Ziel-URL, Secret und den
   gewünschten Ereignistypen. Die URL muss `https` sein.
 - **FR-002** Ein Endpunkt kann pausiert und wieder aktiviert werden. Ein pausierter
-  Endpunkt erhält keine Zustellungen; die Ereignisse werden **nicht** zwischengespeichert
-  und **nicht** nachgeliefert.
+  Endpunkt erhält keine Zustellungen. Die Ereignisse werden **nicht** zwischengespeichert
+  und **nicht** nachgeliefert — wer pausiert, entscheidet, dass er nichts mehr bekommt.
 - **FR-003** Das Secret eines Endpunkts kann rotiert werden. Nach der Rotation gilt nur
-  das neue Secret; alte Signaturen werden nicht mehr akzeptiert.
+  das neue Secret.
 - **FR-004** Der Service-Admin sieht alle Endpunkte aller Mandanten, ein
   Empfänger-Admin nur die eigenen.
 
-### Eingang
+## 7. Anforderungen an den Eingang
 
 - **FR-010** Ein Entwickler liefert ein Ereignis ein: Typ, Nutzlast, Idempotenzschlüssel.
 - **FR-011** Derselbe Idempotenzschlüssel liefert **kein** zweites Ereignis. Die
-  Wiederholung ist erfolgreich und liefert die Kennung des ersten Ereignisses.
-- **FR-012** Die Nutzlast ist **verschlüsselt** gespeichert und wird nur für den
+  Wiederholung ist erfolgreich und liefert die Kennung des ersten Ereignisses zurück.
+- **FR-012** Die Nutzlast wird **verschlüsselt** gespeichert und nur für den
   Zustellvorgang entschlüsselt. Im Ruhezustand ist sie nicht im Klartext lesbar —
   weder in der Datenbank noch in einem Log.
-- **FR-013** Ereignisse können optional verschlüsselt eingeliefert werden. Dann
+- **FR-013** Ereignisse können optional bereits verschlüsselt eingeliefert werden. Dann
   entfällt das Entschlüsseln vor der Zustellung.
 
-### Zustellung
+## 8. Anforderungen an die Zustellung
 
 - **FR-020** Jede Zustellung trägt eine Signatur über Zeitstempel und Nutzlast, damit
-  der Empfänger die Echtheit prüfen kann. Das Verfahren und der Header-Name sind
-  Teil der öffentlichen Schnittstelle und dürfen sich nicht mehr ändern.
-- **FR-021** Die Zustellung ist **at-least-once**: ein Ereignis kann mehrfach ankommen.
-  Jede Zustellung trägt eine eigene Zustell-Kennung, damit der Empfänger doppelte
-  Zustellungen erkennen kann.
-- **FR-022** Eine fehlgeschlagene Zustellung wird erneut versucht — mit wachsendem
+  der Empfänger die Echtheit prüfen kann. Verfahren und Header-Name sind Teil der
+  öffentlichen Schnittstelle und dürfen sich danach nicht mehr ändern — sonst brechen
+  alle bestehenden Empfänger.
+- **FR-021** Die Zustellung ist **at-least-once**: ein Ereignis kann mehrfach
+  ankommen. Jede Zustellung trägt eine eigene Zustell-Kennung, damit der Empfänger
+  doppelte Zustellungen erkennen kann.
+- **FR-022** Eine fehlgeschlagene Zustellung wird erneut versucht, mit wachsendem
   Abstand zwischen den Versuchen. Der Abstand soll nicht bei allen Endpunkten
-  gleichzeitig liegen (Welle), also mit Streuung.
+  gleichzeitig liegen, also mit Streuung.
 - **FR-023** Nach einer festen Anzahl erfolgloser Versuche wird die Zustellung
-  aufgegeben und landet in der toten Zustellungsliste.
+  aufgegeben und landet in der Liste der toten Zustellungen.
 - **FR-024** Ein Empfänger-Admin kann ein aufgegebenes Ereignis erneut auslösen. Die
   erneute Zustellung beginnt mit der Versuchszahl neu.
-- **FR-025** Der Empfänger kann antworten, dass er das Ereignis dauerhaft nicht
-  möchte (z. B. ungültige Typen). Dann wird die Zustellung sofort aufgegeben, ohne
-  weitere Versuche.
+- **FR-025** Der Empfänger kann in der Antwort angeben, dass er das Ereignis dauerhaft
+  nicht möchte (etwa weil der Ereignistyp für ihn irrelevant ist). Dann wird die
+  Zustellung sofort aufgegeben, ohne weitere Versuche.
 
-### Protokoll und Betrieb
+## 9. Anforderungen an Protokoll und Betrieb
 
 - **FR-030** Das Zustellprotokoll zeigt je Zustellung: Zustand, Anzahl Versuche,
   Zeitpunkt des letzten Versuchs, Antwortcode des Empfängers, nächsten Versuchszeitpunkt.
 - **FR-031** Der Service-Admin kann die toten Zustellungen als Liste abholen.
 - **FR-032** Für die Betriebsüberwachung werden je Endpunkt Erfolgsquote und
   Zustelllatenz ausgewiesen.
-- **FR-033** Ein Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt.
-  Die zulässige Rate ist **noch festzulegen**.
+- **FR-033** Ein Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt. Die
+  zulässige Rate steht noch nicht fest.
 
-## 6. Nicht-funktionale Anforderungen
+## 10. Nicht-funktionale Anforderungen
 
 - **NFR-001** Die Nutzlast eines Ereignisses ist auf **1 MB** begrenzt.
-- **NFR-002** Das Einliefern eines Ereignisses antwortet in unter **200 ms** (p95) — die
+- **NFR-002** Das Einliefern eines Ereignisses antwortet in unter **200 ms** (p95). Die
   Zustellung ist asynchron und darf die Antwort nicht verzögern.
-- **NFR-003** Mandantentrennung ist auf Datenbankebene erzwungen, nicht nur in der
+- **NFR-003** Die Mandantentrennung wird auf Datenbankebene erzwiesen, nicht nur in der
   Anwendung. Ein Fehler in der Anwendung darf kein fremdes Ereignis zeigen.
-- **NFR-004** Verschlüsselung im Ruhezustand mit einem anerkannten Verfahren und
-  Schlüssel außerhalb der Datenbank.
-- **NFR-005** Die Oberfläche ist bedienbar ohne Maus und mit Screenreader; Kontraste
-  mindestens nach WCAG 2.1 AA.
+- **NFR-004** Verschlüsselung im Ruhezustand mit einem anerkannten Verfahren; der
+  Schlüssel liegt außerhalb der Datenbank.
+- **NFR-005** Die Oberfläche ist ohne Maus bedienbar und mit Screenreader nutzbar; die
+  Kontraste erfüllen mindestens WCAG 2.1 AA.
 - **NFR-006** Der Dienst läuft in Containern, ist auf eine Instanz je Mandanten
   vorbereitet und skaliert horizontal.
 
-## 7. Technische Rahmenbedingungen
+## 11. Rahmenbedingungen aus der Technik
 
-Aus dem Kundenkontakt heraus, als Randbedingung, nicht als Festlegung:
+Das sind Randbedingungen aus der Abstimmung mit unserem Plattform-Team, **keine**
+Festlegungen des Fachbereichs:
 
 - **Backend:** Java 21, Spring Boot, PostgreSQL.
 - **Frontend:** React, TypeScript.
-- **Zustellung** erfolgt aus einem Hintergrundprozess, nicht aus dem Request-Thread.
-- **Betrieb** über Container; die Pipeline baut das Image und stellt Staging und Produktion
-  getrennt bereit.
+- Die **Zustellung** erfolgt aus einem Hintergrundprozess, nicht aus dem
+  Request-Thread. Ein Empfänger, der 30 Sekunden braucht, darf den Annahme-Request
+  nicht blockieren.
+- **Betrieb** über Container; die Pipeline baut das Image und stellt Staging und
+  Produktion getrennt bereit.
 
-Die Stack-Entscheidung wird in Phase 2 getroffen und in einem ADR festgehalten.
+## 12. Woran wir erkennen, dass es fertig ist
 
-## 8. Abnahme
+1. Ein Empfänger kann einen Endpunkt registrieren, pausieren und sein Secret rotieren,
+   ohne dass ein Mandant fremde Daten sieht.
+2. Ein Ereignis wird angenommen, signiert, zugestellt; scheitert die Zustellung, wird
+   erneut versucht, und die Wiederholung ist im Protokoll sichtbar.
+3. Ein totes Ereignis lässt sich erneut auslösen.
+4. Die Verschlüsselung im Ruhezustand ist nachweisbar — in der Datenbank und in den
+   Logs.
+5. Die Oberfläche zeigt Endpunkte, Zustellprotokoll und tote Zustellungen und ist mit
+   Tastatur und Screenreader bedienbar.
+6. Zu jeder Anforderung gibt es einen Testfall, und die Nachverfolgung weist Anforderung,
+   Test und Code aus.
 
-Die Abnahme gilt als bestanden, wenn:
+## 13. Was wir noch nicht entschieden haben
 
-1. Ein Endpunkt registriert, pausiert und rotiert werden kann und die Mandantengrenze
-   nachweislich hält.
-2. Ein Ereignis eingeliefert, signiert, zugestellt und bei Fehlschlag wiederholt wird.
-3. Ein totes Ereignis wieder ausgelöst werden kann.
-4. Die Verschlüsselung im Ruhezustand nachweisbar ist (Datenbank und Log).
-5. Das Frontend Endpunkte, Protokoll und tote Zustellungen bedienbar darstellt.
-6. **Kein** Akzeptanzkriterium ohne Testfall existiert und die Traceability-Matrix weist
-   für jede Anforderung Test **und** Code aus.
+Diese Fragen sind bewusst offen — sie gehören in die Abstimmung, nicht in eine
+Vorgabe:
 
-## 9. Offene Punkte
-
-Diese Punkte sind bewusst offen — die Phase 1 bzw. das Grill-Me müssen sie klären:
-
-- **F-1 (Rate-Limit)** — „angemessen" ist keine Zahl. Wie viele Zustellungen pro Sekunde
-  je Endpunkt, und wird nach Erschöpfung blockiert oder verzögert?
-- **F-2 (Aufbewahrung)** — 30 Tage: für Ereignisse, für Zustellungen, für beides? Und
+- **Rate-Limit je Endpunkt.** „Angemessen" ist bisher keine Zahl. Und was passiert,
+  wenn das Limit erreicht ist: blockieren wir die Zustellung, oder verschieben wir sie?
+- **Aufbewahrung.** 30 Tage — für Ereignisse, für Zustellungen oder für beides? Und
   beginnt die Frist mit dem Einliefern oder mit dem letzten Versuch?
-- **F-3 (Replay-Berechtigung)** — wer darf ein totes Ereignis erneut auslösen: der
-  Empfänger-Admin, der Entwickler, der Service-Admin?
-- **F-4 (Verschlüsselung im Ruhezustand)** — „nach Möglichkeit": Ist das ein Muss? Falls
-  ja, ist die Suche im Zustellprotokoll dann noch möglich?
-- **F-5 (Auftragsverarbeitungsvertrag)** — wir verarbeiten fremde Ereignis-Nutzlasten
-  und geben sie weiter. Wer ist Vertragspartner, wer ist Verantwortlicher, und brauchen
-  wir eine Vereinbarung, bevor das live geht?
-
----
-
-## Was dieser Dienst am Ablauf prüft
-
-| Ablauf-Stelle | Was EchoBox auslöst |
-|---|---|
-| Phase 1 (Anforderungen) | 5 offene Punkte → das Grill-Me hat echte Arbeit; 13 Anforderungen statt 97 |
-| Phase 2 (Architektur) | Vertrag mit Fehlerformat, Zustandsautomat, RLS-Schema, 2–3 ADRs |
-| Phase 3/4 (Simplify, Stresstest) | wenige Artefakte, aber echte Befunde (z. B. F-4 vs. Protokollsuche) |
-| Phase 5 (TDD) | 7 Stories × 3–4 Akzeptanzkriterien = ein machbarer Testumfang |
-| Phase 6 (Implementierung) | **zwei Streams**: Java-Backend und React-Frontend, Synchronisation über den Vertrag |
-| Phase 7 (Refactoring) | findet die defensiven Stellen im Hintergrundprozess |
-| Phase 8 (Security) | Kryptografie, Mandantentrennung, Signatur, Fremddaten — echte Befundlage |
-| Phase 9 (Deployment) | Container, Staging, Rollback |
-
-**Erwartetes Ergebnis:** ein vollständiger Durchlauf ohne Rücksprung, mit **einem**
-Commit pro Schritt. Wenn doch ein Rücksprung passiert, ist es einer — und dann ist er
-begründet, weil der Vertrag zu früh eingefroren war.
+- **Wer darf ein totes Ereignis erneut auslösen?** Der Empfänger-Admin, der
+  Entwickler oder wir?
+- **Verschlüsselung im Ruhezustand.** „Nach Möglichkeit" — ist das ein Muss? Falls ja:
+  können wir dann im Zustellprotokoll überhaupt noch nach einem Ereignis suchen?
+- **Vertrag über die Auftragsverarbeitung.** Wir verarbeiten fremde Ereignis-Nutzlasten
+  und geben sie an Dritte weiter. Wer ist Vertragspartner, wer ist Verantwortlicher,
+  und brauchen wir eine Vereinbarung, bevor das live geht?
