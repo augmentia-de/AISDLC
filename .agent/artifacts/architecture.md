@@ -1,7 +1,7 @@
 # Architektur — EchoBox (kompakter Katalog)
 
 > Schritt 3 (**Simplify & Reduktion** nach dem Rücksprung aus Schritt 4) ·
-> **Schritt 2 — Rücksprung 2** (letzte Vertrags- und Schemakorrekturen vor dem
+> **Schritt 2 — Rücksprung 4** (V-27 und Abschluss-Sweep vor dem
 > Einfrieren) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Erzählung: `docs/architecture/architecture.md` · Vertrag: `docs/api/openapi.yaml`
 > Schema: `.agent/knowledge/schema.sql` (kanonisch) · **Entscheidungen: `docs/adr/`**
@@ -38,7 +38,7 @@ nachvollziehbares Protokoll über jeden Versuch — bewusst **kein** Broker und
 | ADR-012 | Aufbewahrung: **zwei** Fristen, Vorgabe **je 30 Tage**, Fristbeginn **je Datensatz** = **letzter Versuch**; markieren (`deleted_at`) dann Purge nach der **Karenzzeit** (ohne gesetzten Wert: Purge im **nächsten** Durchlauf — **kein** erfundener Vorgabewert); **Kaskade** (Ereignis nimmt Läufe und Versuche mit); die **Versuche folgen ihrem Lauf** (sie verlieren die Sichtbarkeit mit ihm); `dry_run` als Default | Angenommen (**bestätigt: F-02**, im **Rücksprung 2** präzisiert) |
 | ADR-013 | Ein Image, zwei Rollen; `echobox.tenant.id` bindet eine Instanz an einen Mandanten; non-root, keine Secrets im Image; Staging/Produktion getrennt | Angenommen |
 | ADR-014 | — | **Zusammengeführt in ADR-008** (Verweisdatei) |
-| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; Rollenmatrix (die mandantenübergreifende Sicht des Service-Admins gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung — das **Zustellprotokoll bleibt mandantengefiltert**); Replay **nur** für den Empfänger-Admin und **nur einmal** (23505 ⇒ `delivery_state_conflict`) | Angenommen (**bestätigt: F-03**, im **Rücksprung 2** korrigiert) |
+| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; Rollenmatrix (die mandantenübergreifende Sicht des Service-Admins gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung — das **Zustellprotokoll bleibt mandantengefiltert**); Replay **nur** für den Empfänger-Admin und **nur einmal** (23505 ⇒ `delivery_state_conflict`) | Angenommen (**bestätigt: F-03**, im **Rücksprung 2** korrigiert) — **zwei Sätze sind durch V-26/V-27 überholt → V-44 (Korrektur offen)** |
 | ADR-016 | Ein Ort pro Wahrheit: Vertrag **einmal**, Schema kanonisch + byte-identische Kopie; Freeze nach Schritt 4 | Angenommen |
 | ADR-017 | Protokollsuche **nur** über Metadaten; Denormalisierung von `event_type`/`endpoint_id`; Cursor-Paginierung ohne `total` | Angenommen |
 | ADR-018 | Next.js 15 App Router; Barrierefreiheit als **Bauregel**: native Bedienelemente, echte `<table>`, Status nie nur über Farbe, axe als CI-Gate | Angenommen |
@@ -137,7 +137,14 @@ Die Zuordnung Story → Vertragsort steht **einmal** in
 | O-07 | Zeitlimit je Versuch | **entschieden** (ADR-008): 5 s + 10 s = 15 s | — | erledigt |
 | **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) | **kein beschlossener Vorgabewert**; konfigurierbar (`echobox.retention.purge-delay`), **ohne Vorbelegung**; der Vertrag behauptet keinen Wert (ADR-012 §6). Das **Schema-Verhalten ist explizit**: ohne gesetzten Wert Purge im **nächsten** Durchlauf (E-13). **F-02 bleibt unverändert** (30 Tage je Datenart, Anker letzter Versuch, Kaskade) | Fachbereich | **Gate 2** |
 | **E-12** | **Härtung** der mandantenübergreifenden Sicht: eigene Laufzeitrolle `echobox_ops` statt der Allzweckrolle `echobox_app`? | **nicht entschieden** — die Grenze ist in **ADR-002** ehrlich benannt (die Applikationsrolle kann `app.cross_tenant` setzen). Die Härtung wäre die konsequenteste Lösung, verlangt aber eine getrennte Verbindungsrolle im Betrieb (ADR-013) | Fachbereich + Plattform | **Gate 2** |
-| **V-26** | `Endpoint.organisation_id`: Beschreibung („nur für `service_admin` gefüllt“) und zwei Beispiele (`pauseEndpoint`, `listEndpoints` mit `organisation_id: m-1`) widersprechen sich | **nicht entschieden** — dokumentiert in `.agent/artifacts/ruecksprung-bilanz.md` §6. Die gewählte Variante für `DeliveryRun.organisation_id` (V-25) folgt der Beschreibung und muss mit dieser Entscheidung zusammen geprüft werden | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-26** | `Endpoint.organisation_id`: Beschreibung („nur für `service_admin` gefüllt“) und zwei Beispiele (`pauseEndpoint`, `listEndpoints` mit `organisation_id: m-1`) widersprechen sich | **entschieden** (Rücksprung 3): `organisation_id` benennt **immer** den **besitzenden Mandanten** — im eigenen Mandanten den eigenen, in der mandantenübergreifenden Sicht den Mandanten, zu dem die Ressource gehört. Umsetzung an 10 Stellen (Feldbeschreibungen `Endpoint`/`DeliveryRun`/`DeadDelivery`, Beispiele, `info.description`, `x-contract-rules.tenant`) | — | erledigt |
+| **V-27** | `service_admin` bekommt aus der mandantenübergreifenden **Endpunktliste** und **Totenliste** IDs fremder Mandanten, deren **Einzelabruf** 404 ergibt (D-02) | **entschieden** (Rücksprung 4): die mandantenübergreifende Sicht gilt **nur** für die **drei** Listen-/Betriebsoperationen (Endpunktliste, Totenliste, Aufbewahrung — E-01); der **Einzelabruf** einer fremden Ressource ergibt **auch für `service_admin`** **404**; ein **vierter** mandantenübergreifender Leseweg wird **nicht** gebaut. Umsetzung an 10 Vertragsstellen; das Schema bleibt bei **drei** Eigentümerfunktionen (ADR-002 §7) | — | erledigt |
+| **V-39** | Reihenfolge der Rollen- **oder** der Mandantenprüfung beim Replay (403 vs. 404) | **nicht entschieden** — beide Regeln (F-03/D-15 und D-02) gelten, ihre Reihenfolge ist nicht festgelegt. Empfehlung: Mandant zuerst ⇒ 404 | Mensch (F-03/D-15) | **vor dem Freeze** |
+| **V-44** | ADR-015 §1 (Rollenmatrix „Endpunkte verwalten: ja (alle Mandanten)") und §2 („im Zustellprotokoll ist das Feld `null`") widersprechen V-26/V-27 | **nicht entschieden** — **Korrektur**, keine Festlegung; `docs/adr/` war in diesem Schritt nicht änderbar | Architektur (Rücksprung) | **vor dem Freeze** |
+| **V-40** | Zeitraumfilter des Zustellprotokolls (`from`/`to`) — an welchen Zeitstempel? | **nicht entschieden** — Empfehlung: `created_at` (Sortierschlüssel, ADR-017 §4) | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-41** | `ReadinessStatus` führt `not_ready`/`unavailable`, die der Vertrag nie erzeugt (503 ⇒ `Problem`, ADR-015 §4) | **nicht entschieden** — Empfehlung: Enum auf `ready`/`ok` schärfen | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-42** | `EndpointMetrics.rate_limit` ist optional, die Beschreibung behandelt den Abschnitt als vorhanden | **nicht entschieden** — Empfehlung: in `required` aufnehmen | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-43** | `Event.deleted_at` ist ein totes Feld (in der Antwort immer `null`, ADR-012 §3) | **nicht entschieden** — Empfehlung: Feld entfernen (Konsistenz mit den übrigen Entitätsmodellen) | Architektur (nach dem Freeze) | nach dem Freeze |
 
 ## 9. Befunde dieses Schritts
 
@@ -200,13 +207,35 @@ Behandlungsbilanz je Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 | **E-13** | Karenzzeit: Schema-Verhalten explizit machen, **keinen** Wert erfinden | **behoben**: Schema-Kommentar, ADR-012 §6, Zielstruktur — ohne gesetzten Wert Purge im **nächsten** Durchlauf; der Vertrag behauptet **weiterhin keinen** Wert |
 | **V-26** | **neu** — `Endpoint.organisation_id`: Beschreibung und zwei Beispiele widersprechen sich | **dokumentiert, nicht entschieden** (§ 8) — gehört in die Delta-Prüfung |
 
+## 9c. Befunde aus dem **Rücksprung 4** (2026-10-21) — V-27 und Abschluss-Sweep
+
+Vollständig in `.agent/artifacts/ruecksprung-bilanz.md` § 10; die Behandlungsbilanz
+je Widerspruch dort, der Gegenstand ist ausschließlich der **Vertrag** —
+`docs/adr/`, `docs/architecture/` und das **Schema** blieben unberührt.
+
+| # | Befund | Behandlung (**Rücksprung 4** in Schritt 2) |
+|---|---|---|
+| **V-27** | **„muss“** — der `service_admin` bekommt IDs fremder Mandanten, deren Einzelabruf 404 ergibt | **entschieden und umgesetzt** (10 Vertragsstellen): die mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung (E-01); der Einzelabruf einer fremden Ressource ergibt **auch für `service_admin`** 404 (D-02); ein vierter mandantenübergreifender Leseweg wird **nicht** gebaut. **Das Schema bleibt bei drei Eigentümerfunktionen** (ADR-002 §7) — die Entscheidung und die Architektur decken sich |
+| **V-28** | **„muss“** — `createEndpoint` kündigte 409 `idempotency_conflict` an, kann aber keinen Idempotenzschlüssel annehmen | **behoben**: 409 entfernt (D-05/FR-011 betreffen Ereignisse; das Schema erzwingt keine Eindeutigkeit auf `endpoints`) |
+| **V-29** | **„muss“** — `replayDelivery` und `enforceRetention` haben einen Request-Body, aber keine 400 | **behoben**: 400 `MalformedRequest` ergänzt (vertragsweite Fehlersemantik) |
+| **V-30** | **„muss“** — der Cursor im Beispiel war kein gültiges Base64 und trug den falschen Sortierschlüssel | **behoben**: `created_at` + UUID-Tie-Breaker (ADR-017 §4), korrekt kodiert |
+| **V-31** | **„muss“** — das Rotations-Secret im Beispiel verletzte `minLength: 16` | **behoben** |
+| **V-32** | **„muss“** — dieselbe `delivery_run_id` in drei Beispielen in drei Zuständen | **behoben**: Beispiele entkoppelt |
+| **V-33…V-35** | **„soll“** — `violations` nur bei `validation_failed`; `field` als JSON-Pointer; `failed` im Enum unbeschrieben | **behoben** (Beschreibung an Schema und Beispiele angeglichen; `failed` nach ADR-008) |
+| **V-36** | **„muss“** — `X-EchoBox-Rejection` war optional, ADR-009 macht den Header zum festen Teil des Signals | **behoben**: `required: true` |
+| **V-37/V-38** | **„soll“** — `Event.deleted_at` versprach einen gesetzten Wert; `payload: null` widersprach `nullable: false` | **behoben** (Beschreibungen an ADR-012 §3 bzw. an das Schema angeglichen; das Schema bleibt unverändert) |
+| **V-39…V-44** | **neu** — Rollen-/Mandantenprüfung beim Replay, Zeitraumfilter, `ReadinessStatus`, `EndpointMetrics.rate_limit`, `Event.deleted_at`, ADR-015 | **dokumentiert, nicht entschieden** (§ 8) |
+
 ## 10. Geprüft
 
 | Prüfung | Ergebnis |
 |---|---|
-| OpenAPI: YAML gültig, 17 Operationen, alle `$ref` auflösbar, kein ungenutztes Schema | **ok** |
+| OpenAPI: YAML gültig, 17 Operationen, alle `$ref` auflösbar, kein ungenutztes Schema | **ok** (177 Verweise) |
 | OpenAPI: 23 Stories, 101 AKs, 24 Anforderungen auffindbar | **ok** |
-| OpenAPI: jedes Beispiel gegen sein Schema geprüft (Pflichtfelder) | **ok** |
+| OpenAPI: jedes Beispiel gegen sein Schema geprüft (Pflichtfelder) | **ok** — 0 Abweichungen |
+| OpenAPI: jedes Beispiel **nachgerechnet** (Bytes, Quoten, Zeiten, Längen, Base64) | **ok** — 0 Abweichungen (Rücksprung 4) |
+| OpenAPI: Fehlercode-Vollständigkeit (Body ⇒ 400, authentifiziert ⇒ 429, Adresse ⇒ 404) | **ok** (Rücksprung 4, V-29) |
+| OpenAPI: `x-delivery-protocol` gegen ADR-004/005/008/009 (Signatur, Kennungen, Retry-Matrix, 3xx, Ablehnungssignal) | **ok** (Rücksprung 4, V-36) |
 | OpenAPI: je Operation `operationId`, `x-ac-id`, `x-requirement-ids` | **ok** |
 | Schema: angewendet gegen **PostgreSQL 16.15** (Rücksprung 2) | **ok** (10 Tabellen, 10 Policies, 7 Funktionen, 3 `SECURITY DEFINER`-Funktionen, 23 ausdrücklich angelegte Indizes) |
 | Schema: RLS-Verhalten (ohne Kontext 0 Zeilen, je Mandant nur eigene Zeilen, keine Rolle mit `BYPASSRLS`) | **ok** |
@@ -241,4 +270,4 @@ Behandlungsbilanz je Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 | `.agent/artifacts/adr-index.md` | **ADR-Gate-Vorlage** (bestätigt / offen) — der Index selbst steht in `docs/adr/README.md` |
 | `.agent/artifacts/simplify-report.md` | **Reduktionsbericht (Schritt 3)** |
 | `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — 22 Vertragsdefekte (erste Runde), 7 „muss“-Befunde, offene Entscheidungen |
-| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2, Rücksprung 2)** — V-23…V-25, N-13…N-20, E-10…E-13, PostgreSQL-16-Nachweis |
+| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2, Rücksprung 4)** — V-23…V-27, V-28…V-38 (Abschluss-Sweep), V-39…V-44 (offen), N-13…N-20, E-10…E-13, PostgreSQL-16-Nachweis |

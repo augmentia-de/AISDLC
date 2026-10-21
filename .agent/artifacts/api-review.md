@@ -1,13 +1,16 @@
 # API-Review — EchoBox
 
-> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung 2 aus Schritt 4)** ·
+> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung 4 aus Schritt 4)** ·
 > Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Geprüfter Vertrag: `docs/api/openapi.yaml` (OpenAPI 3.0.3, `info.version` 1.0.0)
 > Vertrag ist ein **Entwurf** — er wird **nach Schritt 4** eingefroren.
 > Die 22 Vertragsdefekte des **ersten** Stresstests sind im ersten Rücksprung
 > **alle** behoben; die drei Vertragssätze des **zweiten** Stresstests
-> (**V-23, V-24, V-25**) sind im **Rücksprung 2** behoben. Die Bilanz steht in
-> `.agent/artifacts/ruecksprung-bilanz.md`.
+> (**V-23, V-24, V-25**) sind im **Rücksprung 2** behoben, **V-26** im
+> **Rücksprung 3** und **V-27** im **Rücksprung 4**. Danach ist der Vertrag
+> **einmal vollständig** durchgesweept: **11** Widersprüche (**V-28…V-38**)
+> behoben, **6** neue Befunde (**V-39…V-44**) dokumentiert und **nicht**
+> entschieden. Die Bilanz steht in `.agent/artifacts/ruecksprung-bilanz.md`.
 > Die früheren Befund-IDs dieses Reviews heißen jetzt **A-01…A-10**, damit sie
 > nicht mit den Defekt-IDs **V-01…V-22** des Stresstests verwechselt werden.
 
@@ -22,8 +25,8 @@
 | Sind alle 24 Anforderungen (FR/NFR) auffindbar? | **Ja** — `x-requirement-coverage` führt alle 24. |
 | Fehlen Operationen? | **Nein.** |
 | Gibt es Felder oder Operationen ohne Zweck? | **Nein** — nach der Reduktion (Schritt 3) trägt jede Operation mindestens eine Story und jedes Feld ist im Protokoll sichtbar, in der Zustandsmaschine nötig oder ein Mandanten-/Zeitmetadatum. |
-| Ist die Fehlersemantik einheitlich? | **Ja** — ein Schema (`Problem`) für alle Fehlerantworten, `code` maschinenlesbar. |
-| Ist die Mandantentrennung im Vertrag durchgesetzt? | **Ja** — D-01 (422 bei Mandantenparameter), D-02 (404 bei fremden Ressourcen), global `bearerAuth`. |
+| Ist die Fehlersemantik einheitlich? | **Ja** — ein Schema (`Problem`) für alle Fehlerantworten, `code` maschinenlesbar; **jede** Operation mit Request-Body deklariert **400**, jede authentifizierte **429**, jede per ID adressierte **404** (Rücksprung 4, V-29). |
+| Ist die Mandantentrennung im Vertrag durchgesetzt? | **Ja** — D-01 (422 bei Mandantenparameter), D-02 (404 bei fremden Ressourcen — **auch** für `service_admin`, V-27), global `bearerAuth`. |
 | Sind die bestätigten Vorgabewerte sichtbar? | **Ja** — F-01…F-04 stehen in `info.description`, in `x-contract-rules.defaults` und an der jeweiligen Operation. |
 
 ---
@@ -81,7 +84,7 @@ Details: `.agent/artifacts/simplify-report.md`.
 | 401 | `unauthorized` | kein/ungültiges Token |
 | 403 | `forbidden` | Rolle darf es nicht (Totenliste, Replay, Rotation, Aufbewahrung) |
 | 404 | `not_found` | fehlende **oder** fremde Ressource (D-02) |
-| 409 | `idempotency_conflict` | gleicher Idempotenzschlüssel, abweichende Nutzlast (D-05) |
+| 409 | `idempotency_conflict` | gleicher Idempotenzschlüssel, abweichende Nutzlast (D-05) — **nur** `submitEvent` (der Idempotenzschlüssel gehört zum Ereignis, V-28) |
 | 409 | `delivery_state_conflict` | Replay einer nicht aufgegebenen Zustellung |
 | 413 | `payload_too_large` | > 1.048.576 Byte (NFR-001, D-13) |
 | 422 | `validation_failed` | semantisch ungültig |
@@ -169,6 +172,44 @@ Schemas (**37**), die Antwort-Komponenten (**11**), die Parameter (**7**), die
 „muss“-Befunde **N-13**, **N-14**, **N-15** und die „sollte“-Befunde **N-16**,
 **N-17** — Nachweis in `.agent/artifacts/ruecksprung-bilanz.md` § 5.
 
+## 4d. Stand nach dem **Rücksprung 4** (2026-10-21) — V-27 und der Abschluss-Sweep
+
+### 4d.1 V-27 — die mandantenübergreifende Sicht und der Einzelabruf
+
+| | |
+|---|---|
+| **Entscheidung** | Die mandantenübergreifende Sicht gilt **nur** für die **drei** Listen-/Betriebsoperationen (Endpunktliste, Totenliste, Aufbewahrung — E-01). Der **Einzelabruf** einer Ressource eines **fremden** Mandanten ergibt **auch für `service_admin`** **HTTP 404** (D-02). Ein **vierter** mandantenübergreifender Leseweg wird **nicht** gebaut. |
+| **Umsetzung** | **10 Stellen**: Rollenübersicht und die Abschnitte „Mandant" und „Mandantenübergreifende Listen" in `info.description`; die Operationsbeschreibungen von `getEndpoint`, `getDeliveryRun`, `getEvent` und `getEndpointMetrics`; die Operationsbeschreibungen von `listEndpoints` und `listDeadDeliveries` (die Liste liefert **IDs fremder Mandanten**, deren Detailabruf 404 ergibt); die Regel `x-contract-rules.tenant`. |
+| **Nachweis** | Die Klausel „**auch** für `service_admin`" steht in **7** Vertragszeilen (4 Operationen + 3 Regeltexte), `V-27` **11-mal**. Kein neuer Leseweg: weiterhin **17** Operationen, kein **vierter** Eigentümer im Schema. |
+| **Nicht geändert** | `docs/adr/ADR-015` §1/§2 enthalten zwei Sätze, die durch V-26/V-27 überholt sind — `docs/adr/` ist in diesem Schritt nicht änderbar → **V-44**. |
+
+### 4d.2 Der Abschluss-Sweep — 11 behobene Widersprüche
+
+| ID | Widerspruch | Korrektur |
+|---|---|---|
+| **V-28** | `createEndpoint` kündigte **409 `idempotency_conflict`** an, kann aber keinen Idempotenzschlüssel annehmen (kein Feld, kein Header; D-05/FR-011 betreffen Ereignisse; das Schema erzwingt keine Eindeutigkeit auf `endpoints`) | **409 entfernt** |
+| **V-29** | `replayDelivery` und `enforceRetention` haben einen Request-Body, aber **keine 400** | **400 `MalformedRequest`** ergänzt |
+| **V-30** | Der Cursor im Beispiel war **kein gültiges Base64** und trug den **falschen** Sortierschlüssel (`updated_at` statt `created_at`, ADR-017 §4) | Cursor trägt jetzt `created_at` + UUID-Tie-Breaker, korrekt kodiert |
+| **V-31** | Das Beispiel des Rotations-Secrets (`"neues-s3cr3t"`, 12 Zeichen) verletzte `minLength: 16` | auf 27 Zeichen verlängert |
+| **V-32** | Dieselbe `delivery_run_id` stand in **drei** Beispielen in **drei** Zuständen (`failed` / `abandoned` / Replay-Vorgänger) | Beispiele entkoppelt — jede Ressource in genau einem Zustand |
+| **V-33** | `Problem.violations` „nur bei `validation_failed`" — das 422-Beispiel `tenant_parameter_rejected` führt `violations` | Beschreibung korrigiert |
+| **V-34** | `ValidationViolation.field` „JSON-Pointer" — die Beispiele nennen Feldnamen | Beschreibung an die Beispiele angeglichen |
+| **V-35** | `DeliveryStatus` beschrieb **8** von **9** Werten — `failed` fehlte | `failed` beschrieben (ADR-008) |
+| **V-36** | `X-EchoBox-Rejection` war `required: false` — ADR-009 macht den Header zum **festen** Teil des Ablehnungssignals | `required: true` |
+| **V-37** | `Event.deleted_at` versprach einen gesetzten Wert — ADR-012 §3 macht markierte Ereignisse **sofort unsichtbar** (404) | Beschreibung: in der Antwort immer `null` |
+| **V-38** | Drei Stellen sagten „`payload: null` gilt als **nicht** gesetzt", das Schema sagt `nullable: false` | Wortlaut an das Schema angeglichen (Beobachtung bleibt 422) |
+
+### 4d.3 Neu dokumentiert und **nicht** entschieden
+
+| ID | Thema | Empfehlung | Owner |
+|---|---|---|---|
+| **V-39** | Rollen- **oder** Mandantenprüfung zuerst beim Replay (403 vs. 404) | Mandant zuerst ⇒ 404 | Mensch (Gate) |
+| **V-40** | Zeitraumfilter des Zustellprotokolls (`from`/`to`) — an welchen Zeitstempel? | `created_at` (wie die Sortierung) | Architektur (Delta-Prüfung) |
+| **V-41** | `ReadinessStatus` führt `not_ready`/`unavailable`, die der Vertrag nie erzeugt | Enum auf `ready`/`ok` schärfen | Architektur (Delta-Prüfung) |
+| **V-42** | `EndpointMetrics.rate_limit` optional, aber als vorhanden beschrieben | in `required` aufnehmen | Architektur (Delta-Prüfung) |
+| **V-43** | `Event.deleted_at` ist ein totes Feld (immer `null`) | Feld entfernen | Architektur (nach dem Freeze) |
+| **V-44** | ADR-015 §1/§2 widersprechen V-26/V-27 | Sätze an den entschiedenen Stand bringen | Architektur (Rücksprung) |
+
 ---
 
 ## 5. Maschinenprüfung
@@ -191,6 +232,11 @@ Schemas (**37**), die Antwort-Komponenten (**11**), die Parameter (**7**), die
 | **Rücksprung 2** (2026-10-21): `$ref` aufgelöst (176), ungenutzte Objekte (37 Schemas, 11 Antwort-Komponenten, 7 Parameter), Beispiele gegen ihr Schema (Pflichtfelder, Enum, unbekannte Felder) | **ok** — keine Abweichung, kein ungenutztes Objekt |
 | **Rücksprung 2**: `grep "Connection-Initializer"` im Vertrag | **kein Treffer** (V-23) |
 | **Rücksprung 2**: `grep "\`(aktiv\|pausiert)\`"` im Vertrag | **kein Treffer** (V-24) |
+| **Rücksprung 4**: `$ref` aufgelöst, ungenutzte Objekte (37 Schemas, 11 Antwort-Komponenten, 7 Parameter, 1 Header) | **ok** — 177 Verweise, alle auflösbar, **kein** ungenutztes Objekt |
+| **Rücksprung 4**: Beispiele gegen ihr Schema (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum, Längen, Bereiche) | **0 Abweichungen** |
+| **Rücksprung 4**: Beispiele **nachgerechnet** (Nutzlastbytes 35, Erfolgsquote 100/120, Backoff 1→2 min, Gesamtfenster 123 min ± 20 %, Fristen/Stichtage, Zählersummen, Base64-Länge des Cursors, Secret-Längen, UUID-Form) | **0 Abweichungen** |
+| **Rücksprung 4**: Fehlercode-Vollständigkeit (Body ⇒ 400, authentifiziert ⇒ 429, Adresse ⇒ 404) | **vollständig** (V-29 behoben) |
+| **Rücksprung 4**: `grep "V-27"` | **11 Treffer** in 7 Zeilen — 4 Operationen + 3 Regeltexte |
 
 ---
 
@@ -204,16 +250,18 @@ Schemas (**37**), die Antwort-Komponenten (**11**), die Parameter (**7**), die
 >
 > **Offen für die Delta-Prüfung (Schritt 4)** ist damit:
 >
-> - **V-26** (neu, in diesem Schritt gefunden): `Endpoint.organisation_id` —
->   die Beschreibung („**nur** für `service_admin` gefüllt“) und zwei Beispiele
->   (`pauseEndpoint`, `listEndpoints` mit `organisation_id: m-1`) widersprechen
->   sich. **Dokumentiert, nicht entschieden** (Bilanz § 6). Die gewählte
->   Variante für `DeliveryRun.organisation_id` (V-25) folgt der Beschreibung
->   und muss mit dieser Entscheidung zusammen geprüft werden.
+> - **V-39** … **V-44** — die sechs im **Rücksprung 4** neu dokumentierten
+>   Befunde (Bilanz § 10.4). **V-39** (Reihenfolge der Rollen- und der
+>   Mandantenprüfung beim Replay) und **V-44** (ADR-015 §1/§2 gegen V-26/V-27)
+>   sind die beiden, die vor dem **Einfrieren** eine Antwort brauchen.
 > - **E-12** (Härtung der mandantenübergreifenden Sicht) — offen, Gate 2.
 > - **R-01** (= E-13) — die Karenzzeit der Aufbewahrung hat keinen
 >   beschlossenen Vorgabewert; der Vertrag behauptet **keinen**; die
 >   Entscheidung liegt beim **Fachbereich** (Gate 2).
+>
+> **Erledigt:** **V-26** (entschieden im Rücksprung 3, umgesetzt) und **V-27**
+> (entschieden im Rücksprung 4, umgesetzt an 10 Stellen) sowie **11** weitere
+> Widersprüche des Abschluss-Sweeps (**V-28…V-38**).
 
 Die frühere Prüfliste des ersten Stresstests (Grenzfälle des
 Idempotenzvergleichs, 1-MB-Grenze bei `payload_base64`, `delayed` als
@@ -233,4 +281,9 @@ zugehörigen Befunde V-01…V-22 und die Entscheidungen E-01…E-09 sind in
 | O-05 | Auftragsverarbeitung / AVV | Fachbereich + Recht | Gate 2 |
 | **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) — kein beschlossener Vorgabewert; der Vertrag behauptet **keinen** (das Schema-Verhalten ist explizit: Purge im nächsten Durchlauf, E-13) | Fachbereich | Gate 2 |
 | **E-12** | **Härtung** der mandantenübergreifenden Sicht — eigene Laufzeitrolle `echobox_ops` statt der Allzweckrolle? Die Grenze ist in ADR-002 ehrlich benannt; die Entscheidung ist **offen** | Fachbereich + Plattform | Gate 2 |
-| **V-26** | `Endpoint.organisation_id` — Beschreibung und Beispiele widersprechen sich; **nicht** entschieden (Bilanz § 6) | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-39** | Reihenfolge der Rollen- **oder** der Mandantenprüfung beim Replay (403 vs. 404) — **nicht** entschieden (Bilanz § 10.4) | Mensch (F-03/D-15) | **vor dem Freeze** |
+| **V-44** | ADR-015 §1/§2 widersprechen V-26/V-27 — **Korrektur**, keine Entscheidung; `docs/adr/` war in diesem Schritt nicht änderbar | Architektur (Rücksprung) | **vor dem Freeze** |
+| **V-40** | Zeitraumfilter des Zustellprotokolls (`from`/`to`) — an welchen Zeitstempel? | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-41** | `ReadinessStatus` führt Werte, die der Vertrag nie erzeugt | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-42** | `EndpointMetrics.rate_limit` optional, aber als vorhanden beschrieben | Architektur (Delta-Prüfung) | **vor dem Freeze** |
+| **V-43** | `Event.deleted_at` ist ein totes Feld (immer `null`) | Architektur (nach dem Freeze) | nach dem Freeze |

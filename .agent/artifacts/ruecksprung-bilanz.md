@@ -1,4 +1,4 @@
-# Rücksprung-Bilanz — Schritt 2 (Konzept & Architektur), **Rücksprung 2**
+# Rücksprung-Bilanz — Schritt 2 (Konzept & Architektur), **Rücksprung 4**
 
 > **Vorgangsprotokoll** — der Nachweis, dass kein Befund des **zweiten**
 > Stresstests liegen geblieben ist. **Kein lebender Wahrheitsort**: die
@@ -9,6 +9,13 @@
 > **› Fortsetzung — Rücksprung 3 (Abschnitt 9):** der Mensch hat den
 > Vertragswiderspruch **V-26** entschieden; er ist umgesetzt. Der Vertrag war
 > dabei **noch nicht eingefroren** — der Einfrierpunkt folgt nach Schritt 4.
+>
+> **› Fortsetzung — Rücksprung 4 (Abschnitt 10):** der Mensch hat den
+> Vertragswiderspruch **V-27** entschieden; er ist umgesetzt. Danach wurde der
+> Vertrag **einmal vollständig** durchgesweept: **11** weitere Widersprüche
+> (**V-28…V-38**) sind behoben, **6** neue Befunde (**V-39…V-44**) sind
+> dokumentiert und **nicht** entschieden. Der Vertrag ist damit
+> **einfrierreif** — eingefroren wird er nach Schritt 4 (Delta-Prüfung).
 >
 > **Rücksprung 2 aus Schritt 4 (Grill-Me-Stresstest)** · Agent:
 > `aisdlc-architecture` · Stand: 2026-10-21 · Eingang:
@@ -55,6 +62,11 @@ Schritt.
 umgesetzt** — `organisation_id` benennt **immer** den **besitzenden Mandanten**
 der Ressource. Neu dokumentiert und **nicht** entschieden: **V-27**
 (Abschnitt 9.5). Der Vertrag wird **nach Schritt 4** eingefroren.
+
+**› Stand nach Rücksprung 4 (Abschnitt 10):** **V-27 ist entschieden und
+umgesetzt** (10 Fundstellen), danach ist der Vertrag **einmal vollständig**
+durchgesweept: **11** Widersprüche (**V-28…V-38**) behoben, **6** neue Befunde
+(**V-39…V-44**) dokumentiert und **nicht** entschieden.
 
 ---
 
@@ -400,3 +412,132 @@ Akzeptanzkriterium. **Kein** Schema-Anfassen (`diff` leer).
 | ID | Befund | Fundstelle | Warum nicht entschieden |
 |---|---|---|---|
 | **V-27** | **Der `service_admin` bekommt IDs, die er nicht öffnen kann.** Die mandantenübergreifende **Endpunktliste** (und die **Totenliste**) liefert dem `service_admin` Endpunkt- bzw. Zustelllauf-IDs **fremder Mandanten**; der **Einzelabruf** (`getEndpoint`, `getDeliveryRun`) beantwortet eine Ressource eines fremden Mandanten aber mit **HTTP 404** (D-02). Der Vertrag sagt **nicht**, ob die 404 auch für den `service_admin` gilt; das Schema lässt nur die **drei** mandantenübergreifenden **Listen** zu (ADR-002 §7: `list_endpoints_cross_tenant`, `list_dead_deliveries_cross_tenant`, `enforce_retention_cross_tenant`) — ein mandantenübergreifender **Einzelabruf** existiert **nicht**. Die Rollenmatrix in ADR-015 §1 nennt für `service_admin` „Endpunkte verwalten: **ja** (alle Mandanten)", was in die andere Richtung deutet. | `openapi.yaml:625-628` (`getEndpoint`), `:1127-1131` (`getDeliveryRun`), `:556-570` (`listEndpoints`), `:1217-1221` (`listDeadDeliveries`); `docs/adr/ADR-002-mandantentrennung-rls.md` §7 (drei Eigentümerfunktionen); `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md:35` | Das ist **kein** Widerspruch im engeren Sinn (beide Sätze können gleichzeitig gelten, wenn „fremd" am Mandanten aus der Identität gemessen wird) — es ist eine **offene Semantikfrage** mit realer Client-Folge: die Liste übergibt IDs, deren Detailabruf 404 endet. Die Auflösung (Vertragssatz „die 404 gilt auch für `service_admin`" vs. ein mandantenübergreifender Einzelabruf als **vierte** Eigentümerfunktion) ist eine **Semantik- und Architekturentscheidung** — sie gehört in die **Delta-Prüfung (Schritt 4)**, vor dem Einfrieren. **Hier nicht entschieden.** Hinweis: `docs/adr/` ist in diesem Schritt nicht änderbar — ADR-015 und ADR-002 blieben unberührt. |
+
+---
+
+## 10. Rücksprung 4 — V-27 und der Abschluss-Sweep des Vertrags
+
+> **Eingang:** der Mensch hat **V-27 entschieden** (Freigabe vor diesem Schritt) —
+> die Entscheidung wird hier **nicht** neu diskutiert, sondern **umgesetzt**.
+> Danach: **einmaliger, vollständiger Sweep** des gesamten Vertrags — alle
+> Achsen in **einem** Zug, nicht Fundstelle für Fundstelle.
+> Agent: `aisdlc-architecture` · Stand: 2026-10-21 · Vertrag: `docs/api/openapi.yaml`
+> (17 Operationen) — **noch nicht eingefroren**, der Einfrierpunkt folgt nach
+> Schritt 4 (Delta-Prüfung).
+
+### 10.1 V-27 — Fundstelle, Entscheidung, Korrektur
+
+**Fundstellen (vorher)**
+
+| # | Stelle | Befund |
+|---|---|---|
+| 1 | `getEndpoint` (`openapi.yaml:625-628`) | „Ein Endpunkt eines fremden Mandanten wird mit **HTTP 404** beantwortet" — **offen**, ob das auch für `service_admin` gilt |
+| 2 | `getDeliveryRun` (`:1127-1131`) | dasselbe für den Zustelllauf |
+| 3 | `listEndpoints` (`:556-570`) | nennt die mandantenübergreifende Sicht, **nicht** aber, was mit den gelieferten **fremden IDs** geschieht |
+| 4 | `listDeadDeliveries` (`:1217-1221`) | dasselbe für die Totenliste |
+| 5 | `info.description` Rollentabelle (`:38-42`) | „`service_admin` \| Endpunkte aller Mandanten **sehen**" — im Singular gelesen: auch der Detailabruf sei möglich |
+| 6 | `info.description` Abschnitt „Mandant" (`:22-34`) | die 404 ohne Rollenbezug |
+| 7 | `info.description` Abschnitt „Mandantenübergreifende Listen" (`:89-99`) | die Fremd-IDs werden nicht erwähnt |
+| 8 | `x-contract-rules.tenant` | dasselbe |
+
+**Entscheidung (vom Menschen freigegeben) — nicht neu diskutiert**
+
+1. Die mandantenübergreifende Sicht gilt **nur** für die **drei**
+   Listen-/Betriebsoperationen: **Endpunktliste, Totenliste, Aufbewahrung** (E-01).
+2. Der **Einzelabruf** einer Ressource eines **fremden** Mandanten ergibt
+   **auch für `service_admin`** **HTTP 404** (D-02).
+3. Ein **vierter** mandantenübergreifender Leseweg wird **nicht** gebaut.
+4. Der Vertrag **sagt das ausdrücklich**.
+
+**Korrektur — 10 Stellen im Vertrag**
+
+| Stelle (nachher) | Änderung |
+|---|---|
+| `info.description` Rollentabelle (`:38-48`) | Die Rechte-Zeile des `service_admin` nennt jetzt „Endpunkte **aller** Mandanten **in der Liste** sehen" und „Zustellprotokoll und Kennzahlen (eigener Mandant)". Neu darunter: „**Der Einzelabruf einer Ressource eines fremden Mandanten ergibt HTTP 404 — auch für `service_admin`** (D-02, V-27). Die mandantenübergreifende Sicht gilt **nur** für die **drei** Listen-/Betriebsoperationen … Ein **vierter** mandantenübergreifender Leseweg wird **nicht** gebaut." |
+| `info.description` Abschnitt „Mandant" (`:28-31`) | „Das gilt für **alle** Rollen — **auch** für `service_admin`: der **Einzelabruf** einer Ressource eines fremden Mandanten endet mit 404 (V-27)." |
+| `info.description` Abschnitt „Mandantenübergreifende Listen" (`:102-108`) | „Die Liste liefert damit auch **IDs fremder Mandanten** — der **Detailabruf** einer solchen ID endet mit **HTTP 404**, auch für den `service_admin` (D-02, V-27)." |
+| `listEndpoints` (`:576-583`) | Neuer Absatz „**IDs fremder Mandanten:** … Der **Detailabruf** (`GET /api/v1/endpoints/{endpointId}`) einer solchen ID endet mit **HTTP 404** …" |
+| `listDeadDeliveries` (`:1243-1247`) | Neuer Absatz „**IDs fremder Mandanten:** … `GET /api/v1/deliveries/{deliveryRunId}` …" |
+| `getEndpoint` (`:641-645`) | „Das gilt **auch** für `service_admin` … ein **Einzelabruf** über die Mandantgrenze hinweg wird **nicht** gebaut (V-27)." |
+| `getDeliveryRun` (`:1149-1153`) | dasselbe |
+| `getEvent` (`:971-975`) | dasselbe — die Regel gilt für **jeden** Einzelabruf einer fremden Ressource (eine mandantenübergreifende Ereignisliste gibt es nicht) |
+| `getEndpointMetrics` (`:1438-1441`) | dasselbe |
+| `x-contract-rules.tenant` (`:3359-3360`) | beide Regeln um V-27 ergänzt (404 auch für `service_admin`; die mandantenübergreifende Sicht gilt **nur** für die drei Operationen) |
+
+**Nachweis der Umsetzung**
+
+- Die Klausel „**auch** für `service_admin`" steht jetzt in **7** Zeilen des Vertrags: den **vier** Operationen, die eine fremde Ressource adressieren (`getEndpoint`, `getDeliveryRun`, `getEvent`, `getEndpointMetrics`), und den **drei** Regeltexten (Rollen-Absatz, Abschnitt „Mandant", `x-contract-rules.tenant`). `V-27` kommt **11-mal** im Vertrag vor.
+- „Ein **vierter** mandantenübergreifender Leseweg wird **nicht** gebaut" steht in **drei** Texten (Rollen-Absatz, `listEndpoints`, `x-contract-rules.tenant`).
+- **Kein** neuer Leseweg: die Zahl der Operationen bleibt **17**; `getEndpoint` und `getDeliveryRun` tragen **keine** mandantenübergreifende Zusage.
+
+**Bewusst nicht geändert (und warum)**
+
+| Stelle | Warum |
+|---|---|
+| `docs/adr/ADR-015-…md` §1 (Rollenmatrix „Endpunkte verwalten: **ja** (alle Mandanten)") und §2 („Im Zustellprotokoll … ist das Feld `null`") | `docs/adr/` ist in diesem Schritt **nicht** änderbar. Beide Sätze sind durch **V-26** und **V-27** überholt → **V-44** (dokumentiert, nicht entschieden). |
+| `docs/adr/ADR-002-…md` §7 | passt bereits: **genau drei** `SECURITY DEFINER`-Eigentümerfunktionen, **kein** mandantenübergreifender Einzelabruf ✓ |
+| Schema (`.agent/knowledge/schema.sql` + Spiegel) | unverändert — der Vertrag beschreibt jetzt genau die Architektur, die das Schema ohnehin hat (kein vierter Eigentümer) ✓ |
+
+### 10.2 Der Abschluss-Sweep — das Prüfraster
+
+| Achse | Geprüft | Ergebnis |
+|---|---|---|
+| **Beschreibungen ↔ Beispiele** | alle 17 Operationen, alle 31 Beispiel-Objekte, alle Komponenten-Beispiele: Feldwerte, Statuswerte, Formate, Größen, Zeitstempel, Zahlen — **nachgerechnet** (Nutzlastbytes 35, Erfolgsquote 100/120, Backoff 1→2 min, Gesamtfenster 123 min ± 20 %, Fristen/Stichtage, Zählersummen je Mandant, Base64-Länge des Cursors, Secret-Längen, UUID-Form) | **3 Widersprüche** (V-30, V-31, V-32) |
+| **Beschreibungen ↔ Schemas** | alle 37 Schemas: Pflicht/Nach nullable, Wertebereiche, Formate, Enum-Werte, `additionalProperties` | **5 Widersprüche** (V-33, V-34, V-35, V-37, V-38) + 2 offene Fragen (V-41, V-42) |
+| **Beschreibungen ↔ Rollenmatrix** | jede im Vertrag ausgesprochene Rollenregel gegen ADR-015 §1/§2 und F-01…F-04 | **0 Widersprüche** — die drei ausgesprochenen Regeln (Totenliste, Replay, Aufbewahrung) stimmen mit ADR-015 überein; die Rollen**übersicht** in `info.description` war unvollständig und ist mit **V-27** korrigiert |
+| **Beschreibungen ↔ bestätigte Entscheidungen** | D-01…D-15, F-01…F-04, E-01…E-11, E-13, V-26, V-27 gegen jede Operation, jedes Schema, jede Regel | **2 Widersprüche** (V-28, V-36) |
+| **Fehlersemantik** | 400/401/403/404/409/413/422/429/500/503 je Operation gegen die Fehlersemantik-Tabelle und ADR-015 §5 | **1 Widerspruch** (V-29) + 1 offene Frage (V-39) |
+| **Paginierung, Header, Signatur, Ablehnungssignal, Kennungen** | Form von `page`/`limit`/`cursor` an allen drei Listen, `Retry-After`, `Location`, die acht `X-EchoBox-*`-Header, `v1=<hex>`, `<timestamp>.<payload_bytes>`, `X-EchoBox-Rejection: permanent` | **2 Widersprüche** (V-30 Cursor, V-36 Ablehnungs-Header) |
+| **`x-delivery-protocol`** | Retry-Matrix gegen ADR-008 §1, 3xx gegen ADR-009, Ablehnungssignal gegen ADR-009, Signatur gegen ADR-004/005, Zeitlimit (5 s + 10 s < 30 s) gegen ADR-008, Dubletten gegen ADR-005 | **1 Widerspruch** (V-36) — sonst deckungsgleich |
+| **Abdeckung** | 23 Stories / 101 AKs / 24 Anforderungen gegen `docs/requirements/stories/*.json`; je Operation `operationId`, `x-ac-id`, `x-requirement-ids`; `$ref`-Auflösung; ungenutzte Objekte | **lückenlos** — 0 Befunde |
+
+*Querverweis:* V-30 und V-36 sind zugleich Befunde der Achsen „Beispiele" bzw. „x-delivery-protocol" — sie sind in der Summe **nicht** doppelt gezählt.
+
+### 10.3 Die behobenen Widersprüche (V-28 … V-38)
+
+| ID | Fundstelle | Widerspruch | Korrektur |
+|---|---|---|---|
+| **V-28** (muss) | `createEndpoint` — Antworten (vorher `:543-544`) | Die Operation kündigte **409 `idempotency_conflict`** an — sie kann aber **keinen** Idempotenzschlüssel annehmen: `EndpointCreateRequest` hat nur `target_url`/`secret`/`event_types` (`additionalProperties: false`), ein `Idempotency-Key`-**Header** ist im Vertrag nicht definiert, D-05/FR-011 betreffen **Ereignisse**, und das Schema hat `UNIQUE (organisation_id, idempotency_key)` nur auf `events` — auf `endpoints` **keine** Eindeutigkeit. Die Zusage war **unerfüllbar**. | **409 entfernt.** Kein neuer Schlüssel, keine neue Zusage: der Idempotenzschlüssel bleibt der des Ereignisses (`EventIntakeRequest.idempotency_key`). *Hinweis:* ein echter Idempotenzschlüssel für die **Registrierung** wäre eine **neue** Zusage — hier nicht eingeführt (siehe **V-39**). |
+| **V-29** (muss) | `replayDelivery` (vorher `:1368`) und `enforceRetention` (vorher `:1559`) | Beide Operationen haben einen **Request-Body**, deklarieren aber **keine 400**. Die Fehlersemantik in `info.description` gilt **vertragsweit**: 400 `malformed_request` = „syntaktisch fehlerhafte Anfrage (kein gültiges JSON)". | **400 `MalformedRequest`** bei beiden ergänzt. Der Body ist optional — **ohne** Body bleibt es bei 422/200; **mit** syntaktisch kaputtem Body ist es 400. |
+| **V-30** (muss) | `listDeliveries` — Beispiel `page.next_cursor` | Der Cursor war **kein gültiges Base64** (55 Zeichen, nicht durch 4 teilbar → „Incorrect padding") **und** trug `updated_at`. Der Sortierschlüssel des Zustellprotokolls ist aber **`created_at`** (ADR-017 §4 „neueste zuerst (`created_at DESC`)"; Index `delivery_runs_tenant_created_at_idx`). | Cursor auf `{"created_at":"2026-10-21T09:15:22.481Z","delivery_run_id":"7d2b1c9a-…"}` umgestellt (Sortierschlüssel **+** UUID-Tie-Breaker, wie in `info.description` beschrieben) und korrekt Base64-kodiert (132 Zeichen, ≤ 512). |
+| **V-31** (muss) | `rotateEndpointSecret` — Beispiel (vorher `:821`) und `SecretRotationRequest.secret.example` | Das Beispiel nannte `"neues-s3cr3t"` — **12 Zeichen**; das eigene Schema fordert `minLength: 16`. Das Beispiel verletzte den Vertrag. | Beide Stellen auf `"neues-s3cr3t-rotationswert"` (27 Zeichen) umgestellt. |
+| **V-32** (muss) | `listDeadDeliveries` — Beispiel (vorher `:1275-1277`) und `replayDelivery` — Beispiel (vorher `:1361-1363`) | Dieselbe `delivery_run_id` (`7d2b1c9a-…`) stand in **drei** Beispielen in **drei verschiedenen Zuständen**: `failed` (2 Versuche) in der Protokollliste, `abandoned` (8 Versuche) in der Totenliste und als **Replay-Vorgänger** — replaybar ist aber nur ein **aufgegebener** Lauf. | Die Beispiele sind **entkoppelt**: der Lauf `b4c3d2e1-…` (Ereignis `5d8e9f0a-…`) ist der **aufgegebene** (Totenliste), sein Replay ist der neue Lauf `9a8b7c6d-…` mit **derselben** Ereignis-ID; der Lauf `7d2b1c9a-…` (Ereignis `3c9a7d21-…`) bleibt der `failed` aus Protokoll und Detail. Jede Ressource steht jetzt in **genau einem** Zustand. |
+| **V-33** (sollte) | `components.schemas.Problem.violations` (vorher `:1963`) | Die Beschreibung sagte „nur bei `validation_failed`" — das **Beispiel** der 422 `tenant_parameter_rejected` führt aber ein `violations`-Array (`field: organisation_id`). | Beschreibung: „bei `validation_failed` **und** bei `tenant_parameter_rejected` (beide 422-Codes nennen den Feldverstoß)". |
+| **V-34** (sollte) | `components.schemas.ValidationViolation.field` (vorher `:1972`) | „**JSON-Pointer** auf das betroffene Feld" — die Beispiele nennen den **Feldnamen** (`target_url`, `organisation_id`), keinen Pointer. | Beschreibung: „Das betroffene Feld (Feldname, z. B. `target_url`)". |
+| **V-35** (sollte) | `components.schemas.DeliveryStatus` (vorher `:2029-2039`) | Die Beschreibung nennt **8** der **9** Enum-Werte — **`failed`** fehlte, obwohl der Wert im Vertrag vorkommt (Beispiel `listDeliveries`, DB-Check `delivery_runs_status_ck`). | `failed` beschrieben: „der letzte Versuch ist fehlgeschlagen, ein weiterer ist nach dem Backoff geplant (ADR-008)" — wortgleich mit dem Zustandsautomaten in `docs/architecture/domain_model.md`. |
+| ** **V-36** (muss) | `x-delivery-protocol.response.outcomes[410].required_headers` (vorher `:326`) | Der Header `X-EchoBox-Rejection` war `required: false` — ADR-009 legt ihn als **festen Bestandteil** des Ablehnungssignals fest („Statuscode, Headername oder Body-Format"; „Der Vertragstest schlägt fehl, wenn … der Headername … fehlt"). | `required: true`, Beschreibung um „— **Pflicht** beim Signal (ADR-009)" ergänzt. |
+| **V-37** (sollte) | `components.schemas.Event.deleted_at` (vorher `:2425`) | „Gesetzt, wenn das Ereignis durch die Aufbewahrung gelöscht wurde" — ADR-012 §3: ein markiertes Ereignis ist **sofort unsichtbar** (RLS filtert `deleted_at IS NULL`) und wird mit **404** beantwortet. Der Wert ist in einer Antwort also **nie** gesetzt. | Beschreibung: „Aufbewahrungsmarker — **in der Antwort immer `null`** … Das Feld trägt keine beobachtbare Information." (Die Frage, ob das Feld ganz entfallen soll, ist **V-43**.) |
+| **V-38** (sollte) | `EventIntakeRequest` — Beschreibung (vorher `:2266`), `payload` — Beschreibung (vorher `:2296`), `x-validation-rules.exactly_one_payload` (vorher `:2330`) | Drei Stellen sagten „`payload: null` gilt als **nicht** gesetzt" — das Schema sagt `nullable: false`, und die Fehlersemantik verlangt für **jede** Schemaabweichung **422 `validation_failed`**. | Alle drei Stellen an das Schema angeglichen: „Ein `payload: null` verletzt das Schema (HTTP 422 `validation_failed`) und gilt **nicht** als gesetzt." Das **Schema** bleibt unverändert (`nullable: false`); die Beobachtung (422) bleibt dieselbe. |
+
+**Umfang unverändert:** 17 Operationen · 37 Schemas · 11 Antwort-Komponenten · 7 Parameter · 23 Stories / 101 AKs / 24 Anforderungen — **kein** neues Feld, **keine** neue Operation, **keine** neue Story, **kein** neues Akzeptanzkriterium, **keine** neue Regel. Das **Schema** wurde nicht angefasst (`diff` leer).
+
+### 10.4 Neue Befunde — dokumentiert, **nicht** entschieden
+
+| ID | Befund | Fundstelle | Frage | Optionen | Empfehlung |
+|---|---|---|---|---|---|
+| **V-39** (muss) | **Reihenfolge der Rollen- und der Mandantenprüfung beim Replay.** Der Vertrag sagt „`developer` und `service_admin` erhalten HTTP 403" (F-03) und zugleich „fremde Ressourcen ⇒ 404" (D-02). Für `service_admin`/`developer` auf einen Zustelllauf **fremder** Mandanten steht nicht, welcher Code gilt. | `replayDelivery`-Beschreibung (`:1352-1357`); `info.description` Fehlersemantik; ADR-015 §3 („403 = dein Mandant, deine Rolle; 404 = nicht dein Mandant") | Rollenprüfung **vor** der Mandantenprüfung (403) oder umgekehrt (404)? | (a) Mandant zuerst ⇒ **404** für jeden fremden Lauf; (b) Rolle zuerst ⇒ **403**; (c) Replay grundsätzlich nur im **eigenen** Mandanten (D-02 ⇒ 404) | **(a)** — die Existenz fremder Läufe bleibt verborgen (D-02); die Rollenprüfung greift nur innerhalb des eigenen Mandanten. **Nicht entschieden** — die Reihenfolge ist eine Festlegung, die F-03/D-15 berührt → Mensch (Gate). |
+| **V-40** (muss) | **Der Zeitraumfilter des Zustellprotokolls ist an keinen Zeitstempel gebunden.** `from`/`to` nennen keinen Zeitstempel; die Totenliste bindet ihren Zeitraum ausdrücklich an `abandoned_at`; ADR-017 §4 nennt für das Protokoll `created_at`, `accepted_at` **und** `last_attempt_at`. | `components.parameters.From`/`To`; `listDeliveries` (Filter Zeitraum); `listDeadDeliveries` („Der Zeitraumfilter bezieht sich auf den **Aufgabezeitpunkt**") | Auf welchen Zeitstempel bezieht sich `from`/`to` im Zustellprotokoll? | (a) `created_at` (Sortierschlüssel, ADR-017 §4); (b) `last_attempt_at` (Anker der Aufbewahrung, F-02); (c) `accepted_at` | **(a)** — Filter und Sortierung auf **denselben** Schlüssel; die Randfälle sind eindeutig. **Nicht entschieden** (Schnittstellen-Semantik). |
+| **V-41** (sollte) | **`ReadinessStatus` führt Werte, die der Vertrag nie erzeugt.** `status: [ready, not_ready]` und `checks.*: [ok, unavailable]` — der nicht bereite Zustand wird aber mit **503** und dem **Fehlerschema** `Problem` beantwortet (ADR-015 §4: „Ein einziges Schema für alle Fehlerantworten"). | `components.schemas.ReadinessStatus`; `getReadiness` (503 → `ServiceUnavailable`) | Soll der nicht bereite Zustand als **Readiness-Bericht** oder als **Problem** kommen? | (a) Enum auf die beobachtbaren Werte schärfen (`ready` / `ok`); (b) den 503 mit dem Readiness-Bericht beantworten (widerspricht ADR-015 §4); (c) als reserviert dokumentieren | **(a)** — das Modell beschreibt dann genau den Zustand, den der Vertrag liefert. **Nicht entschieden** (Antwortform des 503). |
+| **V-42** (sollte) | **`EndpointMetrics.rate_limit` ist optional, wird aber als vorhanden beschrieben.** `required: [endpoint_id, window, data_available]` — `rate_limit` fehlt; die Operationsbeschreibung sagt „Der Abschnitt `rate_limit` liefert …" und „`rate_limit.limit` ist **immer** der wirksame Grenzwert". | `components.schemas.EndpointMetrics`; `getEndpointMetrics`-Beschreibung | Ist der Abschnitt `rate_limit` **immer** Teil der Antwort? | (a) `rate_limit` in `required` aufnehmen; (b) die Beschreibung als optional kennzeichnen | **(a)** — die Zählung läuft unabhängig vom Grenzwert (AC-018-4) und ist damit immer vorhanden. **Nicht entschieden** (neue Zusage). |
+| **V-43** (sollte) | **`Event.deleted_at` ist ein totes Feld.** In der Antwort immer `null` (ADR-012 §3, V-37) — die anderen Entitätsmodelle (`Endpoint`, `DeliveryRun`, `DeliveryAttempt`, `DeadDelivery`) führen den Aufbewahrungsmarker **nicht**, weil ein markierter Datensatz unsichtbar ist. | `components.schemas.Event.deleted_at` | Feld behalten (mit dem korrigierten Text aus V-37) oder entfernen? | (a) Feld entfernen (Konsistenz mit den übrigen Modellen, kein Informationsverlust); (b) behalten | **(a)** — die Antwortform wird einheitlich. **Nicht entschieden** (Änderung der Antwortform → nach dem Freeze ein Rücksprung). |
+| **V-44** (muss) | **ADR-015 widerspricht in zwei Sätzen den bestätigten Entscheidungen V-26 und V-27.** §1: die Rollenmatrix nennt „`service_admin` \| Endpunkte verwalten \| **ja** (alle Mandanten)" — V-27 besagt: der **Einzelabruf** einer fremden Ressource ergibt 404; die mandantenübergreifende Sicht gilt **nur** für die drei Listen-/Betriebsoperationen. §2: „**Im Zustellprotokoll** … gibt es keine mandantenübergreifende Sicht — dort ist das Feld `null` (E-10)" — V-26 hat `organisation_id` auf „**immer** gefüllt" umgestellt. | `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md:35` und `:80-81` | — | — | **Keine Entscheidung nötig — nur eine Korrektur.** `docs/adr/` ist in diesem Schritt **nicht** änderbar; die beiden Sätze sind **in einem Rücksprung** (oder in Schritt 4) an den entschiedenen Stand zu bringen. **Hier nicht geändert.** |
+
+**Hinweis zu V-39 und V-44:** beide betreffen die **Rollenmatrix** — einmal die Reihenfolge der Prüfungen, einmal den Text der ADR. Sie gehören nicht zum Muster „Beschreibung ↔ Beispiel" und wurden **nicht** eigenmächtig entschieden.
+
+### 10.5 Nachweis
+
+| Prüfung | Ergebnis |
+|---|---|
+| YAML gültig | **gültig** (`yaml.safe_load`) |
+| `$ref` | **177**, **alle** auflösbar |
+| Operationen | **17**, alle mit `operationId` (eindeutig), `x-ac-id`, `x-requirement-ids` |
+| `x-acceptance-coverage` / `x-requirement-coverage` | **101 / 24**, lückenlos gegen `docs/requirements/stories/*.json`, keine Dubletten |
+| Beispiele gegen ihr Schema (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum, Längen, Bereiche) | **0 Abweichungen** |
+| Beispiele **nachgerechnet** (Nutzlastbytes, Erfolgsquote, Backoff, Gesamtfenster, Fristen/Stichtage, Zählersummen, Base64-Länge, Secret-Längen, UUID-Form) | **0 Abweichungen** |
+| Fehlercodes je Operation (Body ⇒ 400, authentifiziert ⇒ 429, Adresse ⇒ 404) | **vollständig** |
+| ungenutzte Objekte | **keine** (37 Schemas, 11 Antwort-Komponenten, 7 Parameter, 1 Header) |
+| `python3 .agent/tools/traceability_check.py` | **grün** — „Keine Luecken …" (23 Stories / 101 AKs / 24 Anforderungen) |
+| `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (byte-identisch — das Schema wurde nicht angefasst) |
+| Anforderungen unberührt | `git diff --stat -- docs/requirements/ docs/Anforderung.md` → **leer** |
+| ADRs und Architekturdokumente unberührt | `git diff --stat -- docs/adr/ docs/architecture/` → **leer** |
+| Kein Anwendungscode | `git diff --stat -- src/` → **leer** (`src/` existiert nicht) |

@@ -25,7 +25,9 @@ info:
     `organisation_id`) und ist **kein** Filter- oder Request-Parameter (D-01).
     Ein mitgelieferter Mandantenparameter wird mit **HTTP 422** abgelehnt.
     Fremde Ressourcen werden mit **HTTP 404** beantwortet, damit die Existenz
-    fremder Objekte nicht preisgegeben wird (D-02).
+    fremder Objekte nicht preisgegeben wird (D-02). Das gilt für **alle**
+    Rollen — **auch** für `service_admin`: der **Einzelabruf** einer Ressource
+    eines fremden Mandanten endet mit 404 (V-27).
 
     **`organisation_id` in den Antworten:** Das Feld ist **immer** gefüllt und
     benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten
@@ -37,9 +39,15 @@ info:
 
     | Rolle | Rechte |
     |---|---|
-    | `developer` | Ereignisse einliefern, Zustellprotokoll einsehen |
-    | `receiver_admin` | Endpunkte registrieren/ändern/pausieren/reaktivieren, Secret rotieren, tote Zustellung erneut auslösen |
-    | `service_admin` | Endpunkte aller Mandanten sehen, Tote-Zustellungsliste mandantenübergreifend, Kennzahlen, Aufbewahrung erzwingen |
+    | `developer` | Ereignisse einliefern, Zustellprotokoll einsehen (eigener Mandant) |
+    | `receiver_admin` | Endpunkte registrieren/ändern/pausieren/reaktivieren (eigener Mandant), Secret rotieren, Zustellprotokoll einsehen (eigener Mandant), tote Zustellung erneut auslösen (eigener Endpunkt) |
+    | `service_admin` | Endpunkte **aller** Mandanten **in der Liste** sehen, Tote-Zustellungsliste mandantenübergreifend, Zustellprotokoll und Kennzahlen (eigener Mandant), Aufbewahrung erzwingen |
+
+    **Der Einzelabruf einer Ressource eines fremden Mandanten ergibt HTTP 404 —
+    auch für `service_admin`** (D-02, V-27). Die mandantenübergreifende Sicht
+    gilt **nur** für die **drei** Listen-/Betriebsoperationen: Endpunktliste,
+    Totenliste und Aufbewahrung (E-01). Ein **vierter** mandantenübergreifender
+    Leseweg wird **nicht** gebaut.
 
     ## Fehlersemantik
 
@@ -94,9 +102,11 @@ info:
     sind dort `updated_at` (Endpunktliste) und `created_at` (Totenliste).
     `organisation_id` ist **immer** gefüllt — es benennt den **besitzenden
     Mandanten** der Ressource; in diesen mandantenübergreifenden Antworten
-    steht damit der Mandant, zu dem der Datensatz gehört. Ein Cursor gilt nur
-    für **dieselbe** Operation **mit
-    denselben Filtern**; bei geänderten Filtern beginnt die Liste neu.
+    steht damit der Mandant, zu dem der Datensatz gehört. Die Liste liefert
+    damit auch **IDs fremder Mandanten** — der **Detailabruf** einer solchen ID
+    endet mit **HTTP 404**, auch für den `service_admin` (D-02, V-27). Ein
+    Cursor gilt nur für **dieselbe** Operation **mit denselben Filtern**; bei
+    geänderten Filtern beginnt die Liste neu.
 
     `POST /api/v1/retention/enforcement` ist **nicht** paginiert: die Antwort
     enthält **einen** Eintrag je Mandant in `tenants[]` — ohne Cursor, ohne
@@ -323,9 +333,9 @@ x-delivery-protocol:
           wird sofort ohne weitere Versuche aufgegeben, Status `rejected` (FR-025, D-08).
         required_headers:
           - name: X-EchoBox-Rejection
-            required: false
+            required: true
             value: "permanent"
-            description: "Kennzeichnet die Antwort als dauerhafte Ablehnung."
+            description: "Kennzeichnet die Antwort als dauerhafte Ablehnung — **Pflicht** beim Signal (ADR-009)."
         body:
           description: "Das exakte Format des Ablehnungssignals (JSON)."
           media_type: "application/json"
@@ -540,8 +550,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/IdempotencyConflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
         "429":
@@ -568,6 +576,14 @@ paths:
         benennt den **besitzenden Mandanten** des Endpunkts: im eigenen Mandanten
         den eigenen, in der mandantenübergreifenden Sicht den Mandanten, zu dem
         der Endpunkt gehört.
+
+        **IDs fremder Mandanten:** Die mandantenübergreifende Liste liefert auch
+        Endpunkt-IDs **fremder** Mandanten. Der **Detailabruf**
+        (`GET /api/v1/endpoints/{endpointId}`) einer solchen ID endet mit
+        **HTTP 404** — **auch** für den `service_admin` (D-02, V-27). Die
+        mandantenübergreifende Sicht gilt **nur** für die **drei**
+        Listen-/Betriebsoperationen; ein vierter mandantenübergreifender
+        Leseweg wird **nicht** gebaut.
       x-ac-id:
         - US-004/AC-004-1
         - US-004/AC-004-2
@@ -625,7 +641,10 @@ paths:
       description: >-
         Liefert einen einzelnen Endpunkt. Ein Endpunkt eines fremden Mandanten
         wird mit **HTTP 404** beantwortet — die Existenz fremder Objekte wird
-        nicht preisgegeben (D-02). Das Secret wird nie ausgegeben.
+        nicht preisgegeben (D-02). Das gilt **auch** für `service_admin`: die
+        mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste
+        und Aufbewahrung (E-01); ein **Einzelabruf** über die Mandantgrenze
+        hinweg wird **nicht** gebaut (V-27). Das Secret wird nie ausgegeben.
       x-ac-id:
         - US-004/AC-004-3
         - US-019/AC-019-1
@@ -818,7 +837,7 @@ paths:
             schema:
               $ref: "#/components/schemas/SecretRotationRequest"
             example:
-              secret: "neues-s3cr3t"
+              secret: "neues-s3cr3t-rotationswert"
       responses:
         "200":
           description: Secret rotiert.
@@ -952,7 +971,9 @@ paths:
       description: >-
         Liefert die Metadaten eines Ereignisses. Die Nutzlast wird nie
         ausgegeben. Ein Ereignis eines **fremden** Mandanten wird mit
-        **HTTP 404** beantwortet (D-02).
+        **HTTP 404** beantwortet (D-02) — **auch** für `service_admin`: die
+        mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste
+        und Aufbewahrung (E-01, V-27).
 
         Ereignisse werden über das **Zustellprotokoll** gefunden, über den
         Filter `event_id` bzw. `event_type` in `GET /api/v1/deliveries`.
@@ -1099,7 +1120,7 @@ paths:
                 page:
                   limit: 50
                   has_more: true
-                  next_cursor: eyJ1cGRhdGVkX2F0IjoiMjAyNi0xMC0yMVQwOToxNjoyNC4wMDBaIn0
+                  next_cursor: eyJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yMVQwOToxNToyMi40ODFaIiwiZGVsaXZlcnlfcnVuX2lkIjoiN2QyYjFjOWEtNWU2Zi00YTBiLThjN2QtMWUyZjNhNGI1YzZkIn0=
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1128,7 +1149,10 @@ paths:
         Liefert einen Zustelllauf **einschließlich aller Versuche** — das
         Protokoll einer Zustellung über alle Versuche („Lieferung“). Ein
         Zustelllauf eines fremden Mandanten wird mit **HTTP 404** beantwortet
-        (D-02).
+        (D-02) — **auch** für `service_admin`: die mandantenübergreifende Sicht
+        gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung (E-01); ein
+        **Einzelabruf** über die Mandantgrenze hinweg wird **nicht** gebaut
+        (V-27).
       x-ac-id:
         - US-015/AC-015-1
         - US-012/AC-012-2
@@ -1219,6 +1243,11 @@ paths:
         Schemas hergestellt (ADR-002 §7) — **nicht** über eine Laufzeitrolle mit
         `BYPASSRLS`. `organisation_id` ist in **jedem** Datensatz gefüllt, damit
         der Client die Herkunft erkennt (AC-016-1).
+
+        **IDs fremder Mandanten:** Die mandantenübergreifende Liste liefert auch
+        Zustelllauf-IDs **fremder** Mandanten. Der **Detailabruf**
+        (`GET /api/v1/deliveries/{deliveryRunId}`) einer solchen ID endet mit
+        **HTTP 404** — **auch** für den `service_admin` (D-02, V-27).
       x-ac-id:
         - US-016/AC-016-1
         - US-016/AC-016-2
@@ -1272,8 +1301,8 @@ paths:
                 $ref: "#/components/schemas/DeadDeliveryList"
               example:
                 items:
-                  - delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
-                    event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                  - delivery_run_id: b4c3d2e1-7f60-4a5b-9c8d-2e3f4a5b6c7d
+                    event_id: 5d8e9f0a-1b2c-4d3e-8f90-a1b2c3d4e5f6
                     organisation_id: m-1
                     endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
                     endpoint_url: https://orders.example.invalid/hooks/echobox
@@ -1283,7 +1312,7 @@ paths:
                     last_response_status: 503
                     last_attempt_at: "2026-10-21T10:22:11.900Z"
                     abandoned_at: "2026-10-21T10:22:11.900Z"
-                    created_at: "2026-10-21T09:15:22.481Z"
+                    created_at: "2026-10-21T09:40:05.120Z"
                 page:
                   limit: 50
                   has_more: false
@@ -1358,13 +1387,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReplayResponse"
               example:
-                previous_delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
+                previous_delivery_run_id: b4c3d2e1-7f60-4a5b-9c8d-2e3f4a5b6c7d
                 delivery_run_id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
-                event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                event_id: 5d8e9f0a-1b2c-4d3e-8f90-a1b2c3d4e5f6
                 status: pending
                 attempt_count: 0
                 next_attempt_at: "2026-10-21T12:30:00.000Z"
                 replayed_at: "2026-10-21T12:29:58.100Z"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1407,7 +1438,9 @@ paths:
         **7 Tage** bis jetzt (ADR-011, bestätigt am 2026-10-21).
 
         Ein Endpunkt eines **fremden** Mandanten wird mit **HTTP 404**
-        beantwortet (D-02).
+        beantwortet (D-02) — **auch** für `service_admin`: die
+        mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste
+        und Aufbewahrung (E-01, V-27).
       x-ac-id:
         - US-017/AC-017-1
         - US-017/AC-017-2
@@ -1556,6 +1589,8 @@ paths:
                     purged_delivery_runs: 0
                     purged_attempts: 0
                 executed_at: "2026-10-21T13:00:00.000Z"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1960,7 +1995,9 @@ components:
         violations:
           type: array
           nullable: true
-          description: "Feldbezogene Verstoesse (nur bei `validation_failed`)."
+          description: >-
+            Feldbezogene Verstoesse — bei `validation_failed` **und** bei
+            `tenant_parameter_rejected` (beide 422-Codes nennen den Feldverstoß).
           items:
             $ref: "#/components/schemas/ValidationViolation"
 
@@ -1970,7 +2007,7 @@ components:
       properties:
         field:
           type: string
-          description: "JSON-Pointer auf das betroffene Feld."
+          description: "Das betroffene Feld (Feldname, z. B. `target_url`)."
           example: target_url
         code:
           type: string
@@ -2032,8 +2069,10 @@ components:
         Zustand eines Zustelllaufs. `pending` = angelegt, **noch kein Versuch
         ausgeführt** — das ist der Ausgangszustand eines **neuen** Laufs (auch
         nach einem Replay); `scheduled` = ein Versuch läuft gerade oder ist
-        terminiert. `sent` = erfolgreich zugestellt,
-        `abandoned` = nach erschöpften Versuchen aufgegeben (tote Zustellung),
+        terminiert. `sent` = erfolgreich zugestellt, `failed` = der letzte
+        Versuch ist fehlgeschlagen, ein weiterer ist nach dem Backoff geplant
+        (ADR-008), `abandoned` = nach erschöpften Versuchen aufgegeben (tote
+        Zustellung),
         `rejected` = vom Empfänger endgültig abgelehnt, `cancelled` = durch
         Pause abgebrochen, `delayed` = durch das Endpunkt-Limit verschoben,
         `no_subscriber` = Ereignis ohne Abnehmer.
@@ -2233,7 +2272,7 @@ components:
           maxLength: 512
           writeOnly: true
           description: "Das neue Secret. Ab dem nächsten Zustellversuch gilt ausschließlich dieses Secret."
-          example: neues-s3cr3t
+          example: neues-s3cr3t-rotationswert
       x-validation-rules:
         - id: no_tenant_parameter
           description: "Ein `organisation_id` (oder jeder andere Mandantenparameter) im Body wird mit HTTP 422 `tenant_parameter_rejected` abgelehnt (D-01)."
@@ -2263,8 +2302,9 @@ components:
       required: [event_type, idempotency_key]
       description: >-
         Einlieferung eines Ereignisses. **Genau eine** der Eigenschaften
-        `payload` und `payload_base64` muss gesetzt sein; `payload: null` gilt
-        als **nicht** gesetzt.
+        `payload` und `payload_base64` muss gesetzt sein. Ein `payload: null`
+        verletzt das Schema (HTTP 422 `validation_failed`) und gilt **nicht**
+        als gesetzt.
 
         `payload` nimmt einen beliebigen JSON-Wert entgegen; der Dienst
         materialisiert ihn **kanonisch** (RFC 8785, UTF-8, sortierte
@@ -2294,7 +2334,8 @@ components:
           nullable: false
           description: >-
             Nutzlast als JSON-Wert. Nicht gleichzeitig mit `payload_base64`
-            setzen; `payload: null` gilt als **nicht** gesetzt. Die **zugestellten
+            setzen; `null` ist hier **nicht** erlaubt (HTTP 422) — das Feld gilt
+            nur dann als gesetzt, wenn es einen Wert trägt. Die **zugestellten
             Bytes** sind die **kanonisch materialisierten** Bytes dieses Wertes
             (RFC 8785) — nicht der Rohtext, den der Aufrufer gesendet hat.
           example:
@@ -2327,7 +2368,7 @@ components:
           description: "Medientyp der Nutzlast. Wird als `Content-Type` der Zustellung gesetzt."
       x-validation-rules:
         - id: exactly_one_payload
-          description: "Genau eine von `payload` / `payload_base64` muss vorhanden sein. `payload: null` gilt als **nicht** gesetzt. Verstoß → HTTP 422."
+          description: "Genau eine von `payload` / `payload_base64` muss vorhanden sein. `payload: null` verletzt das Schema (HTTP 422 `validation_failed`) und gilt **nicht** als gesetzt. Verstoß → HTTP 422."
         - id: pre_encrypted_requires_base64
           description: "`payload_encoding = pre_encrypted` erfordert `payload_base64` und verbietet `payload`. Verstoß → HTTP 422 (AC-008-2)."
         - id: payload_size_limit
@@ -2422,7 +2463,11 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: "Gesetzt, wenn das Ereignis durch die Aufbewahrung gelöscht wurde."
+          description: >-
+            Aufbewahrungsmarker — **in der Antwort immer `null`**: ein markiertes
+            Ereignis ist für die Applikationsrolle **sofort unsichtbar**
+            (ADR-012 §3) und wird mit **HTTP 404** beantwortet. Das Feld trägt
+            keine beobachtbare Information.
 
     # ------------------------------------------------------------------ Zustellung
     DeliveryRun:
@@ -3311,8 +3356,8 @@ x-contract-rules:
   tenant:
     - "Der Mandant stammt ausschließlich aus dem JWT-Claim `organisation_id` (D-01)."
     - "Ein Mandantenparameter (`organisation_id`) im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."
-    - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02)."
-    - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002 §7), **nicht** über eine Rolle mit `BYPASSRLS`. `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört."
+    - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02) — **auch** für `service_admin`: der **Einzelabruf** einer Ressource eines fremden Mandanten endet mit 404 (V-27)."
+    - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002 §7), **nicht** über eine Rolle mit `BYPASSRLS`. Die mandantenübergreifende Sicht gilt **nur** für die **drei** Listen-/Betriebsoperationen — Endpunktliste, Totenliste und Aufbewahrung (E-01); ein vierter mandantenübergreifender Leseweg wird **nicht** gebaut (V-27). `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört."
   errors:
     - "Alle Fehlerantworten nutzen das Schema `Problem` mit `Content-Type: application/problem+json`."
     - "Die Grenze zwischen **400** (syntaktisch fehlerhaft) und **422** (semantisch ungültig) sowie die Zuordnung Status → `code` stehen im Abschnitt „Fehlersemantik“ in `info.description`."
