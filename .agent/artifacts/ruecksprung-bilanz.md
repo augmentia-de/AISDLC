@@ -1,4 +1,4 @@
-# Rücksprung-Bilanz — Schritt 2 (Konzept & Architektur), **Rücksprung 4**
+# Rücksprung-Bilanz — Schritt 2 (Konzept & Architektur), **Rücksprung 5**
 
 > **Vorgangsprotokoll** — der Nachweis, dass kein Befund des **zweiten**
 > Stresstests liegen geblieben ist. **Kein lebender Wahrheitsort**: die
@@ -16,6 +16,12 @@
 > (**V-28…V-38**) sind behoben, **6** neue Befunde (**V-39…V-44**) sind
 > dokumentiert und **nicht** entschieden. Der Vertrag ist damit
 > **einfrierreif** — eingefroren wird er nach Schritt 4 (Delta-Prüfung).
+>
+> **› Fortsetzung — Rücksprung 5 (Abschnitt 11):** der Mensch hat **alle sechs**
+> Befunde **V-39…V-44** entschieden; sie sind umgesetzt — **35 Stellen** in
+> Vertrag und ADRs. Danach: **ein** Konsistenzlauf über die **berührten**
+> Bereiche (kein neuer Voll-Sweep) mit **3** neuen, dokumentierten und **nicht**
+> entschiedenen Befunden (**V-45…V-47**). Der Vertrag ist **einfrierreif**.
 >
 > **Rücksprung 2 aus Schritt 4 (Grill-Me-Stresstest)** · Agent:
 > `aisdlc-architecture` · Stand: 2026-10-21 · Eingang:
@@ -67,6 +73,13 @@ der Ressource. Neu dokumentiert und **nicht** entschieden: **V-27**
 umgesetzt** (10 Fundstellen), danach ist der Vertrag **einmal vollständig**
 durchgesweept: **11** Widersprüche (**V-28…V-38**) behoben, **6** neue Befunde
 (**V-39…V-44**) dokumentiert und **nicht** entschieden.
+
+**› Stand nach Rücksprung 5 (Abschnitt 11):** **alle sechs** Befunde
+(**V-39…V-44**) sind **entschieden und umgesetzt** — **25 Stellen** im Vertrag
+und **10** in den ADRs/ihrem Index (**35** insgesamt). Danach: **ein**
+Konsistenzlauf über die **berührten** Bereiche; **3** neue Befunde
+(**V-45…V-47**) sind dokumentiert und **nicht** entschieden. Der Vertrag ist
+**einfrierreif** — eingefroren wird er nach Schritt 4 (Delta-Prüfung).
 
 ---
 
@@ -540,4 +553,137 @@ Akzeptanzkriterium. **Kein** Schema-Anfassen (`diff` leer).
 | `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (byte-identisch — das Schema wurde nicht angefasst) |
 | Anforderungen unberührt | `git diff --stat -- docs/requirements/ docs/Anforderung.md` → **leer** |
 | ADRs und Architekturdokumente unberührt | `git diff --stat -- docs/adr/ docs/architecture/` → **leer** |
+| Kein Anwendungscode | `git diff --stat -- src/` → **leer** (`src/` existiert nicht) |
+
+---
+
+## 11. Rücksprung 5 — V-39…V-44: die letzten Korrekturen vor dem Einfrieren
+
+> **Eingang:** der Mensch hat **alle sechs** Befunde **V-39…V-44 entschieden**
+> (Freigabe vor diesem Schritt) — die Entscheidungen werden hier **nicht** neu
+> diskutiert, sondern **umgesetzt**. Danach: **ein** Konsistenzlauf über die
+> **berührten** Bereiche — **kein** neuer Voll-Sweep (der ist gelaufen: 26
+> Stellen, V-28…V-38).
+> Agent: `aisdlc-architecture` · Stand: 2026-10-21 · Vertrag:
+> `docs/api/openapi.yaml` (17 Operationen) — **noch nicht eingefroren**, der
+> Einfrierpunkt folgt nach Schritt 4 (Delta-Prüfung).
+> Schema: **nicht angefasst** (`diff` leer) · `docs/architecture/`,
+> `docs/requirements/`, `docs/Anforderung.md`: **nicht angefasst**.
+
+### 11.1 Die sechs Entscheidungen — Fundstelle, Entscheidung, Korrektur
+
+> **Lesehinweis:** Die Zeilenangaben unter **Fundstelle** beziehen sich auf den
+> Stand **vor** der Korrektur (wie in § 10). Die Angaben in § 11.3 beziehen
+> sich auf den Stand **danach**.
+
+#### V-39 — die Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle
+
+| | |
+|---|---|
+| **Fundstelle** | `replayDelivery` (`:1357-1359`) — „`developer` und `service_admin` erhalten HTTP 403"; `info.description` Fehlersemantik (`:61-62`) — 403 = „Rolle/Mandant darf es nicht"; `responses.Forbidden` (`:1788`) — „die Rolle **oder der Mandant** darf die Operation nicht ausführen"; `responses.NotFound` (`:1801`); `x-contract-rules.tenant`; `info.description` F-03-Zeile (`:132`) |
+| **Entscheidung** | **Mandantenprüfung vor Rollenprüfung.** Ein Zustelllauf eines **fremden** Mandanten ⇒ **404** (auch für `service_admin` und `developer`); ein Lauf im **eigenen** Mandant **ohne** die Rolle (`receiver_admin`) ⇒ **403**. Der Vertrag folgt ADR-015 §3 („403 = dein Mandant, deine Rolle; 404 = nicht dein Mandant"). |
+| **Korrektur (10 Vertragsstellen + 2 ADR-Stellen)** | ① `info.description` § „Mandant" — neuer Absatz „**Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle**" mit dem Replay-Sonderfall. ② Fehlersemantik-Tabelle, Zeile **403** — „die Ressource gehört dem **eigenen** Mandanten, aber die Rolle darf es nicht". ③ Fehlersemantik-Tabelle, Zeile **404** — „gehört einem **fremden** Mandanten". ④ Fehlersemantik — neuer Absatz „**Die Grenze zwischen 403 und 404**". ⑤ Vorgabewerte, Zeile **F-03** — „ein Zustelllauf **fremder** Mandanten ⇒ **404**". ⑥ `replayDelivery` — neuer Absatz „**Reihenfolge der Prüfungen**". ⑦ `responses.Forbidden` — „ein **fremder** Mandant ergibt **404**, nicht 403". ⑧ `responses.NotFound` — „Geprüft wird **zuerst der Mandant**, **danach die Rolle**". ⑨ `x-contract-rules.defaults` F-03 — „**innerhalb des eigenen Mandanten** … fremder Mandant ⇒ 404". ⑩ `x-contract-rules.tenant` — neue Regel „**Reihenfolge der Prüfungen**". ⑪ **ADR-015 §3** — neuer Absatz „**Die Reihenfolge der Prüfungen (V-39)**". ⑫ ADR-015 § „Status" — Korrekturvermerk. |
+| **Nachweis der vollständigen Durchziehung** | `V-39` steht an **8** Vertragsstellen (6 Beschreibungen, 2 Regeltexte) und **3-mal** in ADR-015. Der Abschnitt „**Reihenfolge der Prüfungen**" steht an **3** Vertragsstellen (Mandant-Absatz, `replayDelivery`, `x-contract-rules.tenant`) und **2-mal** in ADR-015 (§3, §Status); die Formulierung „**erst der Mandant, dann die Rolle**" an **3** Vertragsstellen (Mandant-Absatz, Fehlersemantik, `x-contract-rules.tenant`). **Kein** Widerspruch bleibt: die Fehlersemantik-Tabelle weist 403 jetzt **ausschließlich** dem Rollenverstoß **im eigenen Mandanten** zu, 404 dem fremden oder fehlenden Objekt; `responses.Forbidden` nennt den fremden Mandanten **nicht** mehr als 403-Grund; die ADR-015-Zeile „Replay" der Prüftabelle nennt den Fremdmandanten **explizit** als 404-Fall. |
+
+#### V-40 — der Zeitraumfilter des Zustellprotokolls ⇒ `created_at`
+
+| | |
+|---|---|
+| **Fundstelle** | `components.parameters.From` / `.To` (`:1719-1740`) — nennen **keinen** Bezugszeitstempel; `listDeliveries` (`:1026-1045`) — Filter „Zeitraum" ohne Zeitstempel; `listDeadDeliveries` (`:1238-1239`) — „Der Zeitraumfilter bezieht sich auf den **Aufgabezeitpunkt** (`abandoned_at`)"; ADR-017 §4 — Sortierung `created_at DESC`, Filter ohne Bindung |
+| **Entscheidung** | Der Zeitraumfilter `from`/`to` des **Zustellprotokolls** bezieht sich auf **`created_at`** (der Sortierschlüssel, ADR-017 §4). Die Totenliste bezieht ihren Zeitraum weiterhin auf **`abandoned_at`** — **beide** Aussagen bleiben **nebeneinander** bestehen und sind **je benannt**. |
+| **Korrektur (5 Vertragsstellen + 1 ADR-Stelle)** | ① `info.description` § „Suchbarkeit" — neuer Absatz „**Der Zeitraumfilter ist je Liste benannt**" (Protokoll ⇒ `created_at`, Totenliste ⇒ `abandoned_at`). ② `listDeliveries` — neuer Absatz „**Zeitraumfilter**" (`created_at`, derselbe Schlüssel wie die Sortierung) mit dem Querverweis auf die Totenliste. ③ `listDeadDeliveries` — „**nicht** auf `created_at`; das **Zustellprotokoll** filtert nach `created_at`". ④ `components.parameters.From` — neuer Absatz „**Bezugszeitstempel je Operation**" (drei Bindungen: Protokoll/Totenliste/Kennzahlen). ⑤ `components.parameters.To` — derselbe Absatz. ⑥ **ADR-017 §4** — neuer Absatz „**Der Zeitraumfilter ist je Liste benannt (V-40)**"; `accepted_at`/`last_attempt_at` bleiben suchbare Metadaten, aber **kein** Vertragsfilter. |
+| **Nachweis der vollständigen Durchziehung** | Beide Zeitraum-Aussagen stehen **nebeneinander** und sind **je benannt**: `created_at` an **5** Vertragsstellen (Suchbarkeit, `listDeliveries`, `From`, `To` — und als Gegenverweis in `listDeadDeliveries`), `abandoned_at` an **4** (Suchbarkeit, `listDeadDeliveries`, `From`, `To`). **Kein** Widerspruch: die shared-Parameter `From`/`To` nennen **alle drei** Bindungen (Protokoll, Totenliste, Kennzahlen/Auswertungsfenster) — jede Operation benennt ihre **eigene** zusätzlich. Der Sortierschlüssel des Protokolls (`created_at`, ADR-017 §4) und sein Filter sind damit **ein** Schlüssel. |
+
+#### V-41 — `ReadinessStatus` auf die beobachtbaren Werte, der nicht bereite Zustand ⇒ 503 `Problem`
+
+| | |
+|---|---|
+| **Fundstelle** | `components.schemas.ReadinessStatus` (`:3154-3176`) — `status: enum [ready, not_ready]`, `checks.*: enum [ok, unavailable]`; `getReadiness` (`:1633-1663`) — 503 ⇒ `ServiceUnavailable`; `responses.ServiceUnavailable` (`:1931`) |
+| **Entscheidung** | `ReadinessStatus` wird auf die **beobachtbaren** Werte geschärft (`ready`, `ok`); der **nicht bereite** Zustand kommt als **503 mit dem Fehlerschema `Problem`** (ADR-015 §4 — ein Schema für alle Fehlerantworten). |
+| **Korrektur (4 Vertragsstellen)** | ① `components.schemas.ReadinessStatus` — neue `description` (nur **ein** beobachtbarer Wert; der nicht bereite Zustand ist **503** `Problem`), `status.enum: [ready]` (vorher `[ready, not_ready]`), `checks.database/delivery_worker/tenant_context.enum: [ok]` (vorher `[ok, unavailable]`), plus Beschreibungen an `status` und `checks`. ② `getReadiness` — neuer Absatz „**Der nicht bereite Zustand ist kein Readiness-Bericht**". ③ `responses.ServiceUnavailable` — Beschreibung: „Er wird **nicht** als Readiness-Bericht, sondern mit diesem **Fehlerschema** beantwortet (ADR-015 §4)". ④ `info.description` Fehlersemantik-Tabelle, Zeile **503** — derselbe Zusatz. |
+| **Nachweis der vollständigen Durchziehung** | `not_ready` — **0 Treffer** im gesamten Vertrag. `unavailable` — **keine** Enum-Werte mehr; die **7** verbleibenden Treffer sind **ausnahmslos** `service_unavailable` (Fehlercode, Titel, URI, Enum). `V-41` steht an **3** Vertragsstellen (`ReadinessStatus`, `getReadiness`, `responses.ServiceUnavailable`); die vierte geänderte Stelle ist die Fehlersemantik-Zeile **503**, die denselben Satz ohne ID trägt. Das Schema `ReadinessStatus` beschreibt damit **genau** den Zustand, den der Vertrag liefert: HTTP 200 ⇒ `status: ready`, `checks.*: ok`; HTTP 503 ⇒ `Problem` mit `code: service_unavailable`. Das Beispiel der 200-Antwort (`ready`/`ok`/`ok`/`ok`) ist konsistent. |
+
+#### V-42 — `EndpointMetrics.rate_limit` ist **immer** Teil der Antwort
+
+| | |
+|---|---|
+| **Fundstelle** | `components.schemas.EndpointMetrics` (`:2780-2782`) — `required: [endpoint_id, window, data_available]`, `rate_limit` **optional**; `getEndpointMetrics` (`:1429-1435`) — „Der Abschnitt `rate_limit` liefert …" |
+| **Entscheidung** | `rate_limit` ist **immer** Teil der Antwort (die Zählung läuft **unabhängig** vom Grenzwert, AC-018-4) → in `required` aufnehmen. |
+| **Korrektur (3 Vertragsstellen)** | ① `components.schemas.EndpointMetrics` — `required: [endpoint_id, window, data_available, rate_limit]`. ② `components.schemas.RateLimitObservation` — Beschreibung: „Der Abschnitt ist **immer** Teil der Antwort — die Zählung läuft **unabhängig** vom Grenzwert (AC-018-4, V-42)". ③ `getEndpointMetrics` — derselbe Satz in der Operationsbeschreibung. |
+| **Nachweis der vollständigen Durchziehung** | `required` nennt jetzt `rate_limit`; das Beispiel der 200-Antwort **enthält** den Abschnitt (Vorgabe 60, `delay`, Zähler) — **Pflichtfeld und Beispiel decken sich**. Der Abdeckungseintrag **AC-018-4** nennt dieselbe Aussage („die Zählung läuft unabhängig vom Grenzwert") — die drei Stellen sind deckungsgleich. **Hinweis:** die Enums und Wertebereiche des Abschnitts (`limit`, `limited`, `window_seconds`, `strategy`, `observed_attempts`, `delayed_attempts`) waren **bereits** vollständig `required` — die Lücke betraf **nur** die Einbindung in `EndpointMetrics`. |
+
+#### V-43 — `Event.deleted_at` wird **entfernt**
+
+| | |
+|---|---|
+| **Fundstelle** | `components.schemas.Event` (`:2462-2470`) — Feld `deleted_at` mit dem V-37-Text; Beispiel `getEvent` (`:1006`) — `deleted_at: null` |
+| **Entscheidung** | Das Feld wird **entfernt** — ein markiertes Ereignis ist **unsichtbar**; die übrigen Entitätsmodelle führen den Marker **nicht**. Konsistenz der Antwortform. |
+| **Korrektur (3 Vertragsstellen)** | ① `components.schemas.Event` — **Feld `deleted_at` entfernt** (Typ, Format, `nullable`, Beschreibung). ② `components.schemas.Event` — `description` ergänzt: „Ein **markiertes** Ereignis (Aufbewahrung) ist **sofort unsichtbar** und wird mit **HTTP 404** beantwortet (ADR-012 §3) — die Antwort trägt deshalb **keinen** Aufbewahrungsmarker (V-43)." ③ Beispiel `getEvent` — `deleted_at: null` **entfernt**. |
+| **Nachweis der vollständigen Durchziehung** | `deleted_at` kommt im Vertrag **3-mal** vor — **alle drei** gehören zum **Markiervorgang** der Aufbewahrung (`enforceRetention`: „(1) **Markieren** (`deleted_at` gesetzt)", die Zählerbeschreibungen `marked_*`/`purged_*`). **Kein** Vorkommen in einem **Antwortmodell** mehr: `Endpoint`, `DeliveryRun`, `DeliveryAttempt`, `DeadDelivery` führen den Marker ohnehin nicht. **Geprüft und ohne Änderungsbedarf:** `Event.required` enthielt `deleted_at` **nicht** — es war nie ein Pflichtfeld; die Pflichtfeldliste bleibt unverändert. **Widerspruchsfrei zum Schema:** die Spalte `app.events.deleted_at` bleibt in der Datenbank (ADR-012 §3, logische Löschung) — sie ist **intern**; ein markiertes Ereignis ist über die API nicht abrufbar (404). |
+
+#### V-44 — ADR-015 an V-26 und V-27 angleichen
+
+| | |
+|---|---|
+| **Fundstelle** | `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md:35` (Rollenmatrix: `service_admin` \| „Endpunkte verwalten" \| „**ja** (alle Mandanten)") und `:80-81` (§2: „**Im Zustellprotokoll** … dort ist das Feld `null` (E-10)") |
+| **Entscheidung** | §1 Rollenmatrix: die mandantenübergreifende Sicht gilt **nur** für die **drei** Listen-/Betriebsoperationen, der Einzelabruf ergibt **404**. §2: `organisation_id` ist **immer** gefüllt. |
+| **Korrektur (7 Stellen in ADR-015 + 2 im ADR-Index)** | ① ADR-015 §1, Zelle `service_admin` — „**ja** (alle Mandanten — **nur in der Liste**; der **Einzelabruf** einer fremden Ressource ⇒ **404**, V-27)". ② ADR-015 §1 — neuer Korrekturhinweis „**Korrektur der Rollenmatrix (V-44, 2026-10-21)**". ③ ADR-015 §1 — „In diesen Antworten ist `organisation_id` **immer** gefüllt — es benennt den **besitzenden Mandanten** (V-26)". ④ ADR-015 §2 — „das Feld ist **immer** gefüllt und benennt den **besitzenden Mandanten** (V-26)" und „**Im Zustellprotokoll** … das Protokoll bleibt mandantengefiltert; dort ist das Feld der Mandant aus der Identität". ⑤ ADR-015 §1, Tabelle „Zusätzliche Rollenprüfungen", Zeile „Replay" — „**innerhalb des eigenen Mandanten**; ein Zustelllauf **fremder** Mandanten ⇒ 404 (V-39)". ⑥ ADR-015 §3 — „**Die Reihenfolge der Prüfungen (V-39, 2026-10-21)**". ⑦ ADR-015 § „Status" — Korrekturvermerk. ⑧ `docs/adr/README.md` — Indexzeile ADR-015 um den §3-Verweis ergänzt. ⑨ `docs/adr/README.md` — neuer Abschnitt „**Korrekturen aus dem dritten Rücksprung (Rücksprung 5, 2026-10-21)**". |
+| **Nachweis der vollständigen Durchziehung** | `grep "nur in der Liste"` in ADR-015 ⇒ **1** Treffer (die Matrixzelle). `grep "dort ist das Feld \`null\`"` in ADR-015 ⇒ **kein** Treffer — die überholte V-25-Formulierung ist **entfernt**. `grep "im Datensatz gefüllt"` in ADR-015 ⇒ **kein** Treffer. Der Vertrag und ADR-015 sagen jetzt **dasselbe**: `organisation_id` **immer** gefüllt (V-26), mandantenübergreifende Sicht **nur** für die drei Listen-/Betriebsoperationen, Einzelabruf ⇒ 404 (V-27). ADR-002 §7 ist unverändert und passt weiterhin (**genau drei** Eigentümerfunktionen, **kein** mandantenübergreifender Einzelabruf). |
+
+### 11.2 Der Konsistenzlauf über die **berührten** Bereiche
+
+Geprüft wurden nur die von V-39…V-44 berührten Stellen — **kein** neuer
+Voll-Sweep über den ganzen Vertrag (der ist gelaufen: 26 Stellen, V-28…V-38).
+
+| Achse | Geprüft | Ergebnis |
+|---|---|---|
+| **Felder, Pflicht/N nullable** | `Event` (ohne `deleted_at`), `EndpointMetrics` (mit `rate_limit`), `ReadinessStatus` (`status`, `checks.*`), `DeliveryRun`, `DeadDelivery`, `Endpoint` | **kein** Widerspruch; `Event.required` war nie ein Träger von `deleted_at` |
+| **Beispiele** | alle **33** Antwort-/Objektbeispiele gegen ihr Schema (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum, Längen, Bereiche, Formate) und alle Property-Beispiele | **0 Abweichungen** — auch nach dem Entfernen von `deleted_at` und dem Schärfen der Enums |
+| **Fehlercodes** | 403/404 an **allen 17** Operationen, 503 nur an `getReadiness`, `Problem.code`-Enum, `responses.Forbidden`/`NotFound`/`ServiceUnavailable` | **vollständig und widerspruchsfrei** — 403 = Rolle im eigenen Mandanten, 404 = fremd/fehlend, 503 = nicht bereit |
+| **Rollen** | `info.description`-Rollentabelle, ADR-015 §1/§2/§3, `x-contract-rules.defaults`/`tenant`, AC-013-3 | **widerspruchsfrei** (ein Punkt zur **Testmatrix** → **V-45**) |
+| **Zeitraumfilter** | `From`, `To`, `listDeliveries`, `listDeadDeliveries`, `getEndpointMetrics`, ADR-017 §4 | **beide Aussagen benannt**; Filter- und Sortierschlüssel des Protokolls sind **ein** Schlüssel |
+| **Aufbewahrungsfelder** | `Event.deleted_at` (entfernt), `deleted_at` in `enforceRetention`, ADR-012 §3, Schema `app.events.deleted_at`, `docs/architecture/*` | **kein** Widerspruch: die Spalte bleibt **intern**, die API gibt sie nicht aus; `docs/architecture/` nennt `Event.deleted_at` **nirgends** |
+
+### 11.3 Neue Befunde — dokumentiert, **nicht** entschieden
+
+> **Dieser Durchgang ist der letzte vor dem Freeze.** Die folgenden Befunde
+> sind **dokumentiert**, nicht entschieden. Sie **blockieren** den Freeze
+> **nicht**, solange keiner einer bestätigten Entscheidung widerspricht — und
+> keiner tut das. Sie gehen als **offene Punkte** in Schritt 5 (Testmatrix) und
+> Schritt 8 (Security) ein.
+
+| ID | Befund | Fundstelle | Frage | Optionen | Empfehlung |
+|---|---|---|---|---|---|
+| **V-45** | **AC-013-3 nennt 403 ohne Mandantbezug.** Das Akzeptanzkriterium der Story US-013 lautet: „given: eine Rolle, die nach O-03 nicht zum erneuten Auslösen berechtigt ist … then: antwortet der Dienst mit HTTP 403". Der „given"-Fall sagt **nichts** über den Mandanten. Mit V-39 gilt aber: ein Zustelllauf **fremden** Mandanten ⇒ **404**, auch für `developer` und `service_admin`. Zum Vergleich: AC-003-3 (Secret-Rotation) sagt ausdrücklich „ein Entwickler **desselben Mandanten**" ⇒ 403 — dort ist die Trennung sauber. | `docs/requirements/stories/US-013.json` (AC-013-3) gegen `docs/api/openapi.yaml` § `replayDelivery` und ADR-015 §3 | Soll die Testmatrix (Schritt 5) beide Fälle trennen, oder ist AC-013-3 als **eigener** Mandant zu lesen? | (a) Testmatrix führt **zwei** Fälle: eigener Mandant + falsche Rolle ⇒ 403, fremder Mandant ⇒ 404 (V-39); (b) AC-013-3 im Requirements-Schritt um den Mandantbezug ergänzen (Anforderungsebene, nicht im Vertrag) | **(a)** — die Anforderung wird **nicht** geändert; die Entscheidung V-39 ist bereits im Vertrag und in ADR-015 §3 gefasst. Die Testmatrix muss sie nur **abbilden**. **Nicht entschieden** — die Zuordnung eines Testfalls ist Sache des Testmatrix-Schritts (Schritt 5). |
+| **V-46** | **Optionale, aber als immer vorhanden beschriebene Antwortfelder.** In den von V-42/V-43 berührten Modellen stehen Felder, die **nullable** und **nicht** in `required` sind, deren Beschreibung aber ein **vorhandenes** Feld mit `null` behauptet — dieselbe Musterlage wie V-42, nur nicht entschieden: `EndpointMetrics.attempts_total`, `.attempts_successful`, `.success_rate`, `.delivery_latency_p95_ms` („Dann sind `success_rate` und `delivery_latency_p95_ms` `null`"), `Event.subscribed_endpoint_count` („0 ⇒ Status `no_subscriber`"), `EventIntakeResponse.subscribed_endpoint_count` und `.payload_size_bytes`. | `docs/api/openapi.yaml` (aktuell) — `components.schemas.EndpointMetrics` (`:2859-2880`), `Event` (`:2523`), `EventIntakeResponse` (`:2469-2481`) | Sind diese Felder **immer** Teil der Antwort (`null` = „kein Wert") oder **optional** (Feld kann **fehlen**)? | (a) alle in `required` aufnehmen (`null` bleibt über `nullable` ausgedrückt); (b) die Beschreibungen auf „kann fehlen" umstellen; (c) so belassen | **(a)** — das Muster ist mit V-42 entschieden: `null` wird über `nullable` ausgedrückt, nicht über **Abwesenheit**; ein Client, der das Feld „immer erwartet", ist sonst auf eine Absenzentscheidung angewiesen. **Nicht entschieden** — es ist eine **neue** Zusage in der Antwortform; nach dem Freeze ein Rücksprung. |
+| **V-47** | **Vier endpunktändernde Operationen schweigen zur Fremdmandanten-404.** `getEndpoint`, `getDeliveryRun`, `getEvent` und `getEndpointMetrics` benennen im Text ausdrücklich „ein Objekt eines **fremden** Mandanten ⇒ **404**". `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint` und `rotateEndpointSecret` **adressieren** dieselbe Art Ressource und **deklarieren** eine 404-Antwort, **nennen** die Regel aber nicht. Kein Widerspruch — die vertragsweite Regel (erst der Mandant, dann die Rolle) trägt sie; es ist eine **Lücke in der operationseigenen Beschreibung**. | `docs/api/openapi.yaml` (aktuell) — `updateEndpoint` (`:698`), `pauseEndpoint` (`:750`), `resumeEndpoint` (`:803`), `rotateEndpointSecret` (`:840`) gegen `getEndpoint` (`:662`) | Soll die Regel **an jeder** per ID adressierten Operation stehen (wie bei den vier Lesoperationen)? | (a) an den vier Operationen ergänzen; (b) bewusst **nur** global regeln (der heutige Stand) | **(a)** — die Regel soll an der Stelle stehen, an der der Client sie liest; die vier Lesoperationen machen es vor. **Nicht entschieden** — reine Textergänzung ohne neue Zusage, aber **nach** dem Freeze nur mit Rücksprung. |
+
+### 11.4 Umfang und Nachweis
+
+**Umfang unverändert:** **17** Operationen · **37** Schemas · **11**
+Antwort-Komponenten · **7** Parameter · **1** Header · **177** `$ref` ·
+**23** Stories / **101** AKs / **24** Anforderungen — **keine** neue Operation,
+**kein** neues Feld (außer der **Entfernung** von `Event.deleted_at`), **keine**
+neue Story, **kein** neues Akzeptanzkriterium, **keine** neue Regel in
+`x-contract-rules` **ohne** Entscheidungsbezug. Das **Schema** wurde **nicht**
+angefasst (`diff` leer), `docs/architecture/` **nicht** angefasst.
+
+**Geänderte Stellen: 35** — **25** im Vertrag (V-39: 10 · V-40: 5 · V-41: 4 ·
+V-42: 3 · V-43: 3) und **10** in den ADRs und ihrem Index (ADR-015: 7 ·
+ADR-017: 1 · `docs/adr/README.md`: 2).
+
+| Prüfung | Ergebnis |
+|---|---|
+| YAML gültig | **gültig** (`yaml.safe_load`) |
+| `$ref` | **177**, **alle** auflösbar |
+| Operationen | **17**, alle mit `operationId` (eindeutig), `x-ac-id`, `x-requirement-ids` |
+| `x-acceptance-coverage` / `x-requirement-coverage` | **101 / 24**, lückenlos, keine Dubletten |
+| ungenutzte Objekte | **keine** (37 Schemas, 11 Antwort-Komponenten, 7 Parameter) |
+| Beispiele gegen ihr Schema (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum, Längen, Bereiche, Formate) | **0 Abweichungen** (33 Antwort-/Objektbeispiele + alle Property-Beispiele) |
+| `not_ready` / `unavailable` im Vertrag | **0** Enum-Treffer (verbleibend nur `service_unavailable`, 7×) |
+| `deleted_at` in einem **Antwortmodell** | **keiner** (3 verbleibende Treffer = Markiervorgang der Aufbewahrung) |
+| `python3 .agent/tools/traceability_check.py` | **grün** — „Keine Luecken …" (23 Stories / 101 AKs / 24 Anforderungen) |
+| `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (byte-identisch — das Schema wurde nicht angefasst) |
+| Anforderungen unberührt | `git diff --stat -- docs/requirements/ docs/Anforderung.md` → **leer** |
+| Architekturdokumente unberührt | `git diff --stat -- docs/architecture/` → **leer** |
 | Kein Anwendungscode | `git diff --stat -- src/` → **leer** (`src/` existiert nicht) |

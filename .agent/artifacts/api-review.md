@@ -1,6 +1,6 @@
 # API-Review — EchoBox
 
-> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung 4 aus Schritt 4)** ·
+> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung 5 aus Schritt 4)** ·
 > Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Geprüfter Vertrag: `docs/api/openapi.yaml` (OpenAPI 3.0.3, `info.version` 1.0.0)
 > Vertrag ist ein **Entwurf** — er wird **nach Schritt 4** eingefroren.
@@ -10,7 +10,11 @@
 > **Rücksprung 3** und **V-27** im **Rücksprung 4**. Danach ist der Vertrag
 > **einmal vollständig** durchgesweept: **11** Widersprüche (**V-28…V-38**)
 > behoben, **6** neue Befunde (**V-39…V-44**) dokumentiert und **nicht**
-> entschieden. Die Bilanz steht in `.agent/artifacts/ruecksprung-bilanz.md`.
+> entschieden — und im **Rücksprung 5** (letzter Korrekturdurchgang vor dem
+> Freeze) **alle sechs entschieden und umgesetzt** (**35 Stellen** in Vertrag
+> und ADRs). Danach: **3** neue Befunde (**V-45…V-47**) dokumentiert und
+> **nicht** entschieden. Die Bilanz steht in
+> `.agent/artifacts/ruecksprung-bilanz.md`.
 > Die früheren Befund-IDs dieses Reviews heißen jetzt **A-01…A-10**, damit sie
 > nicht mit den Defekt-IDs **V-01…V-22** des Stresstests verwechselt werden.
 
@@ -25,8 +29,9 @@
 | Sind alle 24 Anforderungen (FR/NFR) auffindbar? | **Ja** — `x-requirement-coverage` führt alle 24. |
 | Fehlen Operationen? | **Nein.** |
 | Gibt es Felder oder Operationen ohne Zweck? | **Nein** — nach der Reduktion (Schritt 3) trägt jede Operation mindestens eine Story und jedes Feld ist im Protokoll sichtbar, in der Zustandsmaschine nötig oder ein Mandanten-/Zeitmetadatum. |
-| Ist die Fehlersemantik einheitlich? | **Ja** — ein Schema (`Problem`) für alle Fehlerantworten, `code` maschinenlesbar; **jede** Operation mit Request-Body deklariert **400**, jede authentifizierte **429**, jede per ID adressierte **404** (Rücksprung 4, V-29). |
+| Ist die Fehlersemantik einheitlich? | **Ja** — ein Schema (`Problem`) für alle Fehlerantworten, `code` maschinenlesbar; **jede** Operation mit Request-Body deklariert **400**, jede authentifizierte **429**, jede per ID adressierte **404** (Rücksprung 4, V-29). Die Grenze 403/404 ist ausdrücklich geregelt: **erst der Mandant, dann die Rolle** (Rücksprung 5, V-39). |
 | Ist die Mandantentrennung im Vertrag durchgesetzt? | **Ja** — D-01 (422 bei Mandantenparameter), D-02 (404 bei fremden Ressourcen — **auch** für `service_admin`, V-27), global `bearerAuth`. |
+| Ist der nicht bereite Zustand eindeutig? | **Ja** — HTTP 200 ⇒ `status: ready` mit `checks.*: ok`; der nicht bereite Zustand ⇒ **503** mit `Problem` (Rücksprung 5, V-41). |
 | Sind die bestätigten Vorgabewerte sichtbar? | **Ja** — F-01…F-04 stehen in `info.description`, in `x-contract-rules.defaults` und an der jeweiligen Operation. |
 
 ---
@@ -82,8 +87,8 @@ Details: `.agent/artifacts/simplify-report.md`.
 |---|---|---|
 | 400 | `malformed_request` | kein gültiges JSON |
 | 401 | `unauthorized` | kein/ungültiges Token |
-| 403 | `forbidden` | Rolle darf es nicht (Totenliste, Replay, Rotation, Aufbewahrung) |
-| 404 | `not_found` | fehlende **oder** fremde Ressource (D-02) |
+| 403 | `forbidden` | Rolle darf es nicht **im eigenen Mandanten** (Totenliste, Replay, Rotation, Aufbewahrung) — ein **fremder** Mandant ergibt **404** (V-39) |
+| 404 | `not_found` | fehlende **oder** fremde Ressource (D-02) — geprüft **zuerst der Mandant**, **danach die Rolle** |
 | 409 | `idempotency_conflict` | gleicher Idempotenzschlüssel, abweichende Nutzlast (D-05) — **nur** `submitEvent` (der Idempotenzschlüssel gehört zum Ereignis, V-28) |
 | 409 | `delivery_state_conflict` | Replay einer nicht aufgegebenen Zustellung |
 | 413 | `payload_too_large` | > 1.048.576 Byte (NFR-001, D-13) |
@@ -91,7 +96,7 @@ Details: `.agent/artifacts/simplify-report.md`.
 | 422 | `tenant_parameter_rejected` | Mandantenparameter mitgeschickt (D-01) |
 | 429 | `rate_limit_exceeded` | API-Anfragelimit (≠ Endpunkt-Limit) |
 | 500 | `internal_error` | unerwarteter Fehler, ohne internes Detail |
-| 503 | `service_unavailable` | Dienst nicht bereit |
+| 503 | `service_unavailable` | Dienst nicht bereit — der nicht bereite Zustand kommt als **503 mit `Problem`**, nicht als Readiness-Bericht (V-41) |
 
 Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 
@@ -199,16 +204,40 @@ Schemas (**37**), die Antwort-Komponenten (**11**), die Parameter (**7**), die
 | **V-37** | `Event.deleted_at` versprach einen gesetzten Wert — ADR-012 §3 macht markierte Ereignisse **sofort unsichtbar** (404) | Beschreibung: in der Antwort immer `null` |
 | **V-38** | Drei Stellen sagten „`payload: null` gilt als **nicht** gesetzt", das Schema sagt `nullable: false` | Wortlaut an das Schema angeglichen (Beobachtung bleibt 422) |
 
-### 4d.3 Neu dokumentiert und **nicht** entschieden
+### 4d.3 Neu dokumentiert und **nicht** entschieden — im **Rücksprung 5** entschieden
+
+| ID | Thema | Empfehlung | Owner | Stand |
+|---|---|---|---|---|
+| **V-39** | Rollen- **oder** Mandantenprüfung zuerst beim Replay (403 vs. 404) | Mandant zuerst ⇒ 404 | Mensch (Gate) | **entschieden (Rücksprung 5)** — umgesetzt an 10 Vertrags- und 2 ADR-Stellen |
+| **V-40** | Zeitraumfilter des Zustellprotokolls (`from`/`to`) — an welchen Zeitstempel? | `created_at` (wie die Sortierung) | Architektur (Delta-Prüfung) | **entschieden (Rücksprung 5)** — `created_at`; die Totenliste bleibt bei `abandoned_at` |
+| **V-41** | `ReadinessStatus` führt `not_ready`/`unavailable`, die der Vertrag nie erzeugt | Enum auf `ready`/`ok` schärfen | Architektur (Delta-Prüfung) | **entschieden (Rücksprung 5)** — Enum geschärft; 503 ⇒ `Problem` |
+| **V-42** | `EndpointMetrics.rate_limit` optional, aber als vorhanden beschrieben | in `required` aufnehmen | Architektur (Delta-Prüfung) | **entschieden (Rücksprung 5)** — in `required` |
+| **V-43** | `Event.deleted_at` ist ein totes Feld (immer `null`) | Feld entfernen | Architektur (nach dem Freeze) | **entschieden (Rücksprung 5)** — Feld entfernt |
+| **V-44** | ADR-015 §1/§2 widersprechen V-26/V-27 | Sätze an den entschiedenen Stand bringen | Architektur (Rücksprung) | **entschieden (Rücksprung 5)** — ADR-015 korrigiert |
+
+## 4e. Stand nach dem **Rücksprung 5** (2026-10-21) — die letzten Korrekturen vor dem Freeze
+
+Der letzte Korrekturdurchgang vor dem Einfrieren: **alle sechs** Befunde des
+Abschluss-Sweeps sind **entschieden und umgesetzt** — **35 Stellen** (25 im
+Vertrag, 10 in den ADRs und ihrem Index). Vollständiger Nachweis je Befund:
+`.agent/artifacts/ruecksprung-bilanz.md` § 11.
+
+| ID | Entscheidung | Umsetzung | Nachweis |
+|---|---|---|---|
+| **V-39** | **Erst der Mandant, dann die Rolle** — ein Zustelllauf **fremden** Mandanten ⇒ **404** (auch für `developer`/`service_admin`), ein Lauf im **eigenen** Mandant ohne `receiver_admin` ⇒ **403** | `info.description` (§ „Mandant", Fehlersemantik-Tabelle **403**/**404**, neuer Absatz „Die Grenze zwischen 403 und 404", F-03-Zeile) · `replayDelivery` · `responses.Forbidden`/`NotFound` · `x-contract-rules.defaults`/`tenant` · **ADR-015 §1/§3/§Status** | „Reihenfolge der Prüfungen" an **3** Vertragsstellen + **2** in ADR-015; `V-39` **8-mal** im Vertrag, **3-mal** in ADR-015 |
+| **V-40** | Der Zeitraumfilter des **Zustellprotokolls** ⇒ **`created_at`**; die Totenliste bleibt bei **`abandoned_at`** — beide Aussagen nebeneinander, **je benannt** | `info.description` (§ „Suchbarkeit") · `listDeliveries` · `listDeadDeliveries` · `parameters.From`/`.To` · **ADR-017 §4** | `created_at` an **5**, `abandoned_at` an **4** Vertragsstellen; Filter- und Sortierschlüssel des Protokolls sind **ein** Schlüssel |
+| **V-41** | `ReadinessStatus` auf die **beobachtbaren** Werte (`ready`, `ok`); der nicht bereite Zustand ⇒ **503 mit `Problem`** | `components.schemas.ReadinessStatus` · `getReadiness` · `responses.ServiceUnavailable` · Fehlersemantik-Zeile **503** | `not_ready` **0 Treffer**; `unavailable` nur noch als `service_unavailable` (**7×**); `V-41` an **3** Vertragsstellen |
+| **V-42** | `EndpointMetrics.rate_limit` **immer** Teil der Antwort | `EndpointMetrics.required` · `RateLimitObservation`-Beschreibung · `getEndpointMetrics` | `required: [endpoint_id, window, data_available, rate_limit]`; Beispiel enthält den Abschnitt; `V-42` an **2** Vertragsstellen |
+| **V-43** | `Event.deleted_at` **entfernt** | `components.schemas.Event` (Feld + Beschreibung) · Beispiel `getEvent` | `deleted_at` **3-mal** im Vertrag — **alle drei** = Markiervorgang der Aufbewahrung, **keiner** in einem Antwortmodell |
+| **V-44** | **ADR-015** an V-26/V-27 angleichen | §1 (Matrixzelle + Korrekturhinweis + `organisation_id` + Zeile „Replay") · §2 · §3 · §Status · `docs/adr/README.md` (Indexzeile + neuer Abschnitt) | „dort ist das Feld `null`" ⇒ **kein** Treffer; „im Datensatz gefüllt" ⇒ **kein** Treffer |
+
+### 4e.1 Neu dokumentiert und **nicht** entschieden (Rücksprung 5)
 
 | ID | Thema | Empfehlung | Owner |
 |---|---|---|---|
-| **V-39** | Rollen- **oder** Mandantenprüfung zuerst beim Replay (403 vs. 404) | Mandant zuerst ⇒ 404 | Mensch (Gate) |
-| **V-40** | Zeitraumfilter des Zustellprotokolls (`from`/`to`) — an welchen Zeitstempel? | `created_at` (wie die Sortierung) | Architektur (Delta-Prüfung) |
-| **V-41** | `ReadinessStatus` führt `not_ready`/`unavailable`, die der Vertrag nie erzeugt | Enum auf `ready`/`ok` schärfen | Architektur (Delta-Prüfung) |
-| **V-42** | `EndpointMetrics.rate_limit` optional, aber als vorhanden beschrieben | in `required` aufnehmen | Architektur (Delta-Prüfung) |
-| **V-43** | `Event.deleted_at` ist ein totes Feld (immer `null`) | Feld entfernen | Architektur (nach dem Freeze) |
-| **V-44** | ADR-015 §1/§2 widersprechen V-26/V-27 | Sätze an den entschiedenen Stand bringen | Architektur (Rücksprung) |
+| **V-45** | AC-013-3 nennt 403 **ohne** Mandantbezug — die Testmatrix (Schritt 5) muss „eigener Mandant, falsche Rolle ⇒ 403" und „fremder Mandant ⇒ 404" **trennen** | Testmatrix führt **beide** Fälle; die Anforderung wird **nicht** geändert | Schritt 5 (Testmatrix) |
+| **V-46** | Optionale, aber als immer vorhanden beschriebene Antwortfelder (`EndpointMetrics.attempts_total`/`attempts_successful`/`success_rate`/`delivery_latency_p95_ms`, `Event.subscribed_endpoint_count`, `EventIntakeResponse.subscribed_endpoint_count`/`payload_size_bytes`) — dieselbe Musterlage wie V-42 | in `required` aufnehmen (`null` über `nullable`) | Architektur (nach dem Freeze) |
+| **V-47** | `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` **deklarieren** 404, **nennen** aber die Fremdmandanten-Regel nicht (anders als die vier Lesoperationen) | Regel an den vier Operationen ergänzen | Architektur (nach dem Freeze) |
 
 ---
 
@@ -237,6 +266,14 @@ Schemas (**37**), die Antwort-Komponenten (**11**), die Parameter (**7**), die
 | **Rücksprung 4**: Beispiele **nachgerechnet** (Nutzlastbytes 35, Erfolgsquote 100/120, Backoff 1→2 min, Gesamtfenster 123 min ± 20 %, Fristen/Stichtage, Zählersummen, Base64-Länge des Cursors, Secret-Längen, UUID-Form) | **0 Abweichungen** |
 | **Rücksprung 4**: Fehlercode-Vollständigkeit (Body ⇒ 400, authentifiziert ⇒ 429, Adresse ⇒ 404) | **vollständig** (V-29 behoben) |
 | **Rücksprung 4**: `grep "V-27"` | **11 Treffer** in 7 Zeilen — 4 Operationen + 3 Regeltexte |
+| **Rücksprung 5**: YAML gültig, `$ref` aufgelöst (177), ungenutzte Objekte (37 Schemas, 11 Antwort-Komponenten, 7 Parameter) | **ok** — kein ungenutztes Objekt |
+| **Rücksprung 5**: Beispiele gegen ihr Schema (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum, Längen, Bereiche, Formate) | **0 Abweichungen** (33 Antwort-/Objektbeispiele + alle Property-Beispiele) |
+| **Rücksprung 5**: `grep "not_ready"` / Enum-Werte `unavailable` | **0 Treffer** — verbleibend nur `service_unavailable` (7×) |
+| **Rücksprung 5**: `grep "deleted_at"` in einem Antwortmodell | **keiner** — 3 verbleibende Treffer = Markiervorgang der Aufbewahrung |
+| **Rücksprung 5**: `grep "erst der Mandant, dann die Rolle"` / `grep "Reihenfolge der Prüfungen"` | **3** Treffer (Mandant-Absatz, Fehlersemantik, `x-contract-rules.tenant`) bzw. **3** im Vertrag + **2** in ADR-015 |
+| **Rücksprung 5**: `grep "dort ist das Feld \`null\`"` / `"im Datensatz gefüllt"` in ADR-015 | **kein Treffer** — V-44 umgesetzt |
+| **Rücksprung 5**: `python3 .agent/tools/traceability_check.py` | **grün** (23 Stories, 101 AKs, 24 Anforderungen) |
+| **Rücksprung 5**: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** — das Schema wurde nicht angefasst |
 
 ---
 
@@ -250,18 +287,29 @@ Schemas (**37**), die Antwort-Komponenten (**11**), die Parameter (**7**), die
 >
 > **Offen für die Delta-Prüfung (Schritt 4)** ist damit:
 >
-> - **V-39** … **V-44** — die sechs im **Rücksprung 4** neu dokumentierten
->   Befunde (Bilanz § 10.4). **V-39** (Reihenfolge der Rollen- und der
->   Mandantenprüfung beim Replay) und **V-44** (ADR-015 §1/§2 gegen V-26/V-27)
->   sind die beiden, die vor dem **Einfrieren** eine Antwort brauchen.
+> - **V-45** — AC-013-3 nennt 403 **ohne** Mandantbezug; die **Testmatrix**
+>   (Schritt 5) muss „eigener Mandant, falsche Rolle ⇒ 403" und „fremder
+>   Mandant ⇒ 404" **trennen** (V-39). Die **Anforderung** wird **nicht**
+>   geändert.
+> - **V-46** — optionale, aber als immer vorhanden beschriebene Antwortfelder
+>   in `EndpointMetrics`, `Event` und `EventIntakeResponse` (dieselbe Musterlage
+>   wie V-42) — **dokumentiert, nicht entschieden**.
+> - **V-47** — vier endpunktändernde Operationen **deklarieren** 404, **nennen**
+>   die Fremdmandanten-Regel aber nicht — **dokumentiert, nicht entschieden**.
 > - **E-12** (Härtung der mandantenübergreifenden Sicht) — offen, Gate 2.
 > - **R-01** (= E-13) — die Karenzzeit der Aufbewahrung hat keinen
 >   beschlossenen Vorgabewert; der Vertrag behauptet **keinen**; die
 >   Entscheidung liegt beim **Fachbereich** (Gate 2).
 >
-> **Erledigt:** **V-26** (entschieden im Rücksprung 3, umgesetzt) und **V-27**
-> (entschieden im Rücksprung 4, umgesetzt an 10 Stellen) sowie **11** weitere
-> Widersprüche des Abschluss-Sweeps (**V-28…V-38**).
+> **Erledigt:** **V-26** (entschieden im Rücksprung 3, umgesetzt), **V-27**
+> (entschieden im Rücksprung 4, umgesetzt an 10 Stellen), **11** weitere
+> Widersprüche des Abschluss-Sweeps (**V-28…V-38**) sowie **alle sechs**
+> Befunde **V-39…V-44** (entschieden und umgesetzt im **Rücksprung 5** —
+> **35 Stellen** in Vertrag und ADRs).
+>
+> **Die drei neuen Befunde V-45…V-47 blockieren den Freeze nicht** — keiner
+> widerspricht einer bestätigten Entscheidung; sie gehen als **offene Punkte**
+> in Schritt 5/8 ein.
 
 Die frühere Prüfliste des ersten Stresstests (Grenzfälle des
 Idempotenzvergleichs, 1-MB-Grenze bei `payload_base64`, `delayed` als
@@ -281,9 +329,6 @@ zugehörigen Befunde V-01…V-22 und die Entscheidungen E-01…E-09 sind in
 | O-05 | Auftragsverarbeitung / AVV | Fachbereich + Recht | Gate 2 |
 | **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) — kein beschlossener Vorgabewert; der Vertrag behauptet **keinen** (das Schema-Verhalten ist explizit: Purge im nächsten Durchlauf, E-13) | Fachbereich | Gate 2 |
 | **E-12** | **Härtung** der mandantenübergreifenden Sicht — eigene Laufzeitrolle `echobox_ops` statt der Allzweckrolle? Die Grenze ist in ADR-002 ehrlich benannt; die Entscheidung ist **offen** | Fachbereich + Plattform | Gate 2 |
-| **V-39** | Reihenfolge der Rollen- **oder** der Mandantenprüfung beim Replay (403 vs. 404) — **nicht** entschieden (Bilanz § 10.4) | Mensch (F-03/D-15) | **vor dem Freeze** |
-| **V-44** | ADR-015 §1/§2 widersprechen V-26/V-27 — **Korrektur**, keine Entscheidung; `docs/adr/` war in diesem Schritt nicht änderbar | Architektur (Rücksprung) | **vor dem Freeze** |
-| **V-40** | Zeitraumfilter des Zustellprotokolls (`from`/`to`) — an welchen Zeitstempel? | Architektur (Delta-Prüfung) | **vor dem Freeze** |
-| **V-41** | `ReadinessStatus` führt Werte, die der Vertrag nie erzeugt | Architektur (Delta-Prüfung) | **vor dem Freeze** |
-| **V-42** | `EndpointMetrics.rate_limit` optional, aber als vorhanden beschrieben | Architektur (Delta-Prüfung) | **vor dem Freeze** |
-| **V-43** | `Event.deleted_at` ist ein totes Feld (immer `null`) | Architektur (nach dem Freeze) | nach dem Freeze |
+| **V-45** | AC-013-3 nennt 403 **ohne** Mandantbezug — die **Testmatrix** muss die beiden Fälle trennen (V-39); die Anforderung bleibt unverändert (Bilanz § 11.3) | Schritt 5 (Testmatrix) | **vor dem Freeze** |
+| **V-46** | Optionale, aber als immer vorhanden beschriebene Antwortfelder in `EndpointMetrics`, `Event`, `EventIntakeResponse` — dieselbe Musterlage wie V-42 (Bilanz § 11.3) | Architektur | nach dem Freeze |
+| **V-47** | `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` **nennen** die Fremdmandanten-404 nicht in ihrer Beschreibung (Bilanz § 11.3) | Architektur | nach dem Freeze |

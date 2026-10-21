@@ -30,7 +30,7 @@
 | [ADR-012](ADR-012-aufbewahrung.md) | Aufbewahrung | Angenommen | **bestätigt: F-02 (O-02)** — 30 Tage, getrennt; Kaskade benannt (E-04); O-05 vor Gate 2 |
 | [ADR-013](ADR-013-mandanten-isolation-instanz.md) | Mandanten-Isolation pro Instanz und Containerbetrieb | Angenommen | — |
 | [ADR-014](ADR-014-zeitlimit-versuch.md) | ~~Zeitlimit je Zustellversuch~~ | **Zusammengeführt in ADR-008** | Verweisdatei, keine eigene Entscheidung |
-| [ADR-015](ADR-015-fehlersemantik-tenant-rollen.md) | Fehlersemantik, Mandantenherkunft und Rollenmatrix | Angenommen | **bestätigt: F-03 (O-03)** — nur Empfänger-Admin; Replay **einmal** (E-09) |
+| [ADR-015](ADR-015-fehlersemantik-tenant-rollen.md) | Fehlersemantik, Mandantenherkunft und Rollenmatrix | Angenommen | **bestätigt: F-03 (O-03)** — nur Empfänger-Admin; Replay **einmal** (E-09) · **§3:** erst der Mandant, dann die Rolle (V-39) |
 | [ADR-016](ADR-016-kanonische-artefakte.md) | Kanonische Artefakte — ein Ort pro Wahrheit | Angenommen | — |
 | [ADR-017](ADR-017-protokollsuche-metadaten.md) | Protokollsuche ausschließlich über Metadaten | Angenommen | D-11; O-04 bleibt Produktfrage |
 | [ADR-018](ADR-018-barrierefreiheit-frontend.md) | Oberfläche — Framework und Barrierefreiheit | Angenommen | — |
@@ -100,6 +100,21 @@ hat die betroffenen ADRs nachgezogen:
 
 Der vollständige Nachweis je Befund steht in
 `.agent/artifacts/ruecksprung-bilanz.md`.
+
+## Korrekturen aus dem dritten Rücksprung (Rücksprung 5, 2026-10-21)
+
+Der **dritte** Rücksprung (letzter Korrekturdurchgang vor dem Einfrieren des
+Vertrags) hat die sechs bestätigten Befunde **V-39…V-44** umgesetzt. Betroffen
+ist **eine** ADR:
+
+| ADR | Korrektur | Befund |
+|---|---|---|
+| ADR-015 | **§1** Rollenmatrix: die mandantenübergreifende Sicht des `service_admin` gilt **nur für die drei Listen-/Betriebsoperationen** — der **Einzelabruf** einer fremden Ressource ergibt **404** (auch für `service_admin`) · **§2** `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** (im Zustellprotokoll: der Mandant aus der Identität) · **§3** **Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle** — fremde Ressource ⇒ 404 (auch für `developer`/`service_admin`), eigene Ressource ohne Rolle ⇒ 403 | V-44, V-26, V-27, V-39 |
+
+**Keine** bestätigte Festlegung (F-01…F-04, D-01…D-15, ADR-001…ADR-018) wurde
+neu aufgerollt; die drei Sätze waren **überholt** und wurden an den entschiedenen
+Stand gebracht. Der vollständige Nachweis steht in
+`.agent/artifacts/ruecksprung-bilanz.md` § 11.
 
 ## Hinweis zur Nummerierung
 

@@ -29,6 +29,16 @@ info:
     Rollen — **auch** für `service_admin`: der **Einzelabruf** einer Ressource
     eines fremden Mandanten endet mit 404 (V-27).
 
+    **Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle.** Gehört
+    die adressierte Ressource **nicht** dem Mandanten aus der Identität, endet
+    der Aufruf mit **HTTP 404** — **auch** für `developer` und `service_admin`
+    (D-02, ADR-015 §3, V-39). Die Rollenprüfung greift **erst danach**, also
+    **innerhalb des eigenen Mandanten**: dort ist die Rolle falsch ⇒
+    **HTTP 403** (F-03, ADR-015 §3). Für den Replay heißt das: ein Zustelllauf
+    eines **fremden** Mandanten ergibt **404** (auch für `developer` und
+    `service_admin`), ein Zustelllauf des **eigenen** Mandanten **ohne** die
+    Rolle `receiver_admin` ergibt **403**.
+
     **`organisation_id` in den Antworten:** Das Feld ist **immer** gefüllt und
     benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten
     den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem
@@ -58,8 +68,8 @@ info:
     |---|---|---|
     | 400 | `malformed_request` | **syntaktisch** fehlerhafte Anfrage (kein gültiges JSON) |
     | 401 | `unauthorized` | kein oder ungültiges Token |
-    | 403 | `forbidden` | angemeldet, aber Rolle/Mandant darf es nicht |
-    | 404 | `not_found` | Ressource existiert nicht **oder** ist für diesen Mandanten nicht sichtbar |
+    | 403 | `forbidden` | angemeldet, die Ressource gehört dem **eigenen** Mandanten, aber die Rolle darf es nicht |
+    | 404 | `not_found` | Ressource existiert nicht **oder** gehört einem **fremden** Mandanten (für diesen Mandanten nicht sichtbar) |
     | 409 | `idempotency_conflict` | gleicher Idempotenzschlüssel mit abweichender Nutzlast (D-05) |
     | 409 | `delivery_state_conflict` | Zustelllauf ist nicht replaybar (nicht aufgegeben, Endpunkt pausiert oder bereits replayed) |
     | 413 | `payload_too_large` | Nutzlast > 1.048.576 Byte (NFR-001, D-13) |
@@ -67,7 +77,7 @@ info:
     | 422 | `tenant_parameter_rejected` | ein Mandantenparameter (`organisation_id`) wurde im Body, im Query oder im Header mitgeschickt (D-01) |
     | 429 | `rate_limit_exceeded` | API-seitiges Anfragelimit (nicht das Endpunkt-Limit aus FR-033) |
     | 500 | `internal_error` | unerwarteter Fehler — kein Stacktrace, kein internes Detail |
-    | 503 | `service_unavailable` | Dienst nicht bereit (Readiness) |
+    | 503 | `service_unavailable` | Dienst nicht bereit (Readiness) — der nicht bereite Zustand kommt als **503 mit `Problem`**, nicht als Readiness-Bericht (ADR-015 §4) |
 
     **Die Grenze zwischen 400 und 422:** 400 bedeutet *syntaktisch* fehlerhaft
     (der Body ist kein gültiges JSON). **Jede** Abweichung vom **Schema** des
@@ -75,6 +85,13 @@ info:
     ist **422** `validation_failed` mit einem `violations`-Eintrag; sie wird
     **nicht** stillschweigend ignoriert. Ein mitgelieferter **Mandantenparameter**
     ist 422 `tenant_parameter_rejected` (D-01).
+
+    **Die Grenze zwischen 403 und 404: erst der Mandant, dann die Rolle.** Eine
+    Ressource eines **fremden** Mandanten ergibt **404** — für **alle** Rollen,
+    auch für `developer` und `service_admin`; die Existenz fremder Objekte wird
+    nicht preisgegeben (D-02). Die Rolle wird **erst** geprüft, wenn die
+    Ressource dem **eigenen** Mandanten gehört — dann ergibt die falsche Rolle
+    **403** (ADR-015 §3, V-39).
 
     ## Pagination
 
@@ -119,6 +136,13 @@ info:
     existiert **nicht** — das wäre mit der Verschlüsselung im Ruhezustand
     unvereinbar (FR-012, D-11).
 
+    **Der Zeitraumfilter ist je Liste benannt:** im **Zustellprotokoll**
+    (`GET /api/v1/deliveries`) bezieht sich `from`/`to` auf den
+    **Anlegezeitpunkt** des Zustelllaufs (`created_at` — der Sortierschlüssel,
+    ADR-017 §4); in der **Totenliste** (`GET /api/v1/dead-deliveries`) auf den
+    **Aufgabezeitpunkt** (`abandoned_at`). Beide Aussagen stehen
+    **nebeneinander** und sind je Liste benannt (V-40).
+
     ## Vorgabewerte (bestätigt am 2026-10-21, Gate 1)
 
     Diese Werte sind **Vorgaben der Betriebskonfiguration**, keine harten
@@ -130,7 +154,7 @@ info:
     |---|---|---|---|
     | **F-01** | Rate-Limit je Endpunkt | **60 Versuche je Endpunkt und Minute**, Strategie `delay` (verschieben) | `echobox.delivery.rate-limit.*`, je Endpunkt überschreibbar |
     | **F-02** | Aufbewahrung | **30 Tage** — getrennt für Ereignisse und für Zustellprotokolle, Fristbeginn = **letzter Versuch** | `echobox.retention.*`, je Mandant überschreibbar |
-    | **F-03** | Replay-Berechtigung | **nur** der Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` ⇒ **403** | Rollenprüfung (ADR-015) |
+    | **F-03** | Replay-Berechtigung | **nur** der Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` ⇒ **403** — ein Zustelllauf **fremder** Mandanten ⇒ **404** (V-39) | Rollenprüfung (ADR-015) |
     | **F-04** | Versuche und Backoff | **8 Versuche**, Basis **1 Minute**, Verdopplung (×2), Deckel **60 Minuten**, Streuung **± 20 %** | `echobox.delivery.backoff.*`, `echobox.delivery.max-attempts` |
 
     Auswirkung auf die Sichtbarkeit: `EndpointMetrics.rate_limit.limit` weist den
@@ -1003,7 +1027,6 @@ paths:
                 accepted_at: "2026-10-21T09:15:22.481Z"
                 created_at: "2026-10-21T09:15:22.481Z"
                 updated_at: "2026-10-21T09:15:22.481Z"
-                deleted_at: null
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1034,6 +1057,11 @@ paths:
         Die Filter (Endpunkt, Status, Ereignistyp, Ereignis-ID, Zeitraum) sind
         **kombinierbar** (AC-015-4). Die Liste ist **cursor-basiert
         paginiert**. Die Suche läuft ausschließlich über Metadaten (D-11).
+
+        **Zeitraumfilter:** `from`/`to` beziehen sich auf den **Anlegezeitpunkt**
+        des Zustelllaufs (`created_at`) — **denselben** Schlüssel, nach dem die
+        Liste sortiert (ADR-017 §4, V-40). Die **Totenliste** filtert dagegen
+        nach dem **Aufgabezeitpunkt** (`abandoned_at`).
 
         Ein Ereignis ohne Abnehmer erscheint mit dem Zustand `no_subscriber` —
         nichts verschwindet still (D-04).
@@ -1236,7 +1264,8 @@ paths:
         (GLOSSARY „Tote Zustellung“). Endgültig beendete, aber **nicht**
         aufgegebene Zustellungen stehen im Zustellprotokoll
         (`GET /api/v1/deliveries`). Der Zeitraumfilter bezieht sich auf den
-        **Aufgabezeitpunkt** (`abandoned_at`).
+        **Aufgabezeitpunkt** (`abandoned_at`) — **nicht** auf `created_at`; das
+        **Zustellprotokoll** filtert nach `created_at` (V-40).
 
         **Mandantenübergreifende Sicht:** Die Liste zeigt die toten Zustellungen
         **aller** Mandanten. Sie wird über die schmale Eigentümerfunktion des
@@ -1358,6 +1387,13 @@ paths:
         Endpunkts** ist berechtigt (D-15, bestätigt am 2026-10-21 mit F-03).
         `developer` und `service_admin` erhalten HTTP 403.
 
+        **Reihenfolge der Prüfungen:** Zuerst wird der **Mandant** geprüft. Ein
+        Zustelllauf eines **fremden** Mandanten ergibt **HTTP 404** — **auch**
+        für `developer` und `service_admin` (D-02, ADR-015 §3, V-39). Die
+        Rollenprüfung greift **erst danach**, also nur für einen Lauf im
+        **eigenen** Mandanten: dort ergibt eine falsche Rolle **HTTP 403**
+        (`forbidden`).
+
         **Pause:** Ist der Endpunkt pausiert, startet **kein** Versuch. Der
         Aufruf antwortet in diesem Fall mit **HTTP 409**
         `delivery_state_conflict` — es entsteht **kein** neuer Zustelllauf und
@@ -1432,7 +1468,9 @@ paths:
         (bestätigt am 2026-10-21 mit F-01); der Wert ist je Endpunkt
         überschreibbar (D-14). `rate_limit.limit` ist **immer** der wirksame
         Grenzwert; `rate_limit.limited: false` bedeutet: die Begrenzung ist für
-        diesen Endpunkt **abgeschaltet** (`limit: 0`).
+        diesen Endpunkt **abgeschaltet** (`limit: 0`). Der Abschnitt ist
+        **immer** Teil der Antwort — die Zählung läuft **unabhängig** vom
+        Grenzwert (AC-018-4, V-42).
 
         **Auswertungsfenster:** Ohne `from`/`to` gilt das Fenster der letzten
         **7 Tage** bis jetzt (ADR-011, bestätigt am 2026-10-21).
@@ -1639,6 +1677,12 @@ paths:
         Readiness-Prüfung: Datenbank erreichbar, Mandantenkontext gesetzt,
         Hintergrundprozess aktiv. Ohne Authentifizierung, damit der Container
         erst nach erfolgreicher Bereitschaft Traffic annimmt.
+
+        **Der nicht bereite Zustand ist kein Readiness-Bericht:** Ist der Dienst
+        nicht bereit, antwortet die Operation mit **HTTP 503** und dem
+        Fehlerschema `Problem` (`code: service_unavailable`) — für **alle**
+        Fehlerantworten gilt **ein** Schema (ADR-015 §4, V-41). Der
+        **HTTP 200** trägt ausschließlich `status: ready` mit `checks.*: ok`.
       x-ac-id:
         - US-023/AC-023-1
       x-requirement-ids: [NFR-006]
@@ -1724,6 +1768,14 @@ components:
         Beginn des Zeitraums (UTC, RFC 3339), inklusive. **Ohne `from`/`to` gilt
         das Vorgabefenster: die letzten 7 Tage bis jetzt** (ADR-011, bestätigt am
         2026-10-21).
+
+        **Bezugszeitstempel je Operation:** im **Zustellprotokoll**
+        (`GET /api/v1/deliveries`) der **Anlegezeitpunkt** des Zustelllaufs
+        (`created_at` — derselbe Schlüssel wie die Sortierung, ADR-017 §4, V-40);
+        in der **Totenliste** (`GET /api/v1/dead-deliveries`) der
+        **Aufgabezeitpunkt** (`abandoned_at`); in den **Kennzahlen**
+        (`GET /api/v1/endpoints/{endpointId}/metrics`) der **Beginn des
+        Auswertungsfensters**.
       schema:
         type: string
         format: date-time
@@ -1735,6 +1787,14 @@ components:
         Ende des Zeitraums (UTC, RFC 3339), exklusive. **Ohne `from`/`to` gilt
         das Vorgabefenster: die letzten 7 Tage bis jetzt** (ADR-011, bestätigt am
         2026-10-21).
+
+        **Bezugszeitstempel je Operation:** im **Zustellprotokoll**
+        (`GET /api/v1/deliveries`) der **Anlegezeitpunkt** des Zustelllaufs
+        (`created_at` — derselbe Schlüssel wie die Sortierung, ADR-017 §4, V-40);
+        in der **Totenliste** (`GET /api/v1/dead-deliveries`) der
+        **Aufgabezeitpunkt** (`abandoned_at`); in den **Kennzahlen**
+        (`GET /api/v1/endpoints/{endpointId}/metrics`) das **Ende des
+        Auswertungsfensters**.
       schema:
         type: string
         format: date-time
@@ -1786,7 +1846,10 @@ components:
             detail: "Das Bearer-Token fehlt oder ist ungültig."
             instance: /api/v1/endpoints
     Forbidden:
-      description: "Angemeldet, aber die Rolle oder der Mandant darf die Operation nicht ausführen."
+      description: >-
+        Angemeldet, aber die Rolle darf die Operation nicht ausführen. Die
+        Ressource gehört dem **eigenen** Mandanten — ein **fremder** Mandant
+        ergibt **404**, nicht 403 (D-02, ADR-015 §3, V-39).
       content:
         application/problem+json:
           schema:
@@ -1799,7 +1862,10 @@ components:
             detail: "Diese Rolle darf die Operation für diesen Mandanten nicht ausführen."
             instance: /api/v1/dead-deliveries
     NotFound:
-      description: "Die Ressource existiert nicht oder ist für diesen Mandanten nicht sichtbar (D-02)."
+      description: >-
+        Die Ressource existiert nicht oder gehört einem **fremden** Mandanten —
+        für diesen Mandanten ist sie nicht sichtbar (D-02). Geprüft wird **zuerst
+        der Mandant**, **danach die Rolle** (ADR-015 §3, V-39).
       content:
         application/problem+json:
           schema:
@@ -1929,7 +1995,11 @@ components:
             detail: "Die Anfrage konnte nicht verarbeitet werden."
             instance: /api/v1/events
     ServiceUnavailable:
-      description: "Der Dienst ist vorübergehend nicht bereit."
+      description: >-
+        Der Dienst ist vorübergehend nicht bereit — der **nicht bereite**
+        Zustand der Readiness-Prüfung (`GET /health/ready`). Er wird **nicht**
+        als Readiness-Bericht, sondern mit diesem **Fehlerschema** beantwortet
+        (ADR-015 §4, V-41).
       content:
         application/problem+json:
           schema:
@@ -2417,7 +2487,10 @@ components:
       type: object
       description: >-
         Metadaten eines Ereignisses. Die **Nutzlast wird nie ausgegeben** —
-        sie ist im Ruhezustand verschlüsselt (FR-012).
+        sie ist im Ruhezustand verschlüsselt (FR-012). Ein **markiertes**
+        Ereignis (Aufbewahrung) ist **sofort unsichtbar** und wird mit
+        **HTTP 404** beantwortet (ADR-012 §3) — die Antwort trägt deshalb
+        **keinen** Aufbewahrungsmarker (V-43).
       required: [event_id, event_type, idempotency_key, status, payload_encoding, payload_media_type, payload_size_bytes, accepted_at, created_at, updated_at]
       properties:
         event_id:
@@ -2459,15 +2532,6 @@ components:
         updated_at:
           type: string
           format: date-time
-        deleted_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: >-
-            Aufbewahrungsmarker — **in der Antwort immer `null`**: ein markiertes
-            Ereignis ist für die Applikationsrolle **sofort unsichtbar**
-            (ADR-012 §3) und wird mit **HTTP 404** beantwortet. Das Feld trägt
-            keine beobachtbare Information.
 
     # ------------------------------------------------------------------ Zustellung
     DeliveryRun:
@@ -2779,7 +2843,7 @@ components:
     # -------------------------------------------------------------------- Kennzahlen
     EndpointMetrics:
       type: object
-      required: [endpoint_id, window, data_available]
+      required: [endpoint_id, window, data_available, rate_limit]
       properties:
         endpoint_id:
           type: string
@@ -2837,7 +2901,8 @@ components:
         Minute** mit Strategie `delay` (bestätigt am 2026-10-21, F-01);
         je Endpunkt überschreibbar (D-14). Es gibt **zwei** Zustände: kein
         Override (⇒ es gilt 60) und abgeschaltet (⇒ `limit: 0`,
-        `limited: false`).
+        `limited: false`). Der Abschnitt ist **immer** Teil der Antwort — die
+        Zählung läuft **unabhängig** vom Grenzwert (AC-018-4, V-42).
       required: [limit, limited, window_seconds, strategy, observed_attempts, delayed_attempts]
       properties:
         limit:
@@ -3153,24 +3218,37 @@ components:
 
     ReadinessStatus:
       type: object
+      description: >-
+        Bereitschaftsbericht des **bereiten** Zustands. Der Vertrag kennt nur
+        **einen** beobachtbaren Wert: `status: ready` mit `checks.*: ok`. Der
+        **nicht bereite** Zustand wird **nicht** als Readiness-Bericht
+        geliefert, sondern als **HTTP 503** mit dem Fehlerschema `Problem`
+        (`code: service_unavailable`) — für **alle** Fehlerantworten gilt
+        **ein** Schema (ADR-015 §4, V-41).
       required: [status, checks, checked_at]
       properties:
         status:
           type: string
-          enum: [ready, not_ready]
+          enum: [ready]
+          description: >-
+            Im **HTTP 200** immer `ready` — der nicht bereite Zustand kommt als
+            **503** mit `Problem`.
         checks:
           type: object
+          description: >-
+            Die Einzelprüfungen. Im **HTTP 200** sind sie alle `ok`; eine
+            ausgefallene Prüfung führt zum **503** mit `Problem`.
           required: [database, delivery_worker, tenant_context]
           properties:
             database:
               type: string
-              enum: [ok, unavailable]
+              enum: [ok]
             delivery_worker:
               type: string
-              enum: [ok, unavailable]
+              enum: [ok]
             tenant_context:
               type: string
-              enum: [ok, unavailable]
+              enum: [ok]
         checked_at:
           type: string
           format: date-time
@@ -3351,12 +3429,13 @@ x-contract-rules:
     - "F-01 bis F-04 sind **Vorgaben der Betriebskonfiguration**, keine harten API-Grenzwerte; die Werte stehen in der Tabelle „Vorgabewerte“ in `info.description`."
     - "F-01: **zwei** Zustände — `limit_value IS NULL` = kein Override (⇒ es gilt die Vorgabe), `limit_value = 0` = abgeschaltet (⇒ `limit: 0`, `limited: false`); je Endpunkt überschreibbar."
     - "F-02: Fristbeginn **je Datensatz** = letzter Versuch (`last_attempt_at`, für Ereignisse ohne Versuch `accepted_at`); je Mandant überschreibbar. Zwei Stufen: **markieren**, dann **Purge** nach der Karenzzeit (`purge_delay_days`) — die **Karenzzeit ist konfigurierbar und hat keinen festgelegten Vorgabewert**. Das Löschen eines Ereignisses **nimmt seine Zustellläufe und Versuche mit**."
-    - "F-03: Replay nur für den Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` erhalten HTTP 403."
+    - "F-03: Replay nur für den Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` erhalten HTTP 403 — **innerhalb des eigenen Mandanten**; ein Zustelllauf eines **fremden** Mandanten ergibt HTTP 404 (V-39)."
     - "F-04: Verdopplung mit voller Streuung; das Gesamtfenster bis zum letzten Versuch beträgt **≈ 2 Stunden**."
   tenant:
     - "Der Mandant stammt ausschließlich aus dem JWT-Claim `organisation_id` (D-01)."
     - "Ein Mandantenparameter (`organisation_id`) im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."
     - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02) — **auch** für `service_admin`: der **Einzelabruf** einer Ressource eines fremden Mandanten endet mit 404 (V-27)."
+    - "**Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle.** Eine Ressource eines **fremden** Mandanten ergibt HTTP 404 — auch für `developer` und `service_admin`; die Rolle wird **erst** innerhalb des **eigenen** Mandanten geprüft und ergibt dort HTTP 403 (ADR-015 §3, V-39)."
     - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002 §7), **nicht** über eine Rolle mit `BYPASSRLS`. Die mandantenübergreifende Sicht gilt **nur** für die **drei** Listen-/Betriebsoperationen — Endpunktliste, Totenliste und Aufbewahrung (E-01); ein vierter mandantenübergreifender Leseweg wird **nicht** gebaut (V-27). `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört."
   errors:
     - "Alle Fehlerantworten nutzen das Schema `Problem` mit `Content-Type: application/problem+json`."

@@ -69,6 +69,17 @@ Die Filter sind **kombinierbar** (AC-015-4, AC-016-4). Sortierung: implizit
 neueste zuerst (`created_at DESC`) — die Reihenfolge, in der ein Betrieb den
 Fehler sucht.
 
+**Der Zeitraumfilter ist je Liste benannt (V-40, 2026-10-21).** Im
+**Zustellprotokoll** (`GET /api/v1/deliveries`) beziehen sich `from`/`to` auf
+den **Anlegezeitpunkt** des Zustelllaufs (`created_at`) — **denselben**
+Schlüssel, nach dem die Liste sortiert; Filter und Sortierung laufen damit über
+**einen** Index (`delivery_runs (organisation_id, created_at DESC)`). In der
+**Totenliste** (`GET /api/v1/dead-deliveries`) beziehen sich `from`/`to` auf den
+**Aufgabezeitpunkt** (`abandoned_at`). Beide Aussagen stehen **nebeneinander**
+und sind je Liste benannt. `accepted_at` und `last_attempt_at` bleiben
+**suchbare Metadaten** (Anker der Aufbewahrung, F-02) — sie sind **kein**
+Zeitraumfilter des Vertrags.
+
 > **Reduziert (Schritt 3):** Eine eigene Liste der Ereignisse
 > (`GET /api/v1/events`) ist entfallen — sie trug keine Story, kein NFR und
 > keinen Akzeptanzpunkt, und keine Oberflächenseite braucht sie. Die Suche

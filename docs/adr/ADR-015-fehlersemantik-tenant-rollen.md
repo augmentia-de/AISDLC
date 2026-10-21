@@ -32,7 +32,7 @@ Entwickler, Empfänger-Admin, Service-Admin.
 |---|---|---|---|---|---|---|---|
 | `developer` | — | **ja** | **ja** (eigener Mandant) | **nein** (F-03) | **nein** | eigener Mandant | **nein** |
 | `receiver_admin` | **ja** (eigener Mandant) | — | **ja** (eigener Mandant) | **ja** (eigener Endpunkt) | **nein** | eigener Mandant | **nein** |
-| `service_admin` | **ja** (alle Mandanten) | — | **ja** (eigener Mandant) | **nein** (F-03) | **ja** | **ja** (eigener Mandant) | **ja** |
+| `service_admin` | **ja** (alle Mandanten — **nur in der Liste**; der **Einzelabruf** einer fremden Ressource ⇒ **404**, V-27) | — | **ja** (eigener Mandant) | **nein** (F-03) | **ja** | **ja** (eigener Mandant) | **ja** |
 
 > **Korrektur der Rollenmatrix (N-19):** die mandantenübergreifende Sicht des
 > `service_admin` gilt **nur** für die **drei** Operationen der
@@ -43,13 +43,21 @@ Entwickler, Empfänger-Admin, Service-Admin.
 > Vertrag noch im Schema (nur die drei Eigentümerfunktionen, E-10). Die
 > Kennzahlen (`getEndpointMetrics`) gelten ebenfalls **je Endpunkt** und
 > damit je Mandant.
+>
+> **Korrektur der Rollenmatrix (V-44, 2026-10-21):** die Zelle „Endpunkte
+> verwalten" des `service_admin` ist auf **„nur in der Liste"** geschärft. Die
+> mandantenübergreifende Sicht gilt **ausschließlich** für die **drei**
+> Listen-/Betriebsoperationen; der **Einzelabruf** einer Ressource eines
+> **fremden** Mandanten ergibt **404** — **auch** für `service_admin` (D-02,
+> V-27). Ein **vierter** mandantenübergreifender Leseweg wird **nicht** gebaut.
 
 Die mandantenübergreifende Sicht des `service_admin` wird über die **drei
 schmalen Eigentümerfunktionen** des Schemas hergestellt
 (`app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`,
 `app.enforce_retention_cross_tenant` — ADR-002 §7) — **nicht** über eine
 Laufzeitrolle mit `BYPASSRLS` und **nicht** über einen Mandantenfilter im
-Vertrag. In diesen Antworten ist `organisation_id` **im Datensatz** gefüllt.
+Vertrag. In diesen Antworten ist `organisation_id` **immer** gefüllt — es
+benennt den **besitzenden Mandanten** der Ressource (V-26).
 
 Zusätzliche Rollenprüfungen:
 
@@ -60,7 +68,7 @@ Zusätzliche Rollenprüfungen:
 | Ereignis einliefern | `developer` (und `service_admin` für Migrations-/Testzwecke) | 403 |
 | Endpunkt-/Protokoll-Listen | alle Rollen, aber **mandantengefiltert** — auch der `service_admin` sieht im Protokoll nur den eigenen Mandanten (E-10) | — |
 | Totenliste | nur `service_admin` | 403 (AC-016-2) |
-| Replay | nur `receiver_admin` **des betroffenen Endpunkts**; `developer` und `service_admin` ⇒ 403 | 403 (AC-013-3, F-03) |
+| Replay | nur `receiver_admin` **des betroffenen Endpunkts**; `developer` und `service_admin` ⇒ 403 — **innerhalb des eigenen Mandanten**; ein Zustelllauf **fremder** Mandanten ⇒ 404 (V-39) | 403 (AC-013-3, F-03) |
 | Aufbewahrung erzwingen | nur `service_admin` | 403 |
 
 ### 2. Mandant aus der Identität
@@ -76,9 +84,12 @@ Zusätzliche Rollenprüfungen:
   Ein Filterparameter wäre dort zwar sinnvoll, er würde aber die Regel
   „Mandant ist ein Filterparameter“ etablieren und damit den Boden für einen
   Leck legen. Der Service-Admin filtert **in der Oberfläche** nach
-  `organisation_id`, das Feld ist Teil jeder mandantenübergreifenden Antwort.
-  **Im Zustellprotokoll** (`GET /api/v1/deliveries`) gibt es keine
-  mandantenübergreifende Sicht — dort ist das Feld `null` (E-10).
+  `organisation_id` — das Feld ist **immer** gefüllt und benennt den
+  **besitzenden Mandanten** der Ressource (V-26).
+  **Im Zustellprotokoll** (`GET /api/v1/deliveries`) gibt es **keine**
+  mandantenübergreifende Sicht (E-10) — das Protokoll bleibt
+  mandantengefiltert; dort ist das Feld der Mandant aus der Identität
+  (V-26).
 - Die drei mandantenübergreifenden Operationen (`listEndpoints`,
   `listDeadDeliveries`, `enforceRetention`) holen ihre Daten aus den
   Eigentümerfunktionen des Schemas (ADR-002 §7). Sie sind **fail-closed**:
@@ -99,7 +110,17 @@ eine Bestandsaufnahme der fremden Mandanten. 404 sagt nur: *hier ist nichts*.
 **403 bleibt** für den Fall, in dem das Objekt dem eigenen Mandanten gehört,
 die Rolle aber die Operation nicht ausführen darf (z. B. Secret-Rotation als
 Entwickler). Diese Unterscheidung ist konsistent: 403 = „dein Mandant, deine
-Rolle“; 404 = „nicht dein Mandant“.
+Rolle"; 404 = „nicht dein Mandant".
+
+**Die Reihenfolge der Prüfungen (V-39, 2026-10-21):** geprüft wird **zuerst
+der Mandant**, **danach die Rolle**. Gehört die adressierte Ressource nicht
+dem Mandanten aus der Identität, endet der Aufruf mit **404** — **auch** für
+`developer` und `service_admin`; die Existenz fremder Objekte bleibt verborgen
+(D-02). Erst wenn die Ressource dem **eigenen** Mandanten gehört, wird die
+Rolle geprüft; passt sie nicht, ergibt der Aufruf **403**. Für das Replay
+heißt das: ein Zustelllauf eines **fremden** Mandanten ist **404** (auch für
+`developer` und `service_admin`), ein Zustelllauf des **eigenen** Mandanten
+**ohne** die Rolle `receiver_admin` ist **403** (F-03).
 
 ### 4. Fehlerschema
 
@@ -212,3 +233,12 @@ dem `INSERT` in derselben Transaktion gesetzt (`SET LOCAL lock_timeout …` /
 **Angenommen** — die Replay-Berechtigung ist am 2026-10-21 am Gate 1
 entschieden (F-03, entschieden O-03): **nur** der Empfänger-Admin des
 betroffenen Endpunkts.
+
+**Korrekturen vom 2026-10-21 (Rücksprung 5, vor dem Einfrieren des Vertrags):**
+§1 (Rollenmatrix: die mandantenübergreifende Sicht gilt **nur für die drei
+Listen-/Betriebsoperationen**, der Einzelabruf einer fremden Ressource ergibt
+404), §2 (`organisation_id` ist **immer** gefüllt und benennt den besitzenden
+Mandanten) und §3 (**Reihenfolge der Prüfungen: erst der Mandant, dann die
+Rolle**). Es wurde **keine** bestätigte Entscheidung neu aufgerollt — die drei
+Sätze waren durch V-26, V-27 und V-39 überholt und sind an den entschiedenen
+Stand gebracht.
