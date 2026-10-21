@@ -124,6 +124,14 @@ stimmen Rechte-Matrix und Folder-Ownership überein.
 Das Schema wird an seinen kanonischen Ort verschoben, sobald die laufende
 Architecture-Session ihre Arbeit beendet hat.
 
+> **Nachtrag (Phase 2 ist gelaufen):** Das Schema liegt jetzt an beiden Orten —
+> `.agent/knowledge/schema.sql` (kanonisch) und `docs/architecture/schema.sql`
+> (versionierte Kopie im Commit-Scope der Architekturphase). Das ist eine
+> **bewusste** Entscheidung (ADR-019 §6, Befund O-13/S-26), abgesichert durch den
+> Mirror-Test `SchemaMirrorIT` (T-SCHEMA-MIRROR-01). Die Spiegel-Regel steht jetzt
+> in `AGENTS.md` und im Skill `aisdlc-openapi-first`. Siehe auch den Nachtrag in
+> `.agent/knowledge/stack.md`.
+
 ## Testlauf
 
 Nicht im echten Projekt: dort läuft eine Session, und der Test würde mitten

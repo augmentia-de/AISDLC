@@ -2,70 +2,55 @@
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "aisdlc-requirements",
 
-  // Stack-Wissen kommt direkt aus den Bibliotheken - keine Kopien, keine Drift.
-  // Pfade sind maschinenabhaengig; bei Umzug anpassen oder die Skills vendoren.
-  "skills": {
-    "paths": [
-      "/home/torsten/dev/my-projects/agents/ECC/skills",
-      "/home/torsten/dev/my-projects/agents/wshobson-agents/plugins/backend-development/skills",
-      "/home/torsten/dev/my-projects/agents/wshobson-agents/plugins/frontend-mobile-development/skills",
-      "/home/torsten/dev/my-projects/agents/wshobson-agents/plugins/javascript-typescript/skills"
-    ]
+  "experimental": {
+    // Der Orchestrator (Top-Level) startet die Rollen-Agenten, diese starten
+    // ggf. Stack-Agenten. Ohne diesen Wert blockiert OpenCode die Verschachtelung
+    // nach der ersten Ebene ("Subagent depth limit reached") - Default ist 1.
+    "subagent_depth": 2
   },
 
+  // ==========================================================================
+  // FRAMEWORK-SCHICHT - systemagnostisch.
+  //
+  // Diese Datei kennt KEINEN Stack, keine Bibliothekspfade und keine
+  // stack-spezifischen Skills. Das Projekt ergaenzt die Stack-Schicht in der
+  // Datei `opencode.jsonc` im Projekt-Root.
+  //
+  // Merge-Reihenfolge (OpenCode): Root-Config zuerst, dann `.opencode/`,
+  // dann Agent-Frontmatter. Letzter Treffer gewinnt. Daraus folgt:
+  //   * Positive Regeln des Frameworks stehen HIER und gewinnen gegen die
+  //     Stack-Schicht - die Framework-Skills bleiben immer sichtbar.
+  //   * Catch-all-DENYs gehoeren in die STACK-Schicht, sonst wuerden sie
+  //     die Stack-Erlaubnisse wieder aushebeln.
+  // ==========================================================================
+
   "permissions": [
-    // Subagents: nur die projektspezifischen duerfen gestartet werden
-    { "action": "subagent", "resource": "*", "effect": "deny" },
+    // Skills: nur die des Frameworks. Die Stack-Skills erlaubt die
+    // Stack-Schicht - ihr Catch-all-Deny steht VOR dieser Datei.
+    { "action": "skill", "resource": "aisdlc-*", "effect": "allow" },
+    { "action": "skill", "resource": "strangler-fig", "effect": "allow" },
+    { "action": "skill", "resource": "module-migration", "effect": "allow" },
+    { "action": "skill", "resource": "test-self-correction", "effect": "allow" },
+
+    // Subagenten: die Rollen-Agents des Frameworks plus alle Stack-Agenten.
     { "action": "subagent", "resource": "aisdlc-*", "effect": "allow" },
     { "action": "subagent", "resource": "stack/*", "effect": "allow" },
     { "action": "subagent", "resource": "general", "effect": "allow" },
     { "action": "subagent", "resource": "explore", "effect": "allow" },
 
-    // Skills: nur projektrelevante laden (ECC hat 311, wshobson 185)
-    { "action": "skill", "resource": "*", "effect": "deny" },
-    { "action": "skill", "resource": "aisdlc-*", "effect": "allow" },
-    { "action": "skill", "resource": "strangler-fig", "effect": "allow" },
-    { "action": "skill", "resource": "module-migration", "effect": "allow" },
-    { "action": "skill", "resource": "test-self-correction", "effect": "allow" },
-    { "action": "skill", "resource": "springboot-*", "effect": "allow" },
-    { "action": "skill", "resource": "java-*", "effect": "allow" },
-    { "action": "skill", "resource": "react-*", "effect": "allow" },
-    { "action": "skill", "resource": "typescript-*", "effect": "allow" },
-    { "action": "skill", "resource": "modern-javascript-*", "effect": "allow" },
-    { "action": "skill", "resource": "nodejs-*", "effect": "allow" },
-    { "action": "skill", "resource": "nextjs-*", "effect": "allow" },
-    { "action": "skill", "resource": "tailwind-*", "effect": "allow" },
-    { "action": "skill", "resource": "microservices-*", "effect": "allow" },
-    { "action": "skill", "resource": "api-design-*", "effect": "allow" },
-    { "action": "skill", "resource": "python-*", "effect": "allow" },
-    { "action": "skill", "resource": "golang-*", "effect": "allow" },
-    { "action": "skill", "resource": "rust-*", "effect": "allow" },
-    { "action": "skill", "resource": "fastapi-*", "effect": "allow" },
-    { "action": "skill", "resource": "quarkus-*", "effect": "allow" },
-    { "action": "skill", "resource": "dotnet-*", "effect": "allow" },
-
-    // Shell: alles fragt, ausser Lese- und Test-Kommandos.
-    // WICHTIG: Das globale rtk-Plugin rewritet Kommandos VOR der Permission-
-    // Pruefung ('git status' -> 'rtk git status'). Das Muster muss deshalb
-    // tolerant sein: '*git status*' matcht beide Formen.
-    // Reihenfolge: letzter Treffer gewinnt - spezifisch nach allgemein.
-    { "action": "shell", "resource": "*", "effect": "ask" },
-    // Git-Muster sind tolerant gegen Varianten wie 'git -C <pfad> log'.
-    // Das rtk-Plugin rewritet Kommandos vor der Pruefung ('git log' ->
-    // 'rtk git log'), das fuehrende '*' deckt das mit ab.
-    { "action": "shell", "resource": "*git status*", "effect": "allow" },
-    { "action": "shell", "resource": "*git diff*", "effect": "allow" },
-    { "action": "shell", "resource": "*git log*", "effect": "allow" },
-    // Commits: die Pipeline committet nach jedem SDLC-Schritt. Das Pfad-Scope
-    // erzwingt der Workflow (git commit -- <pfade>), nicht die Permission.
-    { "action": "shell", "resource": "*git add*", "effect": "allow" },
-    { "action": "shell", "resource": "*git commit*", "effect": "allow" },
-    // Die Pipeline pusht nie - Push bleibt eine bewusste menschliche Entscheidung.
+    // Shell: alles laeuft ohne Rueckfrage. Der Schutz der Pipeline liegt in den
+    // Pfadrechten (edit deny/allow je Agent), NICHT in der Shell.
+    // "ask" als Grundregel kostete im Referenzlauf 45 % Leerlauf: eine offene
+    // Permission-Abfrage friert die Session ein, bis der Mensch antwortet.
+    { "action": "shell", "resource": "*", "effect": "allow" },
+    // Ausnahmen. Reihenfolge zaehlt: letzter Treffer gewinnt. Die Muster sind
+    // tolerant, weil ein Rewrite-Plugin Kommandos vor der Pruefung umschreiben
+    // kann ('git push' -> 'rtk git push').
     { "action": "shell", "resource": "*git push*", "effect": "ask" },
-    { "action": "shell", "resource": "*pytest*", "effect": "allow" },
-    { "action": "shell", "resource": "*npm test*", "effect": "allow" },
-    { "action": "shell", "resource": "*npm run test*", "effect": "allow" },
-    { "action": "shell", "resource": "*mvn test*", "effect": "allow" },
-    { "action": "shell", "resource": "*gradle test*", "effect": "allow" }
+    { "action": "shell", "resource": "*git reset --hard*", "effect": "ask" },
+    { "action": "shell", "resource": "*git clean*", "effect": "ask" },
+    { "action": "shell", "resource": "*rm -rf*", "effect": "ask" },
+    { "action": "shell", "resource": "*sudo*", "effect": "deny" },
+    { "action": "shell", "resource": "*chmod 777*", "effect": "deny" }
   ]
 }

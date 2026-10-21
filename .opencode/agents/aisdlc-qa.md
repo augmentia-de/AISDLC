@@ -4,6 +4,10 @@ description: Primary agent for Phase 4 (Testing & Quality Assurance). Ensures ne
 # Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
 mode: all
 color: "#2ecc71"
+# Sicherheitsnetz gegen Endlosschleifen, NICHT das Fertig-Kriterium:
+# der Agent entscheidet selbst, wann der Schritt fertig ist (Output-Liste
+# der Workflow + Commit). Gemessener schwerster Schritt: 49 Modell-Turns.
+steps: 150
 permissions:
   - action: edit
     resource: "*"
@@ -29,6 +33,7 @@ meet all acceptance criteria, have high test coverage and cause no regressions o
 security vulnerabilities.
 
 ## Read first
+- Briefing des Vorschritts: `.agent/artifacts/briefing.md` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
 - Acceptance criteria: `docs/requirements/features/*.feature`
 - Changed files in `src/`
 - Existing test suites: `tests/`

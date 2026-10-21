@@ -2,6 +2,13 @@
 
 ## Project Overview
 
+**Zwei Schichten.** Das Framework (`.opencode/`, `.agent/`, `AGENTS.md`) ist
+systemagnostisch: es kennt keinen Stack, keine Bibliothekspfade und keine
+stack-spezifischen Skills. Die **Stack-Schicht** liegt in `opencode.jsonc` im
+Projekt-Root und wird bei jedem Stack-Wechsel ersetzt — das Framework bleibt
+unberührt. Details: `how-to.md` → "Stack-Schicht".
+
+
 AI SDLC: KI-agentengestützter Softwareentwicklungszyklus. Ein Orchestrator-Agent steuert den
 Prozess und OpenCode führt die Entwicklung aus. Der Orchestrator wechselt je nach SDLC-Schritt
 den Systemprompt (`.agent/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw.
@@ -21,23 +28,64 @@ Diese Datei ist die Single Source of Truth; bei Widerspruch gilt sie.
 7. Flag any security risk with `[SECURITY]` prefix in your response.
 8. Quote the top 3 rules from this file before taking any action.
 9. Always re-read this file after context compaction or session reset.
-10. Load the phase skill when the step calls for it (see Phase Skills) — do not improvise the
+10. Load the phase skill when the step calls for it (see Phase Skills) - do not improvise the
     procedure if a skill exists for it.
+11. **No output commands.** `echo`, `printf`, `pwd` and `cat` for orientation produce no
+    result - each one costs a model turn and a permission check. Use `read`, `glob` and
+    `grep` to orient yourself. In the first full run, 591 of 1.094 shell calls (54 %)
+    were of this kind.
+12. **Read the briefing first.** `.agent/artifacts/briefing.md` is the briefing of the
+    previous step. Read it, then read only the files it names. The briefing is the
+    entry point - never the truth (see Briefing).
 
-## HARD GATES — Agent Must Stop and Await Human Approval
+## HARD GATES - Agent Must Stop and Await Human Approval
 
-- **After Step 2** (Architecture complete) — before any application code is written.
+- **After Step 2** (Architecture complete) - before any application code is written.
   The agent must produce all artifacts, present a summary, and wait for human approval.
-- **After Step 8** (Security & Compliance complete) — before Deploy runs.
+  This gate reviews the **direction**: architecture, decisions, ADR set. The contract
+  is still a draft here.
+- **After Step 8** (Security & Compliance complete) - before Deploy runs.
   The agent must present QA and Security findings and wait for human approval.
 
 Without approval, the pipeline does not advance. No exceptions.
 
-**Agent-Wechsel am Gate:** The agent of the finished step stays active until the human
+**Contract freeze.** The contract `docs/api/openapi.yaml` is **frozen after step 4**
+(the stress test), not after gate 1. The first full run found 13 contract defects in
+the stress test - 13 of them *after* the contract had been frozen, and every one of
+them invalidated schema, code and tests. Changes after the freeze require a jump back
+to step 2; the contract is never edited in passing.
+
+**Agent-Wechsel am Gate:** the agent of the finished step stays active until the human
 approves. Only then does the human switch to the agent of the next step. Corrections
 after a gate request therefore land with the agent that still has the write permission
-for that step's folder — and the next step's write permissions only become active when
+for that step's folder - and the next step's write permissions only become active when
 that step actually starts.
+
+## Briefing - der Steckbrief zwischen den Schritten
+
+`.agent/artifacts/briefing.md` is written by the orchestrator at the end of every step
+and committed with it. It is the **entry point** for the next step's agent:
+
+| Section | Content |
+|---|---|
+| Stand | last completed step, its commit, the next step and its agent |
+| Was du lesen musst | the files to read - and nothing else |
+| Entscheidungen, die gelten | F-x / ADR-x that bind this step |
+| Offene Punkte | O-xx with owner |
+| Was du nicht tust | e.g. "the contract is frozen" |
+
+Rules:
+
+- A role agent reads the briefing **first**, then only the files it names. It does not
+  walk the repository.
+- **The briefing is never the truth - the files are.** If they contradict, the files
+  win, and the briefing is corrected in the next commit.
+- The briefing is a **pointer**, like the subagent's return value: status, commit, open
+  points. No excerpts, no derivations.
+- The briefing exists because the first full run's context grew 80x over four steps
+  (173k -> 14.08M input tokens): each step re-read everything. A briefing makes the
+  entry point explicit.
+
 
 ## Commit Convention
 
@@ -54,18 +102,23 @@ exists. The commit is the checkpoint the human reviews at the gate.
 | Push | the pipeline never pushes — `git push` is not part of the pipeline |
 
 ```bash
-git add -A .
-git diff --cached --name-only -- docs/requirements/ .agent/artifacts/ \
-  | git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
-             -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
-             --pathspec-from-file=-
-git restore --staged .
+mkdir -p docs/requirements/ .agent/artifacts/
+git reset -q
+git add -A -- docs/requirements/ .agent/artifacts/
+git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
+  -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/"
 ```
 
-The scope is enforced technically, not by convention: only files that changed or are new
-inside the path scope are committed. The `--pathspec-from-file` form is used because
-`git commit -- <pfade>` aborts with "pathspec did not match any files" as soon as one
-scope path is empty or does not exist yet — then nothing would be committed at all.
+The scope is enforced technically, not by convention: the index is cleared first, then
+only the step's paths are staged, so the commit contains exactly the step's files.
+
+Two reasons why not `git commit -- <pfade>`: it aborts with "pathspec did not match any
+files" as soon as one scope path holds no tracked file, and the `--pathspec-from-file`
+route is broken under the global `rtk` plugin — `rtk` rewrites `git diff` and appends a
+"Changes:" block, which then aborts the commit with "empty string is not a valid
+pathspec".
+
+`git reset -q` unstages foreign work but never deletes it.
 
 Types: `docs` Requirements/Architecture/Security · `refactor` Simplify/Refactoring ·
 `test` TDD · `feat` Implementation · `build` Deploy.
@@ -112,6 +165,17 @@ Dort schreiben zu duerfen: die vier Rollen-Agenten (`aisdlc-requirements`,
 `aisdlc-architecture`, `aisdlc-execution`, `aisdlc-qa`). Ein Rollen-Agent, dessen
 Workflow `.agent/artifacts/` als Ziel nennt, aber das Schreibrecht nicht besitzt,
 schreibt sonst an einen Ort, den niemand mehr findet.
+
+**Spiegel-Regel fuer das Datenbankschema:** `.agent/knowledge/schema.sql` ist
+kanonisch, `docs/architecture/schema.sql` ist die versionierte Kopie im
+Commit-Scope der Architekturphase. Beide werden byte-identisch gepflegt; der
+Mirror-Test `SchemaMirrorIT` (T-SCHEMA-MIRROR-01) erzwingt das. Ein Agent, der
+das Schema aendert, aendert **beide** Dateien im selben Schritt. Siehe ADR-019
+§6 und Befund O-13/S-26.
+
+**Verweis-Regel fuer den API-Vertrag:** `docs/api/openapi.yaml` ist der einzige
+Vertrag. `.agent/knowledge/openapi.yaml` ist ein Verweis darauf, keine Kopie —
+wer den Vertrag aendert, aendert nur `docs/api/openapi.yaml`.
 
 ## Escalation
 

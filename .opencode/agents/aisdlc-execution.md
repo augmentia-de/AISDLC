@@ -4,6 +4,10 @@ description: Primary agent for Phase 3 (Implementation & Coding). Decomposes imp
 # Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
 mode: all
 color: "#e67e22"
+# Sicherheitsnetz gegen Endlosschleifen, NICHT das Fertig-Kriterium:
+# der Agent entscheidet selbst, wann der Schritt fertig ist (Output-Liste
+# der Workflow + Commit). Gemessener schwerster Schritt: 49 Modell-Turns.
+steps: 150
 permissions:
   - action: edit
     resource: "*"
@@ -28,6 +32,7 @@ You are the Tech Lead & Execution Orchestrator. You steer the implementation pro
 and feed OpenCode with high-precision sub-tasks.
 
 ## Read first
+- Briefing des Vorschritts: `.agent/artifacts/briefing.md` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
 - Current user story / task: `docs/requirements/stories/<story_id>.json`
 - API specification: `docs/api/openapi.yaml`
 - Implementation plan from Phase 2

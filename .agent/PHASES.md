@@ -26,13 +26,13 @@ Agenten sind Rollen, die unabhängig vom Betriebsmodus existieren.
 | 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | `aisdlc-openapi-first` | **GATE 1** danach |
 | 3 Simplify & Reduktion | `03-simplify.md` | `phase2` | `aisdlc-architecture` | `aisdlc-simplify` | — |
 | 4 Grill-Me-Stresstest | `04-grill-me-stress.md` | `phase2` | `aisdlc-architecture` | `aisdlc-grill-stress` | — |
-| 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd` | — |
+| 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd`, `aisdlc-traceability-check` | — |
 | 6 KI-Code-Generation | `06-implementation.md` | `phase3` | `aisdlc-execution` | — | — |
 | 7 Refactoring & Clean-up | `07-refactoring.md` | `phase3` | `aisdlc-execution` | `aisdlc-simplify` | — |
 | 8 Sicherheit & Compliance | `08-security.md` | `phase4` | `aisdlc-qa` | `aisdlc-security-scan` | **GATE 2** danach |
 | 9 Deployment & Betrieb | `09-deploy.md` | `phase4` | `aisdlc-qa` | `aisdlc-deploy` | — |
 
-**Die 5 Skills sind Verfahrens-Schritte, keine Rollen.** Sie werden vom zuständigen Agent
+**Die Skills sind Verfahrens-Schritte, keine Rollen.** Sie werden vom zuständigen Agent
 geladen, wenn der Schritt ansteht — dadurch entstehen keine zusätzlichen Agents und die
 Kontextkosten bleiben bei 0, bis der Schritt wirklich gebraucht wird.
 
@@ -40,8 +40,14 @@ Kontextkosten bleiben bei 0, bis der Schritt wirklich gebraucht wird.
 
 | Gate | Nach Schritt | Bedingung | Wirkung |
 |---|---|---|---|
-| **GATE 1** | 2 (Architektur) | PRD vollständig, `openapi.yaml` stabil, ADRs ok | Kein Anwendungscode vor menschlicher Freigabe |
+| **GATE 1** | 2 (Architektur) | PRD vollständig, Architektur und Entscheidungen ok | Kein Anwendungscode vor menschlicher Freigabe. Prüft die **Richtung**, nicht den fertigen Vertrag. |
 | **GATE 2** | 8 (Security) | QA 0 Critical, Security 0 Critical/High | Kein Deployment vor menschlicher Freigabe |
+
+**Einfrierpunkt des Vertrags: nach Schritt 4** (Ende des Stresstests), nicht nach
+Gate 1. Der erste Volllauf fand im Stresstest 13 Vertragsdefekte — alle **nach** der
+Einfrierung, und jeder davon hat Schema, Code und Tests invalidiert. Vor Schritt 4 ist
+der Vertrag ein Entwurf; nach Schritt 4 ist er eingefroren. Eine Änderung danach
+erfordert einen Rücksprung zu Schritt 2 — der Vertrag wird nie im Vorbeigehen geändert.
 
 Gates stehen in `AGENTS.md` und werden von den Workflow-Dateien referenziert. Die
 Multi-Instanz-Prompts enthalten dieselben Gates an denselben Schrittgrenzen.
@@ -75,25 +81,65 @@ das Gate prueft den fertigen Commit. Ohne Commit ist der Schritt nicht abgeschlo
 **Befehl:**
 
 ```bash
-git add -A .
-git diff --cached --name-only -- <pfade> \
-  | git commit -m "<Subject>" \
-             -m "<Body>" \
-             --pathspec-from-file=-
-git restore --staged .
+mkdir -p <pfade>
+git reset -q
+git add -A -- <pfade>
+git commit -m "<Subject>" -m "<Body>"
 ```
 
-Das Scope laeuft ueber `--pathspec-from-file`: committet werden nur Dateien, die im
-Pfad-Scope geaendert oder neu sind. Die Form ist gewaehlt, weil `git commit -- <pfade>`
-mit einem leeren oder noch nicht existierenden Pfad mit "pathspec did not match any
-files" abbricht — dann wuerde gar nichts committet.
+Das Scope wird ueber den **Index** gesetzt, nicht ueber eine Pfadspezifikation.
+`git reset -q` leert den Index, `git add -A -- <pfade>` staged nur den Schritt,
+`git commit` committet nur den Index.
+
+Zwei Gruende, warum nicht `git commit -- <pfade>`:
+- `git commit -- <pfade>` bricht ab, sobald ein Scope-Pfad keine getrackten Dateien
+  hat ("pathspec did not match any files") — bei leeren Zielordnern waere der
+  Schritt damit nicht committbar.
+- Der Weg ueber `--pathspec-from-file` ist unter dem globalen `rtk`-Plugin kaputt:
+  `rtk` rewritet `git diff` und haengt einen "Changes:"-Block an, der als
+  Pfadspezifikation wiederum mit "empty string is not a valid pathspec" abbricht.
+
+`git reset -q` unstaged fremde Arbeit, loescht sie aber nicht.
 
 Regeln:
-- Genau ein Commit pro Schritt. Wenn sich nichts geaendert hat, kein Commit erzeugen.
+- Genau ein Commit pro Schritt. Wenn sich nichts geaendert hat, kein Commit erzeugen
+  (`git commit` meldet dann "nothing to commit" — das ist kein Fehler).
 - Nur die Pfade des Schritts committen — fremde Aenderungen werden nie mitcommittet.
 - Kein `git push` — die Pipeline pusht nicht.
 - Der Roh-Input des Schritts (z. B. die Anforderungs-Mail) gehoert in denselben Commit
   wie das daraus erzeugte Artefakt — die Traceability laeuft sonst ins Leere.
+
+## Steckbrief zwischen den Schritten
+
+`.agent/artifacts/briefing.md` ist der Steckbrief, den der Orchestrator am Ende jedes
+Schritts schreibt und mit dem Schritt-Commit committet. Er ist der **Einstiegspunkt**
+des nächsten Schritts: der Rollen-Agent liest zuerst das Briefing und danach **nur die
+darin genannten Dateien**.
+
+| Feld | Inhalt |
+|---|---|
+| Stand | letzter Schritt, sein Commit, nächster Schritt, dessen Agent |
+| Was du lesen musst | die Dateien — und sonst nichts |
+| Entscheidungen, die gelten | F-x / ADR-x, die diesen Schritt binden |
+| Offene Punkte | O-xx mit Owner |
+| Was du nicht tust | z. B. „der Vertrag ist eingefroren" |
+
+Regeln:
+- Das Briefing ist **nie** die Wahrheit — die Dateien sind es. Bei Widerspruch gewinnt
+  die Datei, und das Briefing wird im nächsten Commit korrigiert.
+- Das Briefing ist ein **Zeiger**: Status, Commit, offene Punkte. Keine Auszüge, keine
+  Herleitungen.
+- Es existiert, weil der Kontext im ersten Volllauf über vier Schritte um den Faktor
+  80 wuchs (173k → 14,08M Input-Token): jeder Schritt las alles neu.
+
+## Werkzeuge
+
+| Ort | Art |
+|---|---|
+| `.agent/tools/` | Phasen-Werkzeuge (gehören dem Schritt, nicht der Anwendung) |
+| `src/<modul>/tools/` | Code-Generatoren (gehören neben den Code, den sie erzeugen) |
+
+Konvention und Bestand: `.agent/tools/README.md`.
 
 ## Betriebsmodi
 
@@ -118,6 +164,24 @@ Aktivierung und im Session-Handling, nicht im Inhalt.
 | *(Original)* | `build` | Generalist, alle Rechte | überall |
 
 **Default-Agent:** `aisdlc-requirements` (in `.opencode/opencode.jsonc`).
+
+## Stack-Schicht
+
+Das Framework ist stackagnostisch. Alles Stack-spezifische liegt in
+`opencode.jsonc` im Projekt-Root:
+
+| Was | Wo | Wer pflegt es |
+|---|---|---|
+| `skills.paths` (Bibliotheken) | `opencode.jsonc` | das Projekt |
+| `skill`-Allowlist des Stacks | `opencode.jsonc` | das Projekt |
+| Stack-Agenten | `.opencode/agents/stack/<tech>/` | das Projekt |
+| Stack-Wissen (Stack, Schema) | `.agent/knowledge/` | der Architecture Orchestrator im Projekt |
+
+**Merge-Regel (OpenCode):** Root-Config zuerst, `.opencode/`-Config danach,
+Agent-Frontmatter zuletzt — letzter Treffer gewinnt. Daraus folgt: der
+Catch-all-Deny steht in der **Stack-Schicht**, die positiven Regeln des
+Frameworks in `.opencode/opencode.jsonc`. Sonst hebt die Framework-Regel die
+Stack-Erlaubnisse wieder auf.
 
 ## Stack-Ebene
 

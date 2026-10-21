@@ -129,27 +129,29 @@ Pipeline, Rollout-Strategie, Pre-Flight, Smoke-Tests, Promotion, Rollback, SLOs,
 Commit existiert. Der Commit entsteht **vor** dem Gate — das Gate prüft den fertigen Commit.
 
 ```bash
-git add -A .
-git diff --cached --name-only -- docs/requirements/ .agent/artifacts/ \
-  | git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
-             -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/" \
-             --pathspec-from-file=-
-git restore --staged .
+mkdir -p docs/requirements/ .agent/artifacts/
+git reset -q
+git add -A -- docs/requirements/ .agent/artifacts/
+git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
+  -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/"
 ```
 
 | Regel | Bedeutung |
 |---|---|
 | Subject | `<type>(sdlc-<n>): <Kurzbeschreibung>` |
 | Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
-| Scope | nur die geänderten/neuen Dateien des Schritts — technisch erzwungen |
+| Scope | nur der Schritt-Scope wird gestaged — technisch erzwungen |
 | Reihenfolge | Commit vor dem Gate bzw. vor dem Handoff |
 | Leer | nichts geändert → kein Commit, keine Leer-Commits |
 | Push | die Pipeline pusht nie — `git push` bleibt menschliche Entscheidung |
 
-Das Scope ist kein blosses Dokumentations-Versprechen: committet werden nur Dateien, die
-im Pfad-Scope geändert oder neu sind. Die Form mit `--pathspec-from-file` ist nötig, weil
-`git commit -- <pfade>` abbricht, sobald ein Scope-Pfad leer oder noch nicht vorhanden ist
-— dann würde gar nichts committet.
+Das Scope ist technisch erzwungen: der Index wird geleert, dann nur der Schritt-Scope
+gestaged. `git reset -q` unstaged fremde Arbeit, löscht sie aber nicht.
+
+Zwei Gründe, warum nicht `git commit -- <pfade>`: der Pathspec bricht ab, sobald ein
+Scope-Pfad keine getrackten Dateien hat — und der Weg über `--pathspec-from-file` ist
+unter dem globalen `rtk`-Plugin kaputt (`rtk` rewritet `git diff` und hängt einen
+„Changes:"-Block an, der wiederum mit „empty string is not a valid pathspec" abbricht).
 
 Subject und Pfade pro Schritt: `.agent/PHASES.md` → "Commit pro Schritt".
 
@@ -226,6 +228,57 @@ Zusammenfassung zurück.
 
 ---
 
+## Stack-Schicht
+
+Das Framework ist **stackagnostisch**. Es kennt keine Bibliothekspfade, keine
+stack-spezifischen Skills und keinen Stack-Agenten. Alles, was vom Projekt abhängt,
+liegt in **`opencode.jsonc` im Projekt-Root**.
+
+| Ebene | Datei | Inhalt | Wird ersetzt bei |
+|---|---|---|---|
+| Framework | `.opencode/opencode.jsonc` | `default_agent`, `experimental`, Framework-Skills, Subagenten, Shell | nie |
+| Stack | `opencode.jsonc` (Root) | `skills.paths`, `skill`-Allowlist, Stack-Subagenten | jedem Stack-Wechsel |
+| Stack-Wissen | `.agent/knowledge/` | `stack.md`, `schema.sql`, `openapi.yaml` | Phase 2 des Projekts |
+| Stack-Agenten | `.opencode/agents/stack/<tech>/` | die stack-spezifischen Rollen | jedem Stack-Wechsel |
+
+**Warum zwei Config-Dateien:** OpenCode merged Config-Dateien additiv — `skills`-Pfade
+werden **kombiniert**, `permissions`-Regeln **angehängt**, keines wird ersetzt. Die
+Reihenfolge ist fest: Root-Config zuerst, `.opencode/`-Config danach, Agent-Frontmatter
+zuletzt; letzter Treffer gewinnt.
+
+Daraus folgt genau eine Regel:
+
+> **Der Catch-all-Deny gehört in die Stack-Schicht, die positiven Regeln in die
+> Framework-Schicht.**
+
+Sonst hebt die Framework-Regel (`skill: *` → deny, weiter hinten) die
+Stack-Erlaubnisse (`springboot-*` → allow, weiter vorn) wieder auf — genau das war
+im Referenzlauf der Fehler, den die Agent-Frontmatter verursacht hatten.
+
+**Beispiel Stack-Schicht für Spring Boot + React:**
+
+```jsonc
+{
+  "skills": { "paths": [ "<pfad>/ECC/skills", "<pfad>/wshobson-agents/plugins/backend-development/skills" ] },
+  "permissions": [
+    { "action": "skill", "resource": "*", "effect": "deny" },
+    { "action": "skill", "resource": "aisdlc-*", "effect": "allow" },
+    { "action": "skill", "resource": "springboot-*", "effect": "allow" },
+    { "action": "skill", "resource": "java-*", "effect": "allow" },
+    { "action": "skill", "resource": "react-*", "effect": "allow" },
+    { "action": "skill", "resource": "typescript-*", "effect": "allow" },
+    { "action": "subagent", "resource": "*", "effect": "deny" },
+    { "action": "subagent", "resource": "stack/java/backend", "effect": "allow" },
+    { "action": "subagent", "resource": "stack/react/frontend", "effect": "allow" }
+  ]
+}
+```
+
+**Pfade sind maschinenabhängig.** Absolute Pfade brechen beim Umzug. Zwei Wege:
+`skills.paths` relativ zum Arbeitsverzeichnis (`./skills`, wenn die Bibliotheken
+dorthin vendoriert sind) oder ein Vendor-Schritt, der die Bibliotheks-Skills ins
+Projekt kopiert.
+
 ## Stack-Ebene
 
 Stack-Wissen kommt **nicht** aus eigenen Dateien, sondern per `skills.paths` direkt aus den
@@ -299,6 +352,50 @@ außerhalb werden blockiert. `build` bleibt bewusst allmächtig.
 | Falsche Workflow-Datei gewählt | Zwei Prompt-Familien | `.agent/PHASES.md` als Single Source of Truth nutzen |
 
 ---
+
+## Modell wählen
+
+Aktuell läuft **jeder** Agent auf dem Modell der Session — es ist kein `model:`-Feld
+gesetzt, also erbt jeder Subagent das Session-Modell. Im ersten Volllauf war das
+`minimax-m3.1-flash-free`, ein kostenloses Flash-Modell. Die Wahl ist an **drei**
+Stellen konfigurierbar; die Präzedenz ist: **Aufruf > Agent > Session**.
+
+| Ebene | Wo | Wirkung |
+|---|---|---|
+| **Session** | `opencode run --model provider/model` | Modell der Session. Alle Agenten **ohne** eigenes `model:` erben es — das schließt die Rollen-Agenten und den Orchestrator ein. |
+| **Agent** | `model: provider/model` im Frontmatter | Fester Modell-Bindung für genau diesen Agenten. Überschreibt die Session. |
+| **Subagent-Aufruf** | `model:`-Parameter beim Start des Subagenten | Gilt nur für diesen einen Aufruf. Überschreibt Agent und Session. |
+
+Beispiele:
+
+```yaml
+# .opencode/agents/aisdlc-architecture.md  — Designarbeit braucht das starke Modell
+---
+description: ...
+mode: all
+model: provider/model
+permissions: ...
+---
+```
+
+```bash
+# Ein Lauf mit einem anderen Modell für die ganze Pipeline
+opencode run --model provider/model --agent aisdlc-orchestrator "Starte die Pipeline …"
+```
+
+**Warum es eine eigene Stufe je Agent gibt:** die Schritte kosten sehr
+unterschiedlich. Schritt 2 (Vertrag, Schema, 20 ADRs) und Schritt 6 (Implementierung)
+sind teuer und fehleranfällig; Schritt 3 (Simplify) und Schritt 7 (Refactoring)
+sind mechanischer. Mit einem `model:` pro Agent zahlt man nur dort, wo es zählt.
+Ohne diese Stufe erbt **jeder** Schritt das Session-Modell — auch die teuren.
+
+**Wichtig:** `model:` im Frontmatter überschreibt die Session-Auswahl. Wer beim Start
+ein Modell wählt, bekommt es nur bei den Agenten, die kein eigenes `model:` führen.
+Ein Agent mit `model:` im Frontmatter nutzt **immer** dieses Modell — auch in einer
+Session, in der ein anderes gewählt wurde.
+
+Der Varianten-Suffix (`#high`, `#reasoning`) hängt an der Modell-ID:
+`model: provider/model#variant`.
 
 ## Schnellreferenz
 

@@ -45,7 +45,10 @@ AISDLC/
 │   │   └── CHANGELOG.md                     # Versionshistorie unter [Unreleased]
 │   ├── qa/                           (✍️ QA Orchestrator)
 │   │   └── bugs/BUG-*.json                  # Strukturierte Bug-Reports (Pfad, Zeile, Ursache)
+├── opencode.jsonc                   # STACK-SCHICHT (projektspezifisch, wird ersetzt)
+│                                        skills.paths + skill-Allowlist des Stacks
 ├── .agent/                          # Agent Control Layer (ASDF-Stil)
+│   ├── PHASES.md                    # Single Source of Truth: Schritt → Agent → Skill → Gate
 │   ├── prompts/                     # System-Prompts für Orchestrator & OpenCode
 │   │   ├── orchestrator/            # Ein-Orchestrator-Modus (1 Agent, wechselt Phasen)
 │   │   │   ├── 00_orchestrator_analysis.md
@@ -59,12 +62,15 @@ AISDLC/
 │   │       ├── sdlc_phase2_architecture.md
 │   │       ├── sdlc_phase3_implementation.md
 │   │       └── sdlc_phase4_testing.md
-│   ├── workflows/                   # Workflow-Definitionen pro Phase (9 Dateien)
-│   ├── knowledge/                   # openapi.yaml, schema.sql, stack.md
-│   └── artifacts/                   # Ergebnisse jeder Phase
-├── .opencode/                       # OpenCode-System
-│   ├── agents/                      # 6 Primary-Agents
-│   └── skills/                      # Skills (inkl. strangler-fig, module-migration, test-self-correction)
+│   ├── workflows/                   # Workflow-Definitionen pro Schritt (9 Dateien)
+│   ├── tools/                       # Stackunabhängige Werkzeuge (traceability_check.py)
+│   ├── knowledge/                   # Stackwissen des PROJEKTS: stack.md, schema.sql, openapi.yaml
+│   └── artifacts/                   # Ergebnisse jeder Schritt + briefing.md (Steckbrief)
+├── .opencode/                       # FRAMEWORK-SCHICHT (stackagnostisch)
+│   ├── opencode.jsonc               # Framework-Regeln: Skills, Subagenten, Shell
+│   ├── agents/                      # 5 Rollen: 4 Orchestrator + 1 Pipeline-Orchestrator
+│   │   └── stack/                   # leer im Template — die Stack-Agenten kommen vom Projekt
+│   └── skills/                      # aisdlc-* (Verfahrens-Schritte) + 3 eigene
 ├── src/                             (✍️ OpenCode Build-Modus)
 │   └── ...                                  # Produktiver Quellcode (nur vom Orchestrator gelesen)
 ├── tests/                           (✍️ OpenCode QA-Modus)
@@ -73,9 +79,18 @@ AISDLC/
 │   └── e2e/                                 # End-to-End-Tests
 ├── coverage/                        (✍️ CI / Test-Runner)
 │   └── coverage-summary.json                # Coverage-Report als Qualitätsschranke (Quality Gate)
-└── .opencode/                       (✍️ OpenCode-System)
-    └── agent_context.json                   # Kontext & Zustand der OpenCode-Sitzungen
+├── example/                         # Referenz-Anwendung als Formatvorbild
+├── lessons-learned.md               # Beobachtungen aus dem Referenzlauf
+└── nohitl.md                        # Betriebsmodus ohne Human-in-the-Loop
 ```
+
+**Zwei Schichten.** Das Framework (`.opencode/`, `.agent/`, `AGENTS.md`) ist
+stackagnostisch — es kennt keine Bibliothekspfade und keinen Stack. Die
+**Stack-Schicht** liegt in `opencode.jsonc` im Projekt-Root und wird bei jedem
+Stack-Wechsel ersetzt; das Framework bleibt unberührt. Merge-Regel: Root-Config
+zuerst, `.opencode/`-Config danach, Agent-Frontmatter zuletzt — letzter Treffer
+gewinnt. Konsequenz: **Catch-all-Denys gehören in die Stack-Schicht**, die
+positiven Regeln in die Framework-Schicht.
 
 ## Rechte-Matrix (eigener Schreiber, andere lesen nur)
 
@@ -168,8 +183,11 @@ Sechs Primary-Agents sind in `.opencode/agents/` definiert:
 
 | Agent | Stack | Schreibt in |
 |---|---|---|
-| `stack/java/backend` | Java / Spring Boot | `src/`, `tests/`, `docs/execution/` |
-| `stack/react/frontend` | React / TypeScript | `src/`, `tests/`, `docs/execution/` |
+| `stack/<tech>/<rolle>` | Stack-spezifisch (Java / Spring Boot, React / TypeScript, …) | `src/`, `tests/`, `docs/execution/` |
+
+> Die Stack-Agenten gehören **nicht** zum Framework. Das Template liefert
+> `.opencode/agents/stack/` leer; das Projekt befüllt es und gibt die Agenten in
+> seiner Stack-Schicht frei.
 
 **Skills (Verfahrens-Schritte)**
 

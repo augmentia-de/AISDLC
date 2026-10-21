@@ -9,6 +9,14 @@ end to end, and lists the skills that are still missing for it.
 | `steps.md` | Per SDLC step: inputs, artifacts produced, skills used — and skills missing |
 | `skills-to-create/` | Example `SKILL.md` drafts for the missing skills (ready to drop into `.opencode/skills/`) |
 
+## Status der Drafts
+
+| Draft | Status |
+|---|---|
+| `aisdlc-openapi-first` | **installiert** — `.opencode/skills/aisdlc-openapi-first/` (deutsch, Phase 2 zugeteilt). Der Draft hier ist die englische Ausgangsfassung und **nicht** erneut installieren. |
+| `aisdlc-traceability-check` | **installiert** — `.opencode/skills/aisdlc-traceability-check/`, mit dem Werkzeug `.agent/tools/traceability_check.py`. Der Draft hier ist die englische Ausgangsfassung und **nicht** erneut installieren. |
+| `aisdlc-prd-to-stories`, `aisdlc-traceability`, `aisdlc-glossary-adr`, `aisdlc-migration-plan`, `aisdlc-test-matrix`, `aisdlc-feature-scaffold`, `aisdlc-containerize`, `aisdlc-ci-pipeline` | Entwurf — noch nicht installiert |
+
 ## How to use this folder
 
 1. **Read `taskflow.md`** to understand what the reference app is.

@@ -4,6 +4,10 @@ description: Primary agent for Phase 1 (Requirements & Analysis). Translates vag
 # Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
 mode: all
 color: "#4a90d9"
+# Sicherheitsnetz gegen Endlosschleifen, NICHT das Fertig-Kriterium:
+# der Agent entscheidet selbst, wann der Schritt fertig ist (Output-Liste
+# der Workflow + Commit). Gemessener schwerster Schritt: 49 Modell-Turns.
+steps: 150
 permissions:
   - action: edit
     resource: "*"
@@ -26,6 +30,7 @@ problem statements into structured, machine- and human-readable specifications t
 downstream agents and OpenCode can execute precisely.
 
 ## Read first
+- Briefing des Vorschritts: `.agent/artifacts/briefing.md` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
 - Raw input prompt / user input
 - Existing PRD: `docs/requirements/PRD.md` (if present)
 - System context & domain model: `docs/architecture/domain_model.md` (if present)

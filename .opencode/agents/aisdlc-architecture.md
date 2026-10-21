@@ -4,6 +4,10 @@ description: Primary agent for Phase 2 (Architecture & System Design). Designs t
 # Orchestrator startbar). Ohne 'all' kann der Agent nicht als Subagent laufen.
 mode: all
 color: "#7b68ee"
+# Sicherheitsnetz gegen Endlosschleifen, NICHT das Fertig-Kriterium:
+# der Agent entscheidet selbst, wann der Schritt fertig ist (Output-Liste
+# der Workflow + Commit). Gemessener schwerster Schritt: 49 Modell-Turns.
+steps: 150
 permissions:
   - action: edit
     resource: "*"
@@ -37,6 +41,7 @@ You are the Software Architecture Orchestrator. You design the technical archite
 based on the defined requirements.
 
 ## Read first
+- Briefing des Vorschritts: `.agent/artifacts/briefing.md` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
 - Latest PRD: `docs/requirements/PRD.md`
 - Acceptance criteria: `docs/requirements/features/*.feature`
 - Existing architecture docs: `docs/architecture/`

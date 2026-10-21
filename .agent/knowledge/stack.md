@@ -1,45 +1,75 @@
-# Tech Stack — AI SDLC Project
+# Tech Stack — <Projektname>
 
-## Backend
-**Default:** FastAPI (Python 3.11+) oder Spring Boot (Java 21+)
-**Why**: Async-native, automatic OpenAPI doc generation, Pydantic/Spring für Datenvalidierung,
-excellent für AI/ML-Integrationen.
+> **Diese Datei ist ein Template.** Sie wird in Phase 2 (Konzept & Architektur)
+> mit der **Entscheidung** dieses Projekts gefüllt. Die Entscheidung wird in
+> `docs/adr/ADR-001-tech-stack.md` dokumentiert; diese Datei ist der Einstiegspunkt
+> für Agenten, die den Stack des Projekts brauchen.
+>
+> **Nicht** einfach die Default-Liste aus `AGENTS.md` stehen lassen — genau das war
+> im Referenzlauf die Ursache dafür, dass der Architektur-Agent FastAPI baute, obwohl
+> der Kunde eine JVM-Bibliothek verlangt hatte.
 
-**Alternativen:**
-- Node.js/Express oder NestJS (TypeScript)
-- Go (Gin/Fiber)
-- .NET (ASP.NET Core)
+## Runtime und Sprache
 
-## Frontend
-**Default:** Next.js 15 (TypeScript, App Router) oder React 19 (Vite)
-**Why**: Server-side rendering für SEO, App Router für moderne Layout-Patterns,
-TypeScript strict mode für Typsicherheit, große Ökosystem.
+**Entschieden:** <z. B. Java 21 (LTS)>
+**Warum:** <die entscheidende Begründung — meist eine Anforderung aus dem Input>
 
-## Database
-**Default:** PostgreSQL 16 (local: raw via docker-compose, prod: Supabase/Cloud SQL)
-**Why**: Relationale Datenbank mit JSONB-Support, gute Performance, GDPR-konform (EU-hosted).
+**Ausgeschlossen:**
+- <Stack, der nicht in Frage kam, und warum>
+
+## Framework und Bibliotheken
+
+**Entschieden:** <z. B. Spring Boot 3.x (Web, Security, Validation, Persistenz)>
+**Warum:** <Begründung>
+
+## Datenbank
+
+**Entschieden:** <z. B. PostgreSQL 16>
+**Warum:** <Begründung — Relationalität, RLS, DSGVO>
+
+## Persistenz
+
+**Entschieden:** <z. B. Spring Data JPA / JDBC, niemals dynamisch zusammengesetztes SQL>
 
 ## Auth
-**Default:** Custom JWT (bcrypt + python-jose / Spring Security)
-**Why**: Keine externe Abhängigkeit für lokale Entwicklung. organisation_id-scoping für Multi-Tenancy.
+
+**Entschieden:** <z. B. Custom JWT, `organisation_id`-Scope>
+**Warum:** <Begründung>
+
+## Frontend
+
+**Entschieden:** <z. B. React 19 in Next.js 15 (App Router), TypeScript strict>
+**Warum:** <Begründung>
+
+## Tests
+
+**Entschieden:** <z. B. JUnit 5, Testcontainers, Vitest, Playwright>
+**Warum:** <Begründung — oft: die Mandantentrennung lässt sich nur gegen eine echte
+Datenbank belegen, nicht gegen einen Mock>
 
 ## Deployment
-**Default:** Docker + GitHub Actions CI/CD → Cloud Run (europe-west3) oder Docker Compose
-**Why**: Reproduzierbare Builds, automatisierte Deployments, EU-Hosting für GDPR.
+
+**Entschieden:** <z. B. Docker + GitHub Actions → Cloud Run (europe-west3)>
+**Warum:** <Begründung — reproduzierbare Builds, EU-Hosting>
 
 ## LLM (optional)
-**Default:** Gemini 2.0 Flash oder OpenAI
-**Why**: Gute Balance zwischen Kosten und Qualität. Konfigurierbar über Umgebungsvariablen.
 
-## GDPR Compliance
-- EU-hosted (europe-west3 Frankfurt)
-- 90-day retention policy
-- Right to erasure (DELETE endpoint)
-- Bilingual privacy notice (DE/EN)
-- No data leaves the EU
+**Entschieden:** <Modell(e) und Konfiguration>
 
-## Stack-Entscheidung
+## Datenschutz
 
-Die Stack-Entscheidung wird in Phase 2 (Architektur) getroffen und in
-`docs/adr/ADR-001-tech-stack.md` dokumentiert. Die obige Liste ist der Default,
-der bei Bedarf angepasst werden kann.
+- EU-Hosting (<Region>)
+- Aufbewahrungsfristen: <Angabe>
+- Recht auf Löschung: <Mechanismus>
+- Keine Daten verlassen die EU
+
+## Schema
+
+`schema.sql` in diesem Verzeichnis ist **kanonisch**. Eine Kopie im Commit-Scope der
+Architekturphase ist mit dem kanonischen Pfad byte-identisch — ein Mirror-Test erzwingt
+das. Siehe die Schema-Entscheidung im zugehörigen ADR.
+
+## Vertrag
+
+`openapi.yaml` in diesem Verzeichnis ist ein **Verweis** auf `docs/api/openapi.yaml`,
+keine Kopie. Der Vertrag wird an genau einer Stelle gepflegt.

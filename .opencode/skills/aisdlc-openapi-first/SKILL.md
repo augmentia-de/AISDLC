@@ -101,8 +101,12 @@ Validierung am Rand (Request), Geschaeftsregeln im Service, Invarianten im Model
   Implementierungsdetails. Ohne sie in der Liste ist die Liste nicht reparierbar.
 - Mandantentrennung gehoert in den Vertrag: jeder Lese- und Schreibpfad traegt
   `organisation_id`-Scope. Fehlt er, ist das ein Befund, kein Detail.
-- Der Vertrag wird nach der Freigabe (Gate 1) eingefroren. Abweichungen brauchen eine
-  neue Revision der Datei, keine stille Aenderung im Code.
+- Der Vertrag wird **nach Schritt 4** eingefroren (Ende des Stresstests), nicht nach
+  Gate 1. Gate 1 nach Schritt 2 prueft die *Richtung* - der Vertrag ist dort noch ein
+  Entwurf. Im ersten Volllauf fand der Stresstest 13 Vertragsdefekte, alle **nach**
+  der Einfrierung, und jeder davon hat Schema, Code und Tests invalidiert.
+  Eine Abweichung nach dem Freeze braucht einen **Ruecksprung zu Schritt 2** - keine
+  stille Aenderung im Code, keine neue Revision im Vorbeigehen.
 - Ein Feld ohne Zweck und eine Operation ohne Zweck werden entfernt, nicht dokumentiert.
 - Fehlerantworten sind Pflicht. Ein Vertrag ohne Fehlerformat ist unvollstaendig.
 
@@ -112,10 +116,29 @@ Validierung am Rand (Request), Geschaeftsregeln im Service, Invarianten im Model
 - `.agent/artifacts/api-review.md` - Schema-Abweichungen und offene Fragen
 - Zuordnung Story -> Operation, mit Luecken als Liste (nicht als Prozentzahl)
 
+## Abgleich mit der Traceability
+
+Nach dem Schreiben des Vertrags und nach dem Schreiben der Tests gehoert der Abgleich
+der Kette Anforderung -> Story -> Feature -> Test -> Code:
+
+```bash
+python3 .agent/tools/traceability_check.py
+```
+
+Der Check vergleicht die Matrix gegen die Dateisysteme. **Eine gefuellte Matrix ist kein
+Beleg** - ein Eintrag, der auf einen Test verweist, den niemand geschrieben hat, zaehlt
+als Luecke. Siehe den Skill `aisdlc-traceability-check`.
+
 ## Offene Punkte, die nach Phase 2 gehoeren
 
-- Datenbankschema unter `.agent/knowledge/schema.sql` - von dort kommen Typen und
+- Datenbankschema unter `.agent/knowledge/schema.sql` — von dort kommen Typen und
   Indizes, die der Vertrag spiegelt. Wird der Vertrag vor dem Schema geschrieben,
-  braucht es eine zweite Abgleich-Runde.
+  braucht es eine zweite Abgleich-Runde. **Achtung Spiegel-Regel:** das Schema hat
+  zwei Orte — `.agent/knowledge/schema.sql` (kanonisch) und
+  `docs/architecture/schema.sql` (versionierte Kopie im Commit-Scope der
+  Architekturphase). Beide werden byte-identisch gepflegt, ein Mirror-Test
+  erzwingt das. Wer das Schema aendert, aendert beide Dateien im selben Schritt.
+- Der API-Vertrag selbst hat **nur einen** Ort: `docs/api/openapi.yaml`.
+  `.agent/knowledge/openapi.yaml` ist ein Verweis darauf, keine Kopie.
 - Glossar und ADR fuer Begriffe und Entscheidungen, die im Vertrag stillschweigend
   fallen (z. B. `aisdlc-glossary-adr`).
