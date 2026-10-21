@@ -266,8 +266,26 @@ def main() -> int:
         src = found[name][0][1].parent
         shutil.copytree(src, out / name, ignore=shutil.ignore_patterns(".git", "__pycache__"))
 
+    # Vollstaendigkeitspruefung: das Ziel muss exakt die Quelle abbilden.
+    # Ein stilles Teil-Vendoring faellt sonst erst beim Lesen des Skills auf.
+    fehlend = []
+    for name, step, rel, size, sb, desc, nc in rows:
+        src = found[name][0][1].parent
+        s_files = {f.relative_to(src).as_posix() for f in src.rglob("*")
+                   if f.is_file() and ".git" not in f.parts and "__pycache__" not in f.parts}
+        d = out / name
+        d_files = {f.relative_to(d).as_posix() for f in d.rglob("*") if f.is_file()}
+        for miss in sorted(s_files - d_files):
+            fehlend.append(f"{name}/{miss}")
+
     print(f"\n  {len(rows)} Skills nach {out}/ kopiert")
     print(f"  Herkunft: {out}/PROVENANCE.md")
+    if fehlend:
+        print(f"  FEHLER: {len(fehlend)} Datei(en) fehlen nach dem Kopieren:", file=sys.stderr)
+        for f in fehlend:
+            print(f"    {f}", file=sys.stderr)
+        return 1
+    print("  Vollstaendigkeit geprueft: alle Dateien der Quelle sind vorhanden.")
     block = config_block(rows)
     (out / "STACK_CONFIG.jsonc.txt").write_text(block + "\n", encoding="utf-8")
     print(f"  Allowlist: {out}/STACK_CONFIG.jsonc.txt (in die Stack-Schicht einkopieren)")
