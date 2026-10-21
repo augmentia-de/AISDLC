@@ -53,6 +53,7 @@ Absturz, Versuchszahl steigt nicht sprunghaft).
 | **Netzwerkfehler** (DNS, Connect, TLS, Lese-Timeout) | ja | Unbekannter Ausgang — at-least-once |
 | **410 mit Ablehnungssignal** | nein | Der Empfänger will das Ereignis dauerhaft nicht (FR-025) |
 | **übriger 4xx** | nein | Der Empfänger lehnt ab (D-08, AC-014-4) |
+| **3xx** | nein | Die Umleitung wird **nicht** befolgt (ADR-009, E-08) |
 
 Ein 4xx **ohne** das Ablehnungssignal führt ebenfalls zum Ende — der
 Unterschied ist nur der `rejection_reason` (`client_error` statt
@@ -194,8 +195,13 @@ Umgebung kann sie über die Konfiguration ändern, ohne dass Code angefasst wird
 - **Positiv:** Die Größe ist **ableitbar**: Worker-Kapazität =
   `Threads × (3600 s / 15 s)` Versuche je Stunde im ungünstigsten Fall.
 - **Negativ:** Bei 8 Versuchen und Basis 1 Minute mit ×2 und Deckel 60 Minuten
-  liegt der letzte Versuch rund **4 Stunden** nach dem ersten. Das ist eine
-  **Zusage** gegenüber den Empfängern — deshalb steht der Wert hier.
+  liegen zwischen den 8 Versuchen **7 Wartezeiten**: 1 + 2 + 4 + 8 + 16 + 32 +
+  60 = **123 Minuten ≈ 2 Stunden** bis zum letzten Versuch; mit der Streuung von
+  ± 20 % liegt das Fenster zwischen rund **1 h 38 min** und **2 h 28 min**. Das
+  ist eine **Zusage** gegenüber den Empfängern — deshalb steht der Wert hier
+  **und** im Vertrag (`x-delivery-protocol.retry_policy.expected_completion_window`).
+  (Korrigiert im Rücksprung aus Schritt 4: die frühere Angabe „rund 4 Stunden"
+  war um den Faktor 2 falsch — S-17, E-03.)
 - **Negativ:** Der Backoff-Zeitpunkt muss in der Datenbank stehen, damit er
   einen Neustart überlebt (ADR-006).
 - **Negativ:** Die volle Streuung bedeutet, dass zwei gleichartige Endpunkte

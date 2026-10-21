@@ -85,6 +85,35 @@ Ein 4xx **ohne** das Signal:
 - Die Antwort wird **nicht** als Ablehnung des Empfängers missverstanden: der
   Unterschied ist im Protokoll sichtbar.
 
+### Behandlung von 3xx — Umleitungen werden nicht befolgt
+
+Eine **3xx**-Antwort (301, 302, 307, 308 …) bedeutet: der Empfänger möchte
+woanders hin. Der Dienst sendet **genau einmal** an die registrierte
+Ziel-URL.
+
+| Element | Festlegung |
+|---|---|
+| Wiederholung? | **nein** — ein 3xx ist keine temporäre Störung |
+| Status des Laufs | `rejected` |
+| `rejection_reason` | `client_error` |
+| `outcome` des Versuchs | `client_error` |
+| Redirects | werden **nicht** gefolgt (`followRedirects = NEVER`) |
+
+**Warum kein Wiederholen:** Der Empfänger hat die Annahme **abgelehnt** — er
+möchte an dieser URL nicht mehr zugestellt werden. Eine Wiederholung würde
+denselben 3xx erneut auslösen und den Lauf nur bis zum Zeitablauf verlängern.
+
+**Warum Redirects nicht folgen:** Die Ziel-URL ist Teil der Signatur-Eingabe
+(ADR-004, ADR-005). Ein Folgeort würde die signierte URL aufweichen — der
+Empfänger könnte die Signatur nicht mehr prüfen, und der Dienst würde an eine
+Ziel-URL senden, die der Empfänger-Admin nie registriert hat. Das wäre eine
+**Umgehung der Registrierung** durch den Empfänger selbst.
+
+Die Ergebnismatrix des ausgehenden Vertrags
+(`x-delivery-protocol.response.outcomes`) führt die 3xx **ausdrücklich** als
+Zeile — ohne sie hätte der eingefrorene Fremdvertrag eine Lücke
+(E-08, entschieden im Rücksprung aus Schritt 4).
+
 ## Konsequenzen
 
 - **Positiv:** Der Empfänger kann einen Ereignistyp gezielt ablehnen, ohne den
@@ -95,6 +124,9 @@ Ein 4xx **ohne** das Signal:
   Protokoll.
 - **Negativ:** Ein Empfänger, der 410 „aus Versehen“ schickt, beendet die
   Zustellung sofort. Das ist die beabsichtigte Semantik — 410 ist eindeutig.
+- **Negativ:** Eine **3xx** beendet den Lauf genauso endgültig wie ein 4xx. Der
+  Empfänger, der auf eine Umleitung zeigt, bekommt **keine** Zustellung an
+  der neuen Adresse — er muss die URL im Endpunkt pflegen.
 - **Negativ:** `rejected` ist **nicht** replaybar. Wer ein abgelehntes Ereignis
   doch noch zustellen will, muss den Endpunkt neu konfigurieren — das ist die
   Konsequenz aus „dauerhaft nicht gewünscht“.

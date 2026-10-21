@@ -1,9 +1,10 @@
 # Architektur — EchoBox (kompakter Katalog)
 
-> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 2 (**Rücksprung** aus Schritt 4) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Erzählung: `docs/architecture/architecture.md` · Vertrag: `docs/api/openapi.yaml`
 > Schema: `.agent/knowledge/schema.sql` (kanonisch) · **Entscheidungen: `docs/adr/`**
 > Reduktionsbericht: `.agent/artifacts/simplify-report.md`
+> **Nachweis des Rücksprungs: `.agent/artifacts/ruecksprung-bilanz.md`**
 >
 > Dieser Katalog ist eine **Übersicht**, keine zweite Wahrheit: die
 > Entscheidungen stehen in den ADRs, die Fachbegriffe im Glossar, das
@@ -21,20 +22,20 @@ nachvollziehbares Protokoll über jeden Versuch — bewusst **kein** Broker und
 | ADR | Entscheidung | Status |
 |---|---|---|
 | ADR-001 | **Java 21 / Spring Boot 3 / PostgreSQL 16 / Next.js 15 (React 19, TS strict)**; Persistenz über JdbcTemplate, kein JPA; kein LLM | Angenommen |
-| ADR-002 | **Mandantentrennung per Row-Level-Security** auf jeder fachlichen Tabelle; `app.set_tenant()` transaktionslokal; **fail-closed**; keine Rolle mit `BYPASSRLS` | Angenommen |
+| ADR-002 | **Mandantentrennung per Row-Level-Security** auf jeder fachlichen Tabelle; `app.set_tenant()` **transaktionsgebunden** (in der Transaktion, die auch liest); **fail-closed**; keine Rolle mit `BYPASSRLS`; **§7:** die mandantenübergreifende Sicht des Service-Admins über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** (kein `BYPASSRLS`, keine Mandantenliste) | Angenommen (im Rücksprung aus Schritt 4 nachgezogen) |
 | ADR-003 | **AES-256-GCM (AEAD)** für Nutzlast und Endpunkt-Secret; Schlüssel aus dem Secret-Store, **außerhalb** der DB; entschlüsselt **nur** zur Zustellung; Suche nur über Metadaten | Angenommen (Architekturseite von O-04) |
 | ADR-004 | **HMAC-SHA256**, Header **`X-EchoBox-Signature`** = `v1=<hex>`; Eingabe `<timestamp>.<payload_bytes>`; **eingefroren** | Angenommen |
 | ADR-005 | **Drei Kennungen**: `X-EchoBox-Event-Id`, `X-EchoBox-Delivery-Run-Id`, `X-EchoBox-Attempt-Id`; Body = exakt die Nutzlastbytes | Angenommen |
-| ADR-006 | Zustelllauf **ist** die Warteschlange (transaktionales Outbox); `FOR UPDATE SKIP LOCKED` + **Lease**; getrennte Rollen `api` und `worker` | Angenommen |
+| ADR-006 | Zustelllauf **ist** die Warteschlange (transaktionales Outbox); `FOR UPDATE SKIP LOCKED` + **Lease**; getrennte Rollen `api` und `worker`; Worker arbeitet **mandantenweise**; Replay **einmal** (`UNIQUE (replay_of)`) | Angenommen (im Rücksprung nachgezogen) |
 | ADR-007 | Idempotenz je **(Mandant, Schlüssel)**; gleiche Nutzlast ⇒ 202 mit erster ID; abweichende Nutzlast ⇒ **409**; Vergleich über gezielten HMAC | Angenommen |
-| ADR-008 | Wiederholung bei 5xx/408/429/Netzwerkfehler; Backoff mit **Verdopplung + voller Streuung**; **8 Versuche, Basis 1 min, ×2, Deckel 60 min, ± 20 %**; **Zeitlimit je Versuch 5 s + 10 s = 15 s** | Angenommen (**bestätigt: F-04**, O-06/O-07) — enthält die frühere ADR-014 |
-| ADR-009 | **Ablehnungssignal: HTTP 410** + `X-EchoBox-Rejection: permanent` + festgeschriebener JSON-Body; übrige 4xx ⇒ ebenfalls Ende, aber `rejection_reason = client_error` | Angenommen |
-| ADR-010 | Endpunkt-Begrenzung: Zähler **immer** aktiv, Vorgabewert **60 Versuche/Endpunkt/Minute**, Strategie **`delay`**; **kein** Ereignisverlust | Angenommen (**bestätigt: F-01**) |
+| ADR-008 | Wiederholung bei 5xx/408/429/Netzwerkfehler; **3xx ⇒ kein Wiederholen**; Backoff mit **Verdopplung + voller Streuung**; **8 Versuche, Basis 1 min, ×2, Deckel 60 min, ± 20 %**; **Gesamtfenster ≈ 2 h**; **Zeitlimit je Versuch 5 s + 10 s = 15 s** | Angenommen (**bestätigt: F-04**, O-06/O-07) — enthält die frühere ADR-014 |
+| ADR-009 | **Ablehnungssignal: HTTP 410** + `X-EchoBox-Rejection: permanent` + festgeschriebener JSON-Body; übrige 4xx ⇒ ebenfalls Ende, aber `rejection_reason = client_error`; **3xx ⇒ ebenfalls Ende, Redirects werden nicht gefolgt** | Angenommen (im Rücksprung nachgezogen) |
+| ADR-010 | Endpunkt-Begrenzung: Zähler **immer** aktiv, Vorgabewert **60 Versuche/Endpunkt/Minute**, Strategie **`delay`**; **kein** Ereignisverlust; **genau zwei Zustände** (`NULL` = kein Override ⇒ 60, `0` = abgeschaltet) — die Spalte `enabled` ist entfallen | Angenommen (**bestätigt: F-01**) |
 | ADR-011 | Erfolgsquote = erfolgreiche Versuche / alle Versuche; p95 von Annahme bis erfolgreicher Antwort; `data_available: false` statt 0 % | Angenommen |
-| ADR-012 | Aufbewahrung: **zwei** Fristen, Vorgabe **je 30 Tage**, Fristbeginn = **letzter Versuch**; markieren (`deleted_at`) dann Purge; `dry_run` als Default | Angenommen (**bestätigt: F-02**) |
+| ADR-012 | Aufbewahrung: **zwei** Fristen, Vorgabe **je 30 Tage**, Fristbeginn **je Datensatz** = **letzter Versuch**; markieren (`deleted_at`) dann Purge nach der **Karenzzeit**; **Kaskade** (Ereignis nimmt Läufe und Versuche mit); `dry_run` als Default | Angenommen (**bestätigt: F-02**) |
 | ADR-013 | Ein Image, zwei Rollen; `echobox.tenant.id` bindet eine Instanz an einen Mandanten; non-root, keine Secrets im Image; Staging/Produktion getrennt | Angenommen |
 | ADR-014 | — | **Zusammengeführt in ADR-008** (Verweisdatei) |
-| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; Rollenmatrix; Replay **nur** für den Empfänger-Admin | Angenommen (**bestätigt: F-03**) |
+| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; Rollenmatrix (Service-Admin mandantenübergreifend über die Eigentümerfunktionen des Schemas); Replay **nur** für den Empfänger-Admin und **nur einmal** | Angenommen (**bestätigt: F-03**) |
 | ADR-016 | Ein Ort pro Wahrheit: Vertrag **einmal**, Schema kanonisch + byte-identische Kopie; Freeze nach Schritt 4 | Angenommen |
 | ADR-017 | Protokollsuche **nur** über Metadaten; Denormalisierung von `event_type`/`endpoint_id`; Cursor-Paginierung ohne `total` | Angenommen |
 | ADR-018 | Next.js 15 App Router; Barrierefreiheit als **Bauregel**: native Bedienelemente, echte `<table>`, Status nie nur über Farbe, axe als CI-Gate | Angenommen |
@@ -49,6 +50,7 @@ sind **Vorgabewerte in der Konfiguration** — kein Wert ist im Code verdrahtet.
 |---|---|---|
 | **Oberfläche** | Endpunkte, Zustellprotokoll, Tote Zustellungen | — |
 | **API-Layer** | Security-Adapter, Mandantenkontext, 5 Controller, 8 Fachservices, Crypto-Service, Fehlerabbildung | `endpoints`, `events`, `delivery_runs`, `delivery_attempts`, `audit_log` |
+| **Mandantenübergreifende Sicht** (Ausnahme, ADR-002 §7) | `app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`, `app.enforce_retention_cross_tenant` — `SECURITY DEFINER`, `search_path` verdrahtet, `EXECUTE` nur für `echobox_app`, fail-closed ohne `app.cross_tenant = 'service_admin'`, **nur** Projektionen (kein Klartext, keine Chiffre, keine Secrets) | dieselben Tabellen, ohne RLS (Eigner) |
 | **Zustell-Worker** | Scheduler, Claimer (Lease), Dispatcher, Signatur, Backoff, Endpunkt-Begrenzung, Protokollschreiber, Lease-Rettung | dieselben Tabellen |
 | **Datenbank** | PostgreSQL 16, Schema `app`, RLS auf **allen** 10 fachlichen Tabellen | Zähler, Rate-Limits, Aufbewahrungseinstellungen |
 
@@ -57,16 +59,19 @@ sind **Vorgabewerte in der Konfiguration** — kein Wert ist im Code verdrahtet.
 ```
 POST /api/v1/events
   → JWT → Mandant → app.set_tenant(mandant)      [fail-closed, ADR-002]
+       (innerhalb DESSER Transaktion, die auch liest — transaktionsgebunden)
   → Größe (1 MB) / Pflichtfelder / Idempotenz (Mandant, Schlüssel)
   → Nutzlast verschlüsseln (AES-256-GCM) + Fingerprint (HMAC)
   → INSERT events + delivery_runs  (EINE Transaktion)
   → 202 Accepted
                                     ← die Zustellung startet erst JETZT
-Worker: beansprucht fällige Läufe (SKIP LOCKED + Lease)
+Worker: Scheduler → app.tenant_ids_for_worker() → je Mandant:
+         BEGIN; app.set_tenant(mandant); Claim (SKIP LOCKED + Lease); COMMIT;
   → entschlüsseln (oder Chiffre durchreichen)
   → signieren (HMAC-SHA256 über timestamp.payload)
-  → POST an die Ziel-URL (Body = exakt die Nutzlastbytes)
+  → POST an die Ziel-URL (Body = die Nutzlastbytes des Ereignisses)
   → Antwort → Zustand + Versuch protokollieren → Backoff oder Ende
+  → 3xx/4xx ⇒ rejected (kein Wiederholen); Replay ⇒ neuer Lauf (einmal)
 ```
 
 ## 5. Risiken und Gegenmaßnahmen
@@ -83,6 +88,7 @@ Worker: beansprucht fällige Läufe (SKIP LOCKED + Lease)
 | R-09 Replay-Berechtigung widersprüchlich | **entschieden: nur Empfänger-Admin**, Entwickler und Betrieb ⇒ 403 (F-03) | ADR-015 |
 | R-10 Dienst wird zum Event-Store | Zustelllauf ist die einzige Wahrheit; Frist konfigurierbar | ADR-012 |
 | R-11 Doppelzustellung durch konkurrierende Worker | `SKIP LOCKED` + Lease | ADR-006 |
+| R-13 Mandantenleck über die mandantenübergreifende Sicht | Drei schmale `SECURITY DEFINER`-Eigentümerfunktionen, `REVOKE` von `PUBLIC`, `EXECUTE` nur für die Applikationsrolle, fail-closed, **keine** Nutzlast und **keine** Secrets in der Projektion — **gegen echtes PostgreSQL 16 belegt** | ADR-002 §7 |
 | R-12 Latenzversprechen gebrochen | Annahme und Zustellung getrennt (D-10) | ADR-006 |
 
 ## 6. Vertragsumfang
@@ -134,20 +140,23 @@ Worker: beansprucht fällige Läufe (SKIP LOCKED + Lease)
 | B-08 | Fehlerschema und ADRs doppelt in `architecture.md` | Redundante Tabellen entfernt, Verweise auf ADR-015 und den Vertrag |
 | B-09 | ADR-014 und ADR-008 variieren dieselbe Entscheidung (fehlgeschlagener Versuch) | In ADR-008 zusammengeführt; ADR-014 bleibt als Verweis |
 
-## 9a. Befunde aus Schritt 4 (Grill-Me-Stresstest)
+## 9a. Befunde aus Schritt 4 (Grill-Me-Stresstest) — **alle behandelt**
 
-Vollständig in `.agent/artifacts/stress-test.md`. Kurzfassung:
+Vollständig in `.agent/artifacts/stress-test.md`; die Behandlungsbilanz je
+Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 
-| # | Befund | Behandlung |
+| # | Befund | Behandlung (Rücksprung in Schritt 2) |
 |---|---|---|
-| S-01 | **„muss“** — `service_admin` soll alle Mandanten sehen, RLS erlaubt genau einen; keine Rolle mit `BYPASSRLS` | **Rücksprung zu Schritt 2** (ADR-002 + Schema) — offen als Entscheidung E-01 |
-| S-02 | **„muss“** — Vertrag nennt `page.nextCursor`/`hasMore`, das Schema `next_cursor`/`has_more` | Vertragsdefekt; die Architekturdateien sind korrigiert |
-| S-03 | **„muss“** — Aufbewahrung: globaler Stichtag statt Anker „letzter Versuch“, Markieren/Purge/Karenzzeit im Vertrag nicht abgebildet | Vertragsdefekt (Schritt 2) |
-| S-04 | **„muss“** — wirksamer Grenzwert: `null` heißt im Vertrag „abgeschaltet“, in ADR-010 „kein Override“ (⇒ 60) | Vertragsdefekt + Schema (`enabled`) — Schritt 2 |
-| S-05 | **„muss“** — „exakt die Nutzlastbytes“ vs. kanonische Materialisierung (RFC 8785) | Vertragsdefekt (Schritt 2) |
-| N-01 | **„muss“** — Mandantenkontext an die *Verbindung* statt an die *Transaktion* gebunden | in `docs/architecture/` korrigiert (Diagramm, Zielstruktur) |
-| N-02 | **„muss“** — Work beansprucht Läufe ohne Mandantenermittlung | in `docs/architecture/` korrigiert (Worker-Diagramm) |
-| — | 18 weitere Befunde (Soll/Optional) | im Stresstest-Bericht mit Fundstelle und Korrekturvorschlag |
+| S-01 | **„muss“** — `service_admin` soll alle Mandanten sehen, RLS erlaubt genau einen; keine Rolle mit `BYPASSRLS` | **behoben** (E-01): drei schmale `SECURITY DEFINER`-Eigentümerfunktionen im Schema `app` (ADR-002 §7), **gegen PostgreSQL 16 belegt** |
+| S-02 | **„muss“** — Vertrag nennt `page.nextCursor`/`hasMore`, das Schema `next_cursor`/`has_more` | **behoben** (V-01) |
+| S-03 | **„muss“** — Aufbewahrung: globaler Stichtag statt Anker „letzter Versuch“, Markieren/Purge/Karenzzeit im Vertrag nicht abgebildet | **behoben** (V-02, E-04) |
+| S-04 | **„muss“** — wirksamer Grenzwert: `null` heißt im Vertrag „abgeschaltet“, in ADR-010 „kein Override“ (⇒ 60) | **behoben** (V-03, E-02): zwei Zustände, `enabled` entfallen |
+| S-05 | **„muss“** — „exakt die Nutzlastbytes“ vs. kanonische Materialisierung (RFC 8785) | **behoben** (V-04) |
+| N-01 | **„muss“** — Mandantenkontext an die *Verbindung* statt an die *Transaktion* gebunden | **behoben**: ADR-002 §3, Schema-Kommentare, Zielstruktur |
+| N-02 | **„muss“** — Worker beansprucht Läufe ohne Mandantenermittlung | **behoben**: ADR-006 §3, Schema, Worker-Kette in den Diagrammen und der Zielstruktur |
+| N-08 | **„soll“** — Schema-Kommentare behaupten den Stand vor F-01/F-02 | **behoben** |
+| S-04…S-23 | 18 weitere Vertragsdefekte (Soll/Optional) | **alle 22 Vertragsdefekte behoben** (V-01…V-22) |
+| E-01…E-09 | offene Entscheidungen | **alle 9 entschieden und umgesetzt** (E-06 in Schritt 1, E-07 in Schritt 5) |
 
 ## 10. Geprüft
 
@@ -155,8 +164,10 @@ Vollständig in `.agent/artifacts/stress-test.md`. Kurzfassung:
 |---|---|
 | OpenAPI: YAML gültig, 17 Operationen, alle `$ref` auflösbar, kein ungenutztes Schema | **ok** |
 | OpenAPI: 23 Stories, 101 AKs, 24 Anforderungen auffindbar | **ok** |
-| Schema: angewendet gegen **PostgreSQL 16** (Stand Schritt 2, unverändert in Schritt 3) | **ok** (10 Tabellen, 10 Policies, 33 Indizes) |
+| Schema: angewendet gegen **PostgreSQL 16** (Rücksprung aus Schritt 4) | **ok** (10 Tabellen, 10 Policies, 33 Indizes, 3 `SECURITY DEFINER`-Funktionen) |
 | Schema: RLS-Verhalten (ohne Kontext 0 Zeilen, je Mandant nur eigene Zeilen) | **ok** |
+| Schema: mandantenübergreifende Sicht (fail-closed ohne Freigabe, 2 Mandanten über die Funktionen, Worker ohne Recht, kein Klartext/Secret in der Projektion) | **ok** — belegt in `.agent/artifacts/ruecksprung-bilanz.md` §4 |
+| Schema: `UNIQUE (replay_of)` — zweites Replay ⇒ `unique_violation` | **ok** |
 | Schema-Spiegel: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** |
 | `python3 .agent/tools/traceability_check.py` | **grün** |
 | `knowledge/openapi.yaml` ist ein Verweis | **ok** |
@@ -181,3 +192,4 @@ Vollständig in `.agent/artifacts/stress-test.md`. Kurzfassung:
 | `.agent/artifacts/adr-index.md` | ADR-Index (Gate-Vorlage) |
 | `.agent/artifacts/simplify-report.md` | **Reduktionsbericht (Schritt 3)** |
 | `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — 22 Vertragsdefekte, 7 „muss“-Befunde, offene Entscheidungen |
+| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2)** — Defektbilanz V-01…V-22, S-01, N-01/N-02/N-08, E-01…E-09, PostgreSQL-Nachweis |

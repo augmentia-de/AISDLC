@@ -84,7 +84,7 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | Endpunkt → Ereignistyp | Viele-zu-viele, normalisiert in `endpoint_event_types`. Ein Endpunkt abonniert mindestens einen Ereignistyp. |
 | Ereignis → Endpunkt | Viele-zu-viele, aufgelöst in **Zustellläufe**. Ein Ereignis ohne passenden Endpunkt erzeugt **einen** Zustelllauf mit Status `no_subscriber` und `endpoint_id = null` (D-04). |
 | Zustelllauf → Versuch | Eins-zu-viele. Die Versuchsnummer ist je Lauf eindeutig und 1-basiert. |
-| Zustelllauf → Zustelllauf | Selbstbezug über `replay_of` — die Historie bleibt erhalten (AC-013-2). |
+| Zustelllauf → Zustelllauf | Selbstbezug über `replay_of` — die Historie bleibt erhalten (AC-013-2). **UNIQUE**: ein Vorgängerlauf hat höchstens **einen** Replay (I-9). |
 | Ereignis → Zustelllauf | Ein Ereignis kann viele Zustellläufe haben (ein je Endpunkt, plus Replays). |
 
 ### 2.2 Attribute, die den Vertrag tragen
@@ -125,11 +125,10 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 
 > **Der Zustand eines *neuen* Laufs:** Ein Zustelllauf entsteht in `pending`
 > (angelegt, noch kein Versuch ausgeführt) — so steht es auch im Schema
-> (`delivery_runs.status` DEFAULT `'pending'`). `scheduled` heißt: **ein Versuch
-> läuft gerade**. *Offen:* das Beispiel im Vertrag
-> (`ReplayResponse.status: scheduled` bei `attempt_count: 0`) weicht davon ab —
-> Vertrag und Schema sind sich hier uneinsig (Befund S-07 im Stresstest,
-> Schritt 4). Bis zur Entscheidung gilt diese Tabelle.
+> (`delivery_runs.status` DEFAULT `'pending'`), und so ist es im Vertrag
+> festgelegt (`ReplayResponse.status: pending` bei `attempt_count: 0`).
+> `scheduled` heißt: **ein Versuch läuft gerade**. Der Widerspruch zwischen
+> Vertrag und Schema (Befund S-07) ist im Rücksprung aus Schritt 4 behoben.
 
 ### 3.2 Übergänge
 
@@ -204,6 +203,8 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | I-6 | `attempt_count` steigt nie sprunghaft; ein abgestürzter Worker erhöht sie **nicht** | Lease-Rettung gibt den Lauf frei, ohne einen Versuch zu zählen (AC-023-4) |
 | I-7 | Genau **eine** Instanz führt einen Versuch aus | `FOR UPDATE SKIP LOCKED` + Lease (AC-023-3) |
 | I-8 | Ein gepausierter Endpunkt erzeugt **keinen** Zustellvorgang und **keine** Nachlieferung | `pending`/`scheduled`-Läufe werden bei Pause auf `cancelled` gesetzt; bei der Einlieferung wird für pausierte Endpunkte **kein** Lauf angelegt (D-03) |
+| I-9 | Ein aufgegebener Zustelllauf kann **einmal** replayed werden | `UNIQUE (replay_of)` in `delivery_runs`; ein weiterer Replay ⇒ HTTP 409 `delivery_state_conflict` (AC-013-1…5, ADR-006 §6) |
+| I-10 | Ein 3xx beendet den Lauf endgültig, ohne Wiederholung; Redirects werden nicht gefolgt | `rejected` mit `rejection_reason = client_error`; `outcome = client_error` (ADR-009) |
 
 ### 3.5 Ergebnis eines einzelnen Versuchs
 
@@ -211,7 +212,7 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 |---|---|---|
 | `success` | 2xx | `sent` |
 | `permanent_rejection` | 410 + Ablehnungssignal | `rejected`, `rejection_reason = permanent_rejection` |
-| `client_error` | übriger 4xx | `rejected`, `rejection_reason = client_error` |
+| `client_error` | übriger 4xx **oder 3xx** (Redirect wird nicht gefolgt) | `rejected`, `rejection_reason = client_error` |
 | `retryable_failure` | 5xx, 408, 429 | `failed` → `scheduled` |
 | `network_error` | DNS-, Verbindungs-, TLS-Fehler | `failed` → `scheduled` |
 | `timeout` | Verbindungs- oder Lese-Timeout (5 s / 10 s) | `failed` → `scheduled` |
@@ -234,6 +235,8 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | Vorverschlüsselte Einlieferung mit erkennbarer Klartextnutzlast | HTTP 422; es wird kein Ereignis angelegt | FR-013, AC-008-2 |
 | Zustellung an **fremden** Endpunkt per ID | HTTP 404 | D-02, AC-002-3, AC-015-3 |
 | Replay einer **nicht** aufgegebenen Zustellung | HTTP 409 `delivery_state_conflict` | Vertrag |
+| Replay eines **bereits** replayten Laufs | HTTP 409 `delivery_state_conflict` — der Lauf ist **einmal** replaybar | ADR-006 §6, I-9 |
+| Replay bei **pausiertem** Endpunkt | HTTP 409 `delivery_state_conflict` — es entsteht **kein** neuer Lauf, der Vorgängerlauf bleibt unverändert | D-03, AC-013-4 |
 | Replay durch eine **nicht** berechtigte Rolle | HTTP 403 | D-15, AC-013-3 |
 | Totenliste durch einen Empfänger-Admin | HTTP 403 | AC-016-2 |
 | Leere Totenliste | HTTP 200 mit leerem `items`-Array | AC-016-3 |

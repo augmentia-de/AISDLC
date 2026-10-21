@@ -37,6 +37,11 @@ Grenzwert gesetzt ist.
 | **Zähler** (`endpoint_rate_limit_counters`) | Zählt die Zustellversuche je Endpunkt und Zeitfenster | **immer aktiv** |
 | **Begrenzer** (`endpoint_rate_limits`) | Hält Grenzwert, Fensterlänge und Strategie je Endpunkt | `limit_value` `NULL` = **kein Override** — es gilt der Vorgabewert aus der Konfiguration |
 
+Die Tabelle kennt damit **genau zwei** Zustände. Eine dritte Spalte (`enabled`)
+ist bewusst **nicht** vorhanden: sie würde einen dritten, widersprüchlichen
+Zustand erzeugen — `enabled = FALSE` bedeutet faktisch „die Begrenzung ist
+aus", obwohl der Vorgabewert **pro Umgebung** gilt (E-02, N-08).
+
 Der Zähler läuft **immer**. Er ist die Datenbasis, mit der der Grenzwert
 belegt — statt geschätzt — eingestellt werden kann.
 
@@ -62,15 +67,22 @@ Latenzbruch (NFR-002) und ist ebenfalls ausgeschlossen.
 
 - Der Vorgabewert gilt **pro Umgebung**; `echobox.delivery.rate-limit.limit`
   kann je Umgebung abweichen (z. B. in einer Staging-Umgebung).
-- **Je Endpunkt überschreibbar:** eine Zeile in `endpoint_rate_limits` mit
+- Je Endpunkt überschreibbar: eine Zeile in `endpoint_rate_limits` mit
   `limit_value` überschreibt den Vorgabewert für diesen Endpunkt.
   `limit_value IS NULL` heißt: **kein Override** — es gilt die Vorgabe.
   `limit_value = 0` schaltet die Begrenzung für diesen Endpunkt **ab**.
+  Es gibt **keinen** dritten Zustand (E-02).
 - Der Wert ist **keine** harte API-Grenze: er steht in der Konfiguration, nicht
   im Vertrag, und ändert sich ohne Codeänderung.
 - Die Zählung läuft unabhängig vom Grenzwert. `GET /api/v1/endpoints/{endpointId}/metrics`
   liefert den **wirksamen** Grenzwert und die beobachteten Zählerstände
   (AC-018-4).
+- **Wie der wirksame Grenzwert ausgewiesen wird** (ADR-016 — der Vertrag ist
+  der einzige Ort): `rate_limit.limit` ist **immer** der wirksame Grenzwert
+  (Vorgabe **60**), `rate_limit.limited` sagt, ob die Begrenzung
+  **abgeschaltet** ist (`limited: false` ⇒ `limit: 0`). `null` ist als Wert
+  des Grenzwerts **ausgeschlossen** — früher bedeutete `null` zwei verschiedene
+  Dinge und damit zwei Zustände (S-04, V-03).
 
 ### 4. Je Endpunkt, nicht global
 

@@ -34,6 +34,13 @@ Entwickler, Empfänger-Admin, Service-Admin.
 | `receiver_admin` | **ja** (eigener Mandant) | — | **ja** (eigener Mandant) | **ja** (eigener Endpunkt) | **nein** | eigener Mandant | **nein** |
 | `service_admin` | **ja** (alle Mandanten) | — | **ja** (alle Mandanten) | **nein** (F-03) | **ja** | **ja** | **ja** |
 
+Die mandantenübergreifende Sicht des `service_admin` wird über die **drei
+schmalen Eigentümerfunktionen** des Schemas hergestellt
+(`app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`,
+`app.enforce_retention_cross_tenant` — ADR-002 §7) — **nicht** über eine
+Laufzeitrolle mit `BYPASSRLS` und **nicht** über einen Mandantenfilter im
+Vertrag. In diesen Antworten ist `organisation_id` **im Datensatz** gefüllt.
+
 Zusätzliche Rollenprüfungen:
 
 | Aktion | Regel | Verstoß |
@@ -60,6 +67,12 @@ Zusätzliche Rollenprüfungen:
   und damit den Boden für einen Leck legen. Der Service-Admin filtert
   **in der Oberfläche** nach `organisation_id`, das Feld ist Teil jeder
   Antwort.
+- Die drei mandantenübergreifenden Operationen (`listEndpoints`,
+  `listDeadDeliveries`, `enforceRetention`) holen ihre Daten aus den
+  Eigentümerfunktionen des Schemas (ADR-002 §7). Sie sind **fail-closed**:
+  ohne die Freigabe `app.cross_tenant = 'service_admin'` liefern die Funktionen
+  **keine** Zeile. Die Freigabe setzt die Anwendung **erst**, nachdem sie die
+  JWT-Rolle geprüft hat.
 
 ### 3. Fremde Ressourcen ⇒ 404 (D-02)
 
@@ -99,13 +112,23 @@ Ad-hoc-Fehlerbodies.
 | 403 | `forbidden` | Rolle darf es nicht |
 | 404 | `not_found` | fremde oder fehlende Ressource |
 | 409 | `idempotency_conflict` | gleicher Schlüssel, andere Nutzlast |
-| 409 | `delivery_state_conflict` | Replay einer nicht aufgegebenen Zustellung |
+| 409 | `delivery_state_conflict` | Replay einer nicht aufgegebenen Zustellung, eines **bereits** replayten Laufs oder bei **pausiertem** Endpunkt |
 | 413 | `payload_too_large` | Nutzlast > 1 MB |
 | 422 | `validation_failed` | semantisch ungültig |
 | 422 | `tenant_parameter_rejected` | Mandantenparameter mitgeschickt |
 | 429 | `rate_limit_exceeded` | API-Anfragelimit (≠ Endpunkt-Limit) |
 | 500 | `internal_error` | unerwarteter Fehler, ohne internes Detail |
 | 503 | `service_unavailable` | Dienst nicht bereit |
+
+### 6. Der Replay ist **einmal** möglich
+
+Ein aufgegebener Zustelllauf kann **einmal** replayed werden. Ein **weiterer**
+Replay desselben Laufs antwortet mit **HTTP 409** `delivery_state_conflict` —
+das ist auf Datenbankebene erzwiesen (`UNIQUE (replay_of)`, ADR-006 §6) und
+nicht nur im Vertrag behauptet. Ein Replay auf einen **pausierten** Endpunkt
+antwortet ebenfalls mit **409**: es entsteht **kein** neuer Lauf, und der
+Vorgängerlauf behält seinen Zustand — sonst verlöre die tote Zustellung ihre
+Sichtbarkeit (AC-013-1…AC-013-5, F-03, E-09).
 
 ## Festlegung (Gate 1, 2026-10-21)
 

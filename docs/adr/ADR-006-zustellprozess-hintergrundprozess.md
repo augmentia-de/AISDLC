@@ -42,6 +42,19 @@ Workers unabhängig vom API-Traffic) und per Mandant vorbereitet (ADR-013).
 
 ### 3. Beanspruchung: `FOR UPDATE SKIP LOCKED` + Lease
 
+Der Worker arbeitet **mandantenweise** (ADR-002 §5, N-02). Die Kette ist:
+
+```
+Scheduler -> app.tenant_ids_for_worker() -> je Mandant:
+  BEGIN; SELECT app.set_tenant(:mandant); SELECT … (Claim) …; COMMIT;
+```
+
+**Ohne** die Mandantenermittlung und **ohne** `set_tenant` wäre die
+Beanspruchung mandantenlos — und liefert unter RLS **0 Zeilen**: es würde
+**nichts** zugestellt, ohne Fehler und ohne Logeintrag (AC-023-3, AC-023-4,
+Z1). Je Mandant läuft **eine eigene Transaktion**; der Mandant wird
+**innerhalb** dieser Transaktion gesetzt, die auch liest (ADR-002 §3).
+
 ```sql
 -- je Mandant, begrenzte Zahl
 SELECT delivery_run_id FROM app.delivery_runs
@@ -82,7 +95,23 @@ anderer Code darf einen Zustand ändern. Jede Änderung wird mit
 `updated_at` und — für die zustandsrelevanten Felder — im Protokoll
 nachvollziehbar gehalten.
 
-### 6. Endegültige Zustände
+### 6. Der Replay ist **einmal** möglich
+
+Ein aufgegebener Zustelllauf (`abandoned`) kann **einmal** replayed werden
+(FR-024, AC-013-1, AC-013-5). Das ist **auf Datenbankebene** erzwungen:
+
+```sql
+CONSTRAINT delivery_runs_replay_of_uq UNIQUE (replay_of)
+```
+
+Ein zweiter Replay desselben Vorgängerlaufs verstößt gegen die Constraint ⇒
+**HTTP 409** `delivery_state_conflict`; es entsteht **kein** weiterer
+Zustelllauf. Grund: der Empfänger soll nicht mehrere Zustellläufe derselben
+Ereignis-ID unkontrolliert sehen — der Historiegedanke lebt davon, dass jeder
+Replay eine begründete, einmalige Aktion ist. Der Vorgängerlauf bleibt
+unverändert erhalten (AC-013-2).
+
+### 7. Endegültige Zustände
 
 `sent`, `abandoned`, `rejected`, `cancelled`, `no_subscriber` sind endgültig:
 `next_attempt_at` ist dann **NULL** (DB-Constraint
@@ -118,6 +147,7 @@ Vergangenheit oder in der Zukunft angezeigt (AC-015-2).
 | **Message-Broker (Kafka/RabbitMQ)** | Ausdrücklich ausgeschlossen. |
 | **`LISTEN/NOTIFY` statt Polling** | Notify ist nicht dauerhaft — nach einem Neustart des Empfängers gehen Signale verloren. Als **Optimierung** über dem Polling später möglich, nicht als Grundlage. |
 | **Verteilte Sperre (Redis/Redlock)** | Eine zusätzliche Abhängigkeit und ein zusätzlicher Ausfallpunkt für ein Problem, das die Datenbank bereits löst. |
+| **Beliebig viele Replays desselben Laufs** | Der Empfänger sähe mehrere Zustellläufe derselben Ereignis-ID ohne Begründung; die Historie verlöre ihren Aussagewert. |
 | **Verzicht auf die Lease, nur `SKIP LOCKED`** | Die Transaktion endet beim Commit — ein Absturz **während** des HTTP-Versuchs (außerhalb der Transaktion) würde den Lauf freigeben, während der Versuch noch läuft. Die Lease schließt dieses Fenster. |
 | **Genau ein Worker (Singleton)** | Widerspricht der horizontalen Skalierbarkeit (NFR-006). |
 

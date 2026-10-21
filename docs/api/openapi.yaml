@@ -42,21 +42,30 @@ info:
 
     | Status | `code` | Wann |
     |---|---|---|
-    | 400 | `malformed_request` | syntaktisch fehlerhafte Anfrage (kein gültiges JSON) |
+    | 400 | `malformed_request` | **syntaktisch** fehlerhafte Anfrage (kein gültiges JSON) |
     | 401 | `unauthorized` | kein oder ungültiges Token |
     | 403 | `forbidden` | angemeldet, aber Rolle/Mandant darf es nicht |
     | 404 | `not_found` | Ressource existiert nicht **oder** ist für diesen Mandanten nicht sichtbar |
     | 409 | `idempotency_conflict` | gleicher Idempotenzschlüssel mit abweichender Nutzlast (D-05) |
+    | 409 | `delivery_state_conflict` | Zustelllauf ist nicht replaybar (nicht aufgegeben, Endpunkt pausiert oder bereits replayed) |
     | 413 | `payload_too_large` | Nutzlast > 1.048.576 Byte (NFR-001, D-13) |
-    | 422 | `validation_failed` / `tenant_parameter_rejected` | semantisch ungültig (Validierung, D-01) |
+    | 422 | `validation_failed` | **semantisch** ungültig: das Feld verletzt das Schema des Request-Bodys (unbekanntes Feld, falscher Typ, fehlendes Pflichtfeld) |
+    | 422 | `tenant_parameter_rejected` | ein Mandantenparameter (`organisation_id`) wurde im Body, im Query oder im Header mitgeschickt (D-01) |
     | 429 | `rate_limit_exceeded` | API-seitiges Anfragelimit (nicht das Endpunkt-Limit aus FR-033) |
     | 500 | `internal_error` | unerwarteter Fehler — kein Stacktrace, kein internes Detail |
     | 503 | `service_unavailable` | Dienst nicht bereit (Readiness) |
 
+    **Die Grenze zwischen 400 und 422:** 400 bedeutet *syntaktisch* fehlerhaft
+    (der Body ist kein gültiges JSON). **Jede** Abweichung vom **Schema** des
+    Request-Bodys — unbekanntes Feld, falscher Typ, fehlendes Pflichtfeld —
+    ist **422** `validation_failed` mit einem `violations`-Eintrag; sie wird
+    **nicht** stillschweigend ignoriert. Ein mitgelieferter **Mandantenparameter**
+    ist 422 `tenant_parameter_rejected` (D-01).
+
     ## Pagination
 
     Alle Listen sind **cursor-basiert** (`limit` + `cursor`, Antwort unter
-    `page.nextCursor` / `page.hasMore`). `total` wird bewusst **nicht**
+    `page.next_cursor` / `page.has_more`). `total` wird bewusst **nicht**
     ausgewiesen: eine Zählung über die verschlüsselten, zeitlich geordneten
     Zustelltabellen wäre teuer und im Protokoll nicht nötig.
 
@@ -84,9 +93,12 @@ info:
     Auswirkung auf die Sichtbarkeit: `EndpointMetrics.rate_limit.limit` weist den
     **wirksamen** Grenzwert aus, `DeliveryRun.max_attempts` die **wirksame**
     Versuchsgrenze, `RetentionEnforcementResponse` die **beiden** angewandten
-    Fristen. Diese Felder bleiben nullable — `null` bedeutet „kein Override,
-    die Begrenzung ist für diesen Endpunkt abgeschaltet" bzw. „keine Frist
-    gesetzt".
+    Fristen. `max_attempts` und die Aufbewahrungsfristen bleiben nullable —
+    `null` bedeutet dort „keine Grenze bzw. keine Frist gesetzt".
+    Für das **Endpunkt-Limit** gilt eine **zweistufige** Auskunft:
+    `rate_limit.limit` ist **immer** der wirksame Grenzwert (Vorgabe **60**) und
+    `rate_limit.limited` sagt, ob die Begrenzung **abgeschaltet** ist
+    (`limited: false` ⇒ `limit: 0`).
 
   contact:
     name: Plattform-Team Interne Systeme
@@ -147,7 +159,7 @@ x-delivery-protocol:
     headers:
       - name: Content-Type
         required: true
-        value: "application/json"
+        value: "<payload_media_type des Ereignisses> (Vorgabe: application/json)"
         description: "Medientyp der Nutzlast. Entspricht `payload_media_type` des Ereignisses."
       - name: X-EchoBox-Event-Id
         required: true
@@ -217,16 +229,23 @@ x-delivery-protocol:
         description: "Ermöglicht dem Empfänger, EchoBox-Zustellungen zu erkennen."
     body:
       description: >-
-        **Der Request-Body sind exakt die Nutzlastbytes des Ereignisses** —
-        keine Hülle, kein Envelope. Alle Metadaten stehen in den Headern. Das
-        ist zwingend, weil die zugestellten Bytes byteidentisch mit den
-        eingelieferten Klartextbytes sein müssen (AC-007-3) und weil die
-        Signatur über genau diese Bytes berechnet wird (D-07).
+        **Der Request-Body sind die Nutzlastbytes des Ereignisses** — keine
+        Hülle, kein Envelope. Alle Metadaten stehen in den Headern. Das ist
+        zwingend, weil die zugestellten Bytes byteidentisch mit dem sein
+        müssen, **was das Ereignis trägt** (AC-007-3), und weil die Signatur
+        über genau diese Bytes berechnet wird (D-07).
+
+        Bei Einlieferung als `payload` (JSON-Wert) sind das die **kanonisch
+        materialisierten** Bytes (RFC 8785, UTF-8, sortierte Schlüssel, ohne
+        bedeutungslose Leerzeichen); bei `payload_base64` sind es die **exakt
+        gelieferten** Bytes. „Byteidentisch" heißt also: identisch mit dem, was
+        das Ereignis trägt — **nicht** mit dem Rohtext, den der Aufrufer
+        zufällig gesendet hat.
       media_type: "application/json (bzw. payload_media_type des Ereignisses)"
       x-ac-id:
         - US-007/AC-007-3
         - US-008/AC-008-1
-      example: '{"order_id": 4711, "state": "shipped"}'
+      example: '{"order_id":4711,"state":"shipped"}'
 
   signature:
     algorithm: HMAC-SHA256
@@ -300,12 +319,30 @@ x-delivery-protocol:
           dauerhafte Absage, auch ohne das ausdrückliche Ablehnungssignal.
         x-ac-id:
           - US-014/AC-014-4
+      - status_range: "3xx"
+        meaning: >-
+          **Kein Wiederholen.** Eine Umleitung (301, 302, 307, 308 …) wird
+          **nicht befolgt** — der Dienst sendet genau einmal an die registrierte
+          Ziel-URL. Die Zustellung endet ohne weitere Versuche mit Status
+          `rejected` und `rejection_reason = client_error` (D-08, ADR-009).
+          Grund: die Ziel-URL ist Teil der Signatur-Eingabe; ein Folgeort
+          würde die signierte URL aufweichen.
+        x-ac-id:
+          - US-010/AC-010-3
+          - US-014/AC-014-4
       - transport_error: true
         meaning: >-
-          Netzwerkfehler, DNS-Fehler, Verbindungs-Timeout, Lese-Timeout. Wird wie
-          ein 5xx behandelt: Wiederholung nach Backoff. Die Summe aus
-          Verbindungs- und Lese-Timeout je Versuch bleibt unter 30 s (Abschnitt 11
-          der Anforderung, ADR-008).
+          Netzwerkfehler, DNS-Fehler, TLS-Fehler, Verbindungs-Timeout,
+          Lese-Timeout. Wird wie ein 5xx behandelt: Wiederholung nach Backoff.
+          Die Summe aus Verbindungs- und Lese-Timeout je Versuch bleibt unter
+          30 s (Abschnitt 11 der Anforderung, ADR-008).
+
+          **Trennlinie der Klassifikation:** `timeout` = der
+          **Verbindungs-Timeout** (5 s) oder der **Lese-Timeout** (10 s) hat
+          ausgelöst; `network_error` = DNS-, TLS- oder Verbindungsfehler
+          **ohne** Timeout. Beide Outcomes führen zum selben Verhalten
+          (Wiederholung nach Backoff), werden im Protokoll aber
+          **unterschiedlich** ausgewiesen (AC-011-3, FR-030).
         x-ac-id:
           - US-011/AC-011-3
           - US-014/AC-014-3
@@ -343,6 +380,14 @@ x-delivery-protocol:
       attempt_timeout:
         connect_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-008): Default 5 s."
         read_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-008): Default 10 s."
+      expected_completion_window: >-
+        Das erwartete **Gesamtfenster** bis zum letzten Versuch. Bei den
+        Vorgabewerten (8 Versuche, Basis 1 Minute, Verdopplung, Deckel
+        60 Minuten) sind das 7 Wartezeiten = 1 + 2 + 4 + 8 + 16 + 32 + 60 =
+        **123 Minuten ≈ 2 Stunden**; mit der Streuung von ± 20 % liegt das
+        Fenster zwischen rund 1 h 38 min und 2 h 28 min (ADR-008). Das Fenster
+        ist die **Zusage** gegenüber den Empfängern — die Frist läuft ab dem
+        **Annahmezeitpunkt** des Ereignisses.
     x-ac-id:
       - US-011/AC-011-1
       - US-011/AC-011-2
@@ -372,11 +417,23 @@ x-delivery-protocol:
     default_strategy: "delay"
     default_limit: 60
     default_window_seconds: 60
+    states:
+      - name: kein_override
+        meaning: >-
+          `limit_value IS NULL` — es ist **kein** Override je Endpunkt gesetzt.
+          Es gilt die Vorgabe aus der Betriebskonfiguration: **60** Versuche je
+          Endpunkt und Minute (F-01). **Vorgabe (F-01).**
+      - name: abgeschaltet
+        meaning: >-
+          `limit_value = 0` — die Begrenzung ist für diesen Endpunkt
+          **abgeschaltet**; es gibt keinen wirksamen Grenzwert. Die Zählung
+          läuft weiter (AC-018-4), der Versuch wird **nicht** verschoben.
     observability: >-
       Die Zählung je Endpunkt und Zeitfenster ist über
       `GET /api/v1/endpoints/{endpointId}/metrics` im Feld `rate_limit` abrufbar;
       `rate_limit.limit` weist den **wirksamen** Grenzwert aus (Vorgabe 60,
-      je Endpunkt überschreibbar).
+      je Endpunkt überschreibbar) und `rate_limit.limited` sagt, ob die
+      Begrenzung **abgeschaltet** ist (`limited: false` ⇒ `limit: 0`).
     x-ac-id:
       - US-018/AC-018-1
       - US-018/AC-018-2
@@ -435,7 +492,7 @@ paths:
                 $ref: "#/components/schemas/Endpoint"
               example:
                 endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
-                organisation_id: m-1
+                organisation_id: null
                 target_url: https://orders.example.invalid/hooks/echobox
                 status: active
                 event_types: [order.changed, order.cancelled]
@@ -454,6 +511,8 @@ paths:
           $ref: "#/components/responses/IdempotencyConflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -467,6 +526,12 @@ paths:
         Mandanten, jeweils mit dem Mandantenkennzeichen `organisation_id`
         (FR-004). Mandant ohnehin aus der Identität — ein `organisation_id`-Filter
         ist nicht Teil des Vertrags (D-01).
+
+        **Mandantenübergreifende Sicht:** Sie wird über die schmalen
+        Eigentümerfunktionen des Schemas hergestellt
+        (`app.list_endpoints_cross_tenant`, ADR-002) — **nicht** über eine
+        Laufzeitrolle mit `BYPASSRLS`. In diesem Fall ist `organisation_id` in
+        **jedem** Datensatz gefüllt, damit der Client die Herkunft erkennt.
       x-ac-id:
         - US-004/AC-004-1
         - US-004/AC-004-2
@@ -506,6 +571,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -541,6 +608,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
     patch:
@@ -587,6 +656,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -638,6 +709,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -673,6 +746,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -727,6 +802,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -752,6 +829,12 @@ paths:
         (NFR-001). Gemessen werden die **Nutzlastbytes** — bei vorverschlüsselter
         Einlieferung also die Chiffre, nicht der Klartext (D-13). 1 Byte darüber
         → HTTP 413.
+
+        Die Grenze betrifft die **Nutzlast**, **nicht** den Request-Body: bei
+        Einlieferung als `payload_base64` ist der Body base64-kodiert und damit
+        rund **1,4-mal** so groß (bis ≈ 1,4 MB). Der Dienst akzeptiert einen
+        Request-Body bis **2 MiB**; darüber antwortet er mit HTTP 413
+        `payload_too_large`.
 
         **Verschlüsselung:** Die Nutzlast wird verschlüsselt gespeichert und nur
         für den Zustellvorgang entschlüsselt (FR-012, NFR-004).
@@ -801,7 +884,7 @@ paths:
                 status: accepted
                 idempotent_replay: false
                 subscribed_endpoint_count: 2
-                payload_size_bytes: 34
+                payload_size_bytes: 35
                 accepted_at: "2026-10-21T09:15:22.481Z"
         "400":
           $ref: "#/components/responses/MalformedRequest"
@@ -815,6 +898,8 @@ paths:
           $ref: "#/components/responses/PayloadTooLarge"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -853,7 +938,7 @@ paths:
                 status: accepted
                 payload_encoding: plaintext
                 payload_media_type: application/json
-                payload_size_bytes: 34
+                payload_size_bytes: 35
                 subscribed_endpoint_count: 2
                 accepted_at: "2026-10-21T09:15:22.481Z"
                 created_at: "2026-10-21T09:15:22.481Z"
@@ -867,6 +952,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -881,8 +968,8 @@ paths:
         **Anzahl der Versuche**, **Zeitpunkt des letzten Versuchs**,
         **Antwortcode des Empfängers** und **nächster Versuchszeitpunkt**
         ausgewiesen. Bei endgültigen Zuständen (`sent`, `abandoned`, `rejected`,
-        `cancelled`) ist `next_attempt_at` **leer** — es wird kein Zeitpunkt in
-        der Vergangenheit oder in der Zukunft angezeigt.
+        `cancelled`, `no_subscriber`) ist `next_attempt_at` **leer** — es wird kein
+        Zeitpunkt in der Vergangenheit oder in der Zukunft angezeigt.
 
         Die Filter (Endpunkt, Status, Ereignistyp, Ereignis-ID, Zeitraum) sind
         **kombinierbar** (AC-015-4). Die Liste ist **cursor-basiert
@@ -959,25 +1046,28 @@ paths:
                     endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
                     event_type: order.changed
                     status: failed
-                    attempt_count: 3
+                    attempt_count: 2
                     max_attempts: 8
-                    last_attempt_at: "2026-10-21T09:19:04.112Z"
-                    next_attempt_at: "2026-10-21T09:21:04.112Z"
+                    replay_of: null
+                    last_attempt_at: "2026-10-21T09:16:24.000Z"
+                    next_attempt_at: "2026-10-21T09:18:24.190Z"
                     last_response_status: 503
                     last_error_code: null
                     rejection_reason: null
                     created_at: "2026-10-21T09:15:22.481Z"
-                    updated_at: "2026-10-21T09:19:04.112Z"
+                    updated_at: "2026-10-21T09:16:24.190Z"
                 page:
                   limit: 50
                   has_more: true
-                  next_cursor: eyJ1cGRhdGVkX2F0IjoiMjAyNi0xMC0yMVQwOToxOTo0NC4xMTJaIn0
+                  next_cursor: eyJ1cGRhdGVkX2F0IjoiMjAyNi0xMC0yMVQwOToxNjoyNC4wMDBaIn0
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1020,13 +1110,14 @@ paths:
                 status: failed
                 attempt_count: 2
                 max_attempts: 8
-                last_attempt_at: "2026-10-21T09:19:04.112Z"
-                next_attempt_at: "2026-10-21T09:21:04.112Z"
+                replay_of: null
+                last_attempt_at: "2026-10-21T09:16:24.000Z"
+                next_attempt_at: "2026-10-21T09:18:24.190Z"
                 last_response_status: 503
                 last_error_code: null
                 rejection_reason: null
                 created_at: "2026-10-21T09:15:22.481Z"
-                updated_at: "2026-10-21T09:19:04.112Z"
+                updated_at: "2026-10-21T09:16:24.190Z"
                 attempts:
                   - attempt_id: b1a2c3d4-1111-4222-8333-444455556666
                     delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
@@ -1037,7 +1128,7 @@ paths:
                     response_status: null
                     outcome: network_error
                     error_code: connection_refused
-                    next_attempt_at: "2026-10-21T09:16:23.004Z"
+                    next_attempt_at: "2026-10-21T09:16:23.219Z"
                   - attempt_id: c2b3d4e5-2222-4333-8444-555566667777
                     delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
                     attempt_number: 2
@@ -1047,7 +1138,7 @@ paths:
                     response_status: 503
                     outcome: retryable_failure
                     error_code: null
-                    next_attempt_at: "2026-10-21T09:21:04.112Z"
+                    next_attempt_at: "2026-10-21T09:18:24.190Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1056,6 +1147,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1072,6 +1165,13 @@ paths:
         Trefferliste ist ein **HTTP 200 mit leerem `items`-Array**, kein Fehler.
         Die Filter (Endpunkt, Status, Ereignistyp, Zeitraum) sind kombinierbar,
         die Liste ist seitenweise abrufbar.
+
+        **Mandantenübergreifende Sicht:** Die Liste zeigt die toten Zustellungen
+        **aller** Mandanten. Sie wird über die schmale Eigentümerfunktion des
+        Schemas hergestellt (`app.list_dead_deliveries_cross_tenant`, ADR-002) —
+        **nicht** über eine Laufzeitrolle mit `BYPASSRLS`. `organisation_id` ist
+        in **jedem** Datensatz gefüllt, damit der Client die Herkunft erkennt
+        (AC-016-1).
       x-ac-id:
         - US-016/AC-016-1
         - US-016/AC-016-2
@@ -1143,6 +1243,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1166,12 +1268,20 @@ paths:
         ursprüngliche Datensatz bleibt im Protokoll **unverändert** erhalten
         (Historie).
 
+        **Einmal:** Ein aufgegebener Zustelllauf kann **einmal** replayed
+        werden — die Datenbank erzwingt das (UNIQUE über die Replay-Beziehung,
+        ADR-006). Ein **weiterer** Replay desselben Laufs antwortet mit
+        **HTTP 409** `delivery_state_conflict`; es entsteht **kein** weiterer
+        Zustelllauf (AC-013-1, AC-013-5).
+
         **Berechtigung:** Ausschließlich der **Empfänger-Admin des betroffenen
         Endpunkts** ist berechtigt (D-15, bestätigt am 2026-10-21 mit F-03).
         `developer` und `service_admin` erhalten HTTP 403.
 
-        **Pause:** Ist der Endpunkt pausiert, startet **kein** Versuch; die
-        Zustellung endet erneut ohne Zustellung (D-03).
+        **Pause:** Ist der Endpunkt pausiert, startet **kein** Versuch. Der
+        Aufruf antwortet in diesem Fall mit **HTTP 409**
+        `delivery_state_conflict` — es entsteht **kein** neuer Zustelllauf und
+        der Vorgängerlauf bleibt unverändert (D-03, AC-013-4).
       x-ac-id:
         - US-013/AC-013-1
         - US-013/AC-013-2
@@ -1200,7 +1310,7 @@ paths:
                 previous_delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
                 delivery_run_id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
                 event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
-                status: scheduled
+                status: pending
                 attempt_count: 0
                 next_attempt_at: "2026-10-21T12:30:00.000Z"
                 replayed_at: "2026-10-21T12:29:58.100Z"
@@ -1214,6 +1324,8 @@ paths:
           $ref: "#/components/responses/DeliveryStateConflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1236,7 +1348,12 @@ paths:
         Endpunkt und Zeitfenster und den **wirksamen** Grenzwert. Vorgabewert
         ist **60 Versuche je Endpunkt und Minute** mit Strategie `delay`
         (bestätigt am 2026-10-21 mit F-01); der Wert ist je Endpunkt
-        überschreibbar (D-14).
+        überschreibbar (D-14). `rate_limit.limit` ist **immer** der wirksame
+        Grenzwert; `rate_limit.limited: false` bedeutet: die Begrenzung ist für
+        diesen Endpunkt **abgeschaltet** (`limit: 0`).
+
+        **Auswertungsfenster:** Ohne `from`/`to` gilt das Fenster der letzten
+        **7 Tage** bis jetzt (ADR-011, bestätigt am 2026-10-21).
 
         Ein Endpunkt eines **fremden** Mandanten wird mit **HTTP 404**
         beantwortet (D-02).
@@ -1270,7 +1387,8 @@ paths:
                 success_rate: 0.8333
                 delivery_latency_p95_ms: 412
                 rate_limit:
-                  limit: null
+                  limit: 60
+                  limited: true
                   window_seconds: 60
                   strategy: delay
                   observed_attempts: 12
@@ -1283,6 +1401,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1292,16 +1412,31 @@ paths:
       tags: [Betrieb]
       summary: Aufbewahrung durchsetzen
       description: >-
-        Erzwingt die Aufbewahrung: Ereignisse, Zustellläufe, Versuche und
-        Protokolleinträge, die älter als die konfigurierte Frist sind, werden
-        gelöscht; jüngere bleiben erhalten (FR-031, D-12).
+        Erzwingt die Aufbewahrung (FR-031, D-12). **Geltungsbereich: alle
+        Mandanten** — die Operation ist mandantenübergreifend; je Mandant gilt
+        die für ihn konfigurierte Frist. Die mandantenübergreifende Sicht und
+        die Durchsetzung werden über die schmale Eigentümerfunktion des Schemas
+        hergestellt (`app.enforce_retention_cross_tenant`, ADR-002).
 
-        Die Fristen sind **konfigurierbare Parameter**. Vorgabewert ist
-        **30 Tage**, getrennt für Ereignisse und für Zustellprotokolle, jeweils
-        ab dem **letzten Zustellversuch** (bestätigt am 2026-10-21 mit F-02).
-        Je Mandant sind beide Fristen überschreibbar. Ist für einen Mandanten
-        keine Frist gesetzt, bleibt der Aufruf für diesen Datenart ein
-        **No-Op** und meldet `deleted_* = 0`.
+        **Anker je Datenart:** Die Frist beginnt **je Datensatz**, nicht zu
+        einem globalen Stichtag. Der Anker ist der **letzte Zustellversuch**
+        (`last_attempt_at`); für Ereignisse **ohne** Versuch ist es der
+        Annahmezeitpunkt (`accepted_at`) (ADR-012 §2, F-02).
+
+        **Zwei Stufen:** (1) **Markieren** (`deleted_at` gesetzt) — der Datensatz
+        ist sofort unsichtbar; (2) **Purge** — die physische Löschung nach der
+        **Karenzzeit** (`purge_delay_days`). Bei `dry_run: true` wird nichts
+        geändert; die Zähler weisen dann die **vorgemerkten** Mengen aus.
+
+        **Kaskade:** Das Löschen eines Ereignisses nimmt seine Zustellläufe und
+        Versuche **mit**. Die Protokollfrist gilt deshalb nur für Läufe, deren
+        Ereignis noch steht.
+
+        **Zwei Fristen, getrennt:** Vorgabewert **30 Tage** je Datenart
+        (bestätigt am 2026-10-21 mit F-02), je Mandant überschreibbar. Steht in
+        `retention_settings` **kein** Wert, gilt die Vorgabe (kein Override).
+        Ist für **keinen** Mandanten eine Frist wirksam, bleibt der Aufruf ein
+        **No-Op** und meldet `0`.
 
         **Nur `service_admin`**. Ein `receiver_admin` erhält HTTP 403.
       x-ac-id:
@@ -1326,13 +1461,31 @@ paths:
                 $ref: "#/components/schemas/RetentionEnforcementResponse"
               example:
                 dry_run: true
+                scope: all
+                anchor: last_attempt_at
+                purge_delay_days: 7
                 event_retention_days: 30
                 delivery_retention_days: 30
                 event_cutoff: "2026-09-21T00:00:00.000Z"
                 delivery_cutoff: "2026-09-21T00:00:00.000Z"
-                deleted_events: 128
-                deleted_delivery_runs: 640
-                deleted_attempts: 3120
+                marked_events: 128
+                marked_delivery_runs: 640
+                marked_attempts: 3120
+                purged_events: 0
+                purged_delivery_runs: 0
+                purged_attempts: 0
+                tenants:
+                  - organisation_id: m-1
+                    event_retention_days: 30
+                    delivery_retention_days: 30
+                    event_cutoff: "2026-09-21T00:00:00.000Z"
+                    delivery_cutoff: "2026-09-21T00:00:00.000Z"
+                    marked_events: 128
+                    marked_delivery_runs: 640
+                    marked_attempts: 3120
+                    purged_events: 0
+                    purged_delivery_runs: 0
+                    purged_attempts: 0
                 executed_at: "2026-10-21T13:00:00.000Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
@@ -1340,6 +1493,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimitExceeded"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1399,18 +1554,7 @@ paths:
                   tenant_context: ok
                 checked_at: "2026-10-21T13:05:00.000Z"
         "503":
-          description: Dienst ist nicht bereit.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReadinessStatus"
-              example:
-                status: not_ready
-                checks:
-                  database: ok
-                  delivery_worker: unavailable
-                  tenant_context: ok
-                checked_at: "2026-10-21T13:05:00.000Z"
+          $ref: "#/components/responses/ServiceUnavailable"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -1470,7 +1614,10 @@ components:
       name: from
       in: query
       required: false
-      description: "Beginn des Zeitraums (UTC, RFC 3339), inklusive."
+      description: >-
+        Beginn des Zeitraums (UTC, RFC 3339), inklusive. **Ohne `from`/`to` gilt
+        das Vorgabefenster: die letzten 7 Tage bis jetzt** (ADR-011, bestätigt am
+        2026-10-21).
       schema:
         type: string
         format: date-time
@@ -1478,7 +1625,10 @@ components:
       name: to
       in: query
       required: false
-      description: "Ende des Zeitraums (UTC, RFC 3339), exklusive."
+      description: >-
+        Ende des Zeitraums (UTC, RFC 3339), exklusive. **Ohne `from`/`to` gilt
+        das Vorgabefenster: die letzten 7 Tage bis jetzt** (ADR-011, bestätigt am
+        2026-10-21).
       schema:
         type: string
         format: date-time
@@ -1598,24 +1748,51 @@ components:
             instance: /api/v1/events
     ValidationFailed:
       description: >-
-        Semantisch ungültige Anfrage. Das schließt einen mitgelieferten
-        **Mandantenparameter** ein — er wird mit HTTP 422 abgelehnt, weil der
-        Mandant ausschließlich aus der Identität stammt (D-01).
+        **Semantisch** ungültige Anfrage (HTTP 422). Die Grenze zu **400**
+        (`malformed_request`): 400 bedeutet *syntaktisch* fehlerhaft — der Body
+        ist kein gültiges JSON. **Jede** Abweichung vom **Schema** des
+        Request-Bodys (unbekanntes Feld, falscher Typ, fehlendes Pflichtfeld)
+        ist **422** — sie wird **nicht** stillschweigend ignoriert.
+
+        Zwei `code`-Werte, die der Aufrufer unterscheiden muss:
+
+        | `code` | Wann |
+        |---|---|
+        | `validation_failed` | das Feld verletzt das Schema des Request-Bodys — `violations` nennt den Feldverstoß |
+        | `tenant_parameter_rejected` | ein **Mandantenparameter** (`organisation_id`) wurde im Body, im Query oder im Header mitgeschickt (D-01, AC-001-5, AC-004-4) |
       content:
         application/problem+json:
           schema:
-            $ref: "#/components/schemas/Problem"
-          example:
-            type: https://echobox.example/errors/validation-failed
-            title: Validation failed
-            status: 422
-            code: validation_failed
-            detail: "Die Anfrage ist semantisch ungültig."
-            instance: /api/v1/endpoints
-            violations:
-              - field: target_url
-                code: scheme_not_allowed
-                message: "Die Ziel-URL muss das Schema https verwenden."
+            oneOf:
+              - $ref: "#/components/schemas/ValidationFailedProblem"
+              - $ref: "#/components/schemas/TenantParameterRejected"
+          examples:
+            validation_failed:
+              summary: Das Feld verletzt das Schema des Request-Bodys.
+              value:
+                type: https://echobox.example/errors/validation-failed
+                title: Validation failed
+                status: 422
+                code: validation_failed
+                detail: "Die Anfrage ist semantisch ungültig."
+                instance: /api/v1/endpoints
+                violations:
+                  - field: target_url
+                    code: scheme_not_allowed
+                    message: "Die Ziel-URL muss das Schema https verwenden."
+            tenant_parameter_rejected:
+              summary: Ein Mandantenparameter wurde mitgeschickt.
+              value:
+                type: https://echobox.example/errors/tenant-parameter-rejected
+                title: Tenant parameter rejected
+                status: 422
+                code: tenant_parameter_rejected
+                detail: "Der Mandant stammt aus der Identität; ein Mandantenparameter wird nicht akzeptiert."
+                instance: /api/v1/endpoints
+                violations:
+                  - field: organisation_id
+                    code: tenant_parameter_not_allowed
+                    message: "Der Mandant darf nicht mitgeschickt werden."
     RateLimitExceeded:
       description: "Das Anfragelimit der API ist überschritten (nicht das Endpunkt-Limit aus FR-033)."
       headers:
@@ -1733,6 +1910,37 @@ components:
           description: "Verständliche Meldung für den Aufrufer."
           example: "Die Ziel-URL muss das Schema https verwenden."
 
+    ValidationFailedProblem:
+      allOf:
+        - $ref: "#/components/schemas/Problem"
+        - type: object
+          description: >-
+            **422 `validation_failed`** — das Feld verletzt das **Schema** des
+            Request-Bodys (unbekanntes Feld, falscher Typ, fehlendes
+            Pflichtfeld). Der Feldverstoß steht in `violations`. Die Abweichung
+            wird **nicht** stillschweigend ignoriert.
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [validation_failed]
+
+    TenantParameterRejected:
+      allOf:
+        - $ref: "#/components/schemas/Problem"
+        - type: object
+          description: >-
+            **422 `tenant_parameter_rejected`** — ein **Mandantenparameter**
+            (`organisation_id`) wurde im Body, im Query oder im Header
+            mitgeschickt. Der Mandant stammt ausschließlich aus der Identität
+            (D-01); ein mitgelieferter Mandantenparameter wird **nicht**
+            stillschweigend ignoriert (AC-001-5, AC-004-4).
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [tenant_parameter_rejected]
+
     # ------------------------------------------------------------------- Aufzählungen
     EndpointStatus:
       type: string
@@ -1750,7 +1958,10 @@ components:
     DeliveryStatus:
       type: string
       description: >-
-        Zustand eines Zustelllaufs. `sent` = erfolgreich zugestellt,
+        Zustand eines Zustelllaufs. `pending` = angelegt, **noch kein Versuch
+        ausgeführt** — das ist der Ausgangszustand eines **neuen** Laufs (auch
+        nach einem Replay); `scheduled` = ein Versuch läuft gerade oder ist
+        terminiert. `sent` = erfolgreich zugestellt,
         `abandoned` = nach erschöpften Versuchen aufgegeben (tote Zustellung),
         `rejected` = vom Empfänger endgültig abgelehnt, `cancelled` = durch
         Pause abgebrochen, `delayed` = durch das Endpunkt-Limit verschoben,
@@ -1768,7 +1979,14 @@ components:
 
     AttemptOutcome:
       type: string
-      description: "Ergebnis eines einzelnen HTTP-Versuchs."
+      description: >-
+        Ergebnis eines einzelnen HTTP-Versuchs. **Trennlinie:** `timeout` = der
+        **Verbindungs-Timeout** (5 s) oder der **Lese-Timeout** (10 s) hat
+        ausgelöst; `network_error` = DNS-, TLS- oder Verbindungsfehler **ohne**
+        Timeout. Beide Outcomes führen zum selben Verhalten (Wiederholung nach
+        Backoff), werden im Protokoll aber **unterschiedlich** ausgewiesen
+        (AC-011-3, FR-030). `client_error` erfasst auch eine **3xx**-Antwort
+        (kein Wiederholen, ADR-009).
       enum:
         - success
         - retryable_failure
@@ -1781,11 +1999,12 @@ components:
     RejectionReason:
       type: string
       nullable: true
-      description: "Grund der endgültigen Ablehnung."
+      description: >-
+        Grund der endgültigen Ablehnung. `null`, wenn der Lauf **nicht**
+        abgelehnt wurde — das Feld ist dann ohne Aussage.
       enum:
         - permanent_rejection
         - client_error
-        - null
 
     # ------------------------------------------------------------------- Endpunkt
     EndpointCreateRequest:
@@ -1852,7 +2071,7 @@ components:
             maxLength: 200
       x-validation-rules:
         - id: no_tenant_parameter
-          description: "Ein Mandantenparameter wird mit HTTP 422 abgelehnt (D-01)."
+          description: "Ein `organisation_id` (oder jeder andere Mandantenparameter) im Body wird mit HTTP 422 `tenant_parameter_rejected` abgelehnt (D-01)."
 
     Endpoint:
       type: object
@@ -1931,6 +2150,9 @@ components:
           writeOnly: true
           description: "Das neue Secret. Ab dem nächsten Zustellversuch gilt ausschließlich dieses Secret."
           example: neues-s3cr3t
+      x-validation-rules:
+        - id: no_tenant_parameter
+          description: "Ein `organisation_id` (oder jeder andere Mandantenparameter) im Body wird mit HTTP 422 `tenant_parameter_rejected` abgelehnt (D-01)."
 
     SecretRotationResponse:
       type: object
@@ -1957,7 +2179,8 @@ components:
       required: [event_type, idempotency_key]
       description: >-
         Einlieferung eines Ereignisses. **Genau eine** der Eigenschaften
-        `payload` und `payload_base64` muss gesetzt sein.
+        `payload` und `payload_base64` muss gesetzt sein; `payload: null` gilt
+        als **nicht** gesetzt.
 
         `payload` nimmt einen beliebigen JSON-Wert entgegen; der Dienst
         materialisiert ihn **kanonisch** (RFC 8785, UTF-8, sortierte
@@ -1984,9 +2207,12 @@ components:
             Schlüssel) (D-05).
           example: order-4711-changed-2026-10-21T09:00:00Z
         payload:
+          nullable: false
           description: >-
             Nutzlast als JSON-Wert. Nicht gleichzeitig mit `payload_base64`
-            setzen.
+            setzen; `payload: null` gilt als **nicht** gesetzt. Die **zugestellten
+            Bytes** sind die **kanonisch materialisierten** Bytes dieses Wertes
+            (RFC 8785) — nicht der Rohtext, den der Aufrufer gesendet hat.
           example:
             order_id: 4711
             state: shipped
@@ -1996,7 +2222,10 @@ components:
           description: >-
             Nutzlast als Base64 — für bytegenaue Übernahme, insbesondere bei
             vorverschlüsselten Ereignissen. Nicht gleichzeitig mit `payload`
-            setzen.
+            setzen. Die **zugestellten Bytes** sind die **exakt gelieferten**
+            (dekodierten) Bytes. Die Base64-Länge ist rund **1,4-mal** so groß
+            wie die Nutzlast — die Grenze von 1.048.576 Byte betrifft die
+            **Nutzlastbytes**, nicht den Request-Body.
           example: T1AtU0VDUkVULVBBWUxPQURfQkFTRTY0
         payload_encoding:
           type: string
@@ -2014,13 +2243,13 @@ components:
           description: "Medientyp der Nutzlast. Wird als `Content-Type` der Zustellung gesetzt."
       x-validation-rules:
         - id: exactly_one_payload
-          description: "Genau eine von `payload` / `payload_base64` muss vorhanden sein. Verstoß → HTTP 422."
+          description: "Genau eine von `payload` / `payload_base64` muss vorhanden sein. `payload: null` gilt als **nicht** gesetzt. Verstoß → HTTP 422."
         - id: pre_encrypted_requires_base64
           description: "`payload_encoding = pre_encrypted` erfordert `payload_base64` und verbietet `payload`. Verstoß → HTTP 422 (AC-008-2)."
         - id: payload_size_limit
-          description: "Die Nutzlastbytes dürfen höchstens 1048576 Byte betragen. Verstoß → HTTP 413 (AC-005-2, AC-005-3, NFR-001)."
+          description: "Die Nutzlastbytes dürfen höchstens 1048576 Byte betragen. Verstoß → HTTP 413 (AC-005-2, AC-005-3, NFR-001). Die Grenze betrifft die Nutzlastbytes, **nicht** den Request-Body (base64 ⇒ rund 1,4×); der Request-Body darf bis 2 MiB groß sein."
         - id: no_tenant_parameter
-          description: "Ein Mandantenparameter wird mit HTTP 422 abgelehnt (D-01)."
+          description: "Ein `organisation_id` (oder jeder andere Mandantenparameter) im Body wird mit HTTP 422 `tenant_parameter_rejected` abgelehnt (D-01)."
 
     EventIntakeResponse:
       type: object
@@ -2050,7 +2279,11 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: "Größe der eingelieferten Nutzlastbytes."
+          description: >-
+            Größe der **Nutzlastbytes des Ereignisses** — bei `payload` der
+            **kanonisch materialisierten** Bytes (im Beispiel 35 Byte), bei
+            `payload_base64` der dekodierten Bytes. Das ist zugleich die
+            Nutzlast, die **zugestellt** wird.
         accepted_at:
           type: string
           format: date-time
@@ -2060,7 +2293,7 @@ components:
       description: >-
         Metadaten eines Ereignisses. Die **Nutzlast wird nie ausgegeben** —
         sie ist im Ruhezustand verschlüsselt (FR-012).
-      required: [event_id, event_type, idempotency_key, status, payload_encoding, payload_size_bytes, accepted_at, created_at, updated_at]
+      required: [event_id, event_type, idempotency_key, status, payload_encoding, payload_media_type, payload_size_bytes, accepted_at, created_at, updated_at]
       properties:
         event_id:
           type: string
@@ -2076,11 +2309,19 @@ components:
           enum: [plaintext, pre_encrypted]
         payload_media_type:
           type: string
-          nullable: true
+          description: >-
+            Medientyp der Nutzlast — **immer** gefüllt (Vorgabe
+            `application/json`); er wird als `Content-Type` der Zustellung
+            gesetzt.
         payload_size_bytes:
           type: integer
           format: int64
           minimum: 0
+          description: >-
+            Größe der **Nutzlastbytes des Ereignisses** — bei `payload` der
+            **kanonisch materialisierten** Bytes, bei `payload_base64` der
+            dekodierten Bytes. Das ist zugleich die Nutzlast, die
+            **zugestellt** wird.
         subscribed_endpoint_count:
           type: integer
           minimum: 0
@@ -2119,6 +2360,14 @@ components:
           type: string
           format: uuid
           description: "Zustelllauf-ID. Ein Replay erzeugt eine **neue** ID (D-06)."
+        replay_of:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Zustelllauf-ID des **Vorgängers**, wenn dieser Lauf ein Replay ist.
+            `null`, wenn der Lauf **kein** Replay ist (AC-013-2). Die
+            Replay-Historie bleibt am Lauf sichtbar.
         event_id:
           type: string
           format: uuid
@@ -2160,9 +2409,9 @@ components:
           nullable: true
           description: >-
             Nächster Versuchszeitpunkt. **Leer** bei endgültigen Zuständen
-            (`sent`, `abandoned`, `rejected`, `cancelled`) — es wird kein
-            Zeitpunkt in der Vergangenheit oder in der Zukunft angezeigt
-            (AC-015-2).
+            (`sent`, `abandoned`, `rejected`, `cancelled`, `no_subscriber`) — es
+            wird kein Zeitpunkt in der Vergangenheit oder in der Zukunft
+            angezeigt (AC-015-2).
         last_response_status:
           type: integer
           nullable: true
@@ -2298,7 +2547,10 @@ components:
         organisation_id:
           type: string
           nullable: true
-          description: "Mandant des Endpunkts — für `service_admin` gefüllt (AC-016-1)."
+          description: >-
+            Mandant des Endpunkts — in der Totenliste **immer** gefüllt: sie ist
+            mandantenübergreifend und nur `service_admin` zugänglich
+            (AC-016-1).
         endpoint_id:
           type: string
           format: uuid
@@ -2347,6 +2599,9 @@ components:
           type: string
           maxLength: 500
           description: "Freitextbegründung für das Audit-Protokoll."
+      x-validation-rules:
+        - id: no_tenant_parameter
+          description: "Ein `organisation_id` (oder jeder andere Mandantenparameter) im Body wird mit HTTP 422 `tenant_parameter_rejected` abgelehnt (D-01)."
 
     ReplayResponse:
       type: object
@@ -2436,17 +2691,26 @@ components:
         Zählung der Zustellversuche je Endpunkt und Zeitfenster und der
         **wirksame** Grenzwert. Vorgabewert ist **60 Versuche je Endpunkt und
         Minute** mit Strategie `delay` (bestätigt am 2026-10-21, F-01);
-        je Endpunkt überschreibbar (D-14).
-      required: [limit, window_seconds, strategy, observed_attempts, delayed_attempts]
+        je Endpunkt überschreibbar (D-14). Es gibt **zwei** Zustände: kein
+        Override (⇒ es gilt 60) und abgeschaltet (⇒ `limit: 0`,
+        `limited: false`).
+      required: [limit, limited, window_seconds, strategy, observed_attempts, delayed_attempts]
       properties:
         limit:
           type: integer
           minimum: 0
-          nullable: true
           description: >-
-            Der wirksame Grenzwert je Endpunkt und Zeitfenster. Vorgabewert
-            **60** (F-01). `null` bedeutet: die Begrenzung ist für diesen
-            Endpunkt **abgeschaltet** (kein Override, `limit_value = 0`).
+            Der **wirksame** Grenzwert je Endpunkt und Zeitfenster — **nie**
+            `null`. Vorgabewert **60** (F-01); ein Endpunkt-Override
+            (`limit_value`) ersetzt ihn. `limit: 0` bedeutet: die Begrenzung ist
+            für diesen Endpunkt **abgeschaltet** (`limit_value = 0`).
+        limited:
+          type: boolean
+          description: >-
+            `false`, wenn die Begrenzung für diesen Endpunkt **abgeschaltet**
+            ist — dann ist `limit: 0`. `true` bedeutet: es gilt ein wirksamer
+            Grenzwert (`limit > 0`), auch dann, wenn der Wert aus der Vorgabe
+            (60) kommt und **kein** Override gesetzt ist.
         window_seconds:
           type: integer
           minimum: 1
@@ -2477,63 +2741,217 @@ components:
             `true` = nur zählen, nichts löschen. `false` = tatsächlich löschen.
             Standard ist `true`, damit ein versehentlicher Aufruf keine Daten
             verliert.
+      x-validation-rules:
+        - id: no_tenant_parameter
+          description: "Ein `organisation_id` (oder jeder andere Mandantenparameter) im Body wird mit HTTP 422 `tenant_parameter_rejected` abgelehnt (D-01)."
 
     RetentionEnforcementResponse:
       type: object
       description: >-
         Ergebnis der Aufbewahrungsdurchsetzung. Die beiden Fristen sind
         **getrennt** für Ereignisse und für Zustellprotokolle (F-02) und
-        haben deshalb **getrennte** Stichtage.
-      required: [dry_run, event_retention_days, delivery_retention_days, executed_at]
+        beginnen **je Datensatz** am **Anker** (`last_attempt_at`; für
+        Ereignisse ohne Versuch `accepted_at`).
+
+        Die Zähler sind **nach Stufe** getrennt: `marked_*` zählt die in diesem
+        Durchlauf **markierten** Datensätze (`deleted_at` gesetzt), `purged_*`
+        die **physisch gelöschten**. Bei `dry_run: true` wird nichts geändert —
+        die Zähler weisen dann die **vorgemerkten** Mengen aus.
+
+        Die Fristen und Stichtage auf oberster Ebene sind die **kürzeste**
+        angewandte Frist über alle Mandanten (der älteste Stichtag); je Mandant
+        stehen die eigenen Fristen, Stichtage und Zählerstände in `tenants`.
+      required:
+        - dry_run
+        - scope
+        - anchor
+        - purge_delay_days
+        - event_retention_days
+        - delivery_retention_days
+        - event_cutoff
+        - delivery_cutoff
+        - marked_events
+        - marked_delivery_runs
+        - marked_attempts
+        - purged_events
+        - purged_delivery_runs
+        - purged_attempts
+        - tenants
+        - executed_at
       properties:
         dry_run:
           type: boolean
+        scope:
+          type: string
+          enum: [all]
+          description: >-
+            **Geltungsbereich** der Durchsetzung: **alle** Mandanten. Die
+            Operation ist mandantenübergreifend (FR-004, AC-016-5).
+        anchor:
+          type: string
+          enum: [last_attempt_at]
+          description: >-
+            **Anker je Datensatz**: der **letzte Zustellversuch**. Für
+            Ereignisse **ohne** Versuch gilt der Annahmezeitpunkt
+            (`accepted_at`) (ADR-012 §2, F-02).
+        purge_delay_days:
+          type: integer
+          format: int32
+          minimum: 0
+          description: >-
+            **Karenzzeit** zwischen der Stufe „Markieren" und der Stufe
+            „Purge" in Tagen. Sie kommt aus der Betriebskonfiguration
+            (`echobox.retention.purge-delay`) und ist **kein** im Vertrag
+            verdrahteter Wert; der Vertrag weist sie aus, damit ein Aufrufer
+            die Frist einordnen kann (ADR-012 §3).
         event_retention_days:
           type: integer
           format: int32
           nullable: true
           minimum: 1
           description: >-
-            Angewandte Frist für Ereignisse in Tagen. Vorgabewert **30**
-            (bestätigt am 2026-10-21, F-02). `null`, wenn für diesen Mandanten
-            keine Frist gesetzt ist — dann wird nichts gelöscht.
+            Angewandte Frist für Ereignisse in Tagen — die **kürzeste** über alle
+            Mandanten. Vorgabewert **30** (bestätigt am 2026-10-21, F-02).
+            `null`, wenn für **keinen** Mandanten eine Frist wirksam ist — dann
+            wird nichts gelöscht.
         delivery_retention_days:
           type: integer
           format: int32
           nullable: true
           minimum: 1
           description: >-
-            Angewandte Frist für Zustellläufe, Versuche und Zähler in Tagen.
-            Vorgabewert **30** (F-02). `null`, wenn keine Frist gesetzt ist.
+            Angewandte Frist für Zustellläufe, Versuche und Zähler in Tagen —
+            die **kürzeste** über alle Mandanten. Vorgabewert **30** (F-02).
+            `null`, wenn keine Frist wirksam ist.
         event_cutoff:
           type: string
           format: date-time
           nullable: true
           description: >-
-            Stichtag für Ereignisse: Datensätze **vor** diesem Zeitpunkt
-            werden gelöscht. `null`, wenn keine Frist gesetzt ist.
+            Stichtag für Ereignisse: Datensätze, deren **Anker** **vor** diesem
+            Zeitpunkt liegt, werden markiert. `null`, wenn keine Frist wirksam
+            ist.
         delivery_cutoff:
           type: string
           format: date-time
           nullable: true
           description: >-
-            Stichtag für Zustellläufe und Versuche: Datensätze **vor** diesem
-            Zeitpunkt werden gelöscht. `null`, wenn keine Frist gesetzt ist.
-        deleted_events:
+            Stichtag für Zustellläufe und Versuche: Datensätze, deren **Anker**
+            **vor** diesem Zeitpunkt liegt, werden markiert. `null`, wenn keine
+            Frist wirksam ist.
+        marked_events:
           type: integer
           format: int64
           minimum: 0
-        deleted_delivery_runs:
+          description: "Ereignisse, die in diesem Durchlauf **markiert** wurden (`deleted_at` gesetzt)."
+        marked_delivery_runs:
           type: integer
           format: int64
           minimum: 0
-        deleted_attempts:
+          description: "Zustellläufe, die in diesem Durchlauf **markiert** wurden."
+        marked_attempts:
           type: integer
           format: int64
           minimum: 0
+          description: >-
+            Versuche, die mit ihrem Zustelllauf **markiert** wurden — sie
+            verlieren mit ihm die Sichtbarkeit.
+        purged_events:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            Datensätze, die in diesem Durchlauf **physisch gelöscht** wurden
+            (Stufe „Purge", nach der Karenzzeit).
+        purged_delivery_runs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "Zustellläufe, die in diesem Durchlauf **physisch gelöscht** wurden."
+        purged_attempts:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "Versuche, die in diesem Durchlauf **physisch gelöscht** wurden."
+        tenants:
+          type: array
+          description: >-
+            Je Mandant die **angewandten** Fristen, Stichtage und Zählerstände.
+            `organisation_id` steht **im Datensatz**, damit der Client die
+            Herkunft erkennt (AC-016-1).
+          items:
+            $ref: "#/components/schemas/TenantRetention"
         executed_at:
           type: string
           format: date-time
+
+    TenantRetention:
+      type: object
+      description: >-
+        Die Aufbewahrung **eines** Mandanten: die angewandten Fristen, die
+        zugehörigen Stichtage und die Zählerstände je Stufe.
+      required:
+        - organisation_id
+        - event_retention_days
+        - delivery_retention_days
+        - event_cutoff
+        - delivery_cutoff
+        - marked_events
+        - marked_delivery_runs
+        - marked_attempts
+        - purged_events
+        - purged_delivery_runs
+        - purged_attempts
+      properties:
+        organisation_id:
+          type: string
+          description: "Mandant — **im Datensatz**, damit der Client die Herkunft erkennt (AC-016-1)."
+        event_retention_days:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 1
+          description: "Angewandte Frist für Ereignisse in Tagen. `null` = kein Override; es gilt die Vorgabe (30 Tage, F-02)."
+        delivery_retention_days:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 1
+          description: "Angewandte Frist für Zustellprotokolle in Tagen. `null` = kein Override; es gilt die Vorgabe (30 Tage, F-02)."
+        event_cutoff:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Stichtag für Ereignisse (Anker `last_attempt_at`). `null`, wenn keine Frist wirksam ist."
+        delivery_cutoff:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Stichtag für Zustellläufe und Versuche (Anker `last_attempt_at`). `null`, wenn keine Frist wirksam ist."
+        marked_events:
+          type: integer
+          format: int64
+          minimum: 0
+        marked_delivery_runs:
+          type: integer
+          format: int64
+          minimum: 0
+        marked_attempts:
+          type: integer
+          format: int64
+          minimum: 0
+        purged_events:
+          type: integer
+          format: int64
+          minimum: 0
+        purged_delivery_runs:
+          type: integer
+          format: int64
+          minimum: 0
+        purged_attempts:
+          type: integer
+          format: int64
+          minimum: 0
 
     # ------------------------------------------------------------------ Betrieb
     HealthStatus:
@@ -2751,16 +3169,18 @@ x-requirement-coverage:
 x-contract-rules:
   defaults:
     - "Die Werte F-01 bis F-04 (siehe Abschnitt „Vorgabewerte“ in `info.description`) sind **Vorgaben der Betriebskonfiguration**, keine harten API-Grenzwerte."
-    - "F-01: 60 Zustellversuche je Endpunkt und Minute, Strategie `delay`; je Endpunkt überschreibbar."
-    - "F-02: 30 Tage, getrennt für Ereignisse und Zustellprotokolle, Fristbeginn = letzter Versuch; je Mandant überschreibbar."
+    - "F-01: 60 Zustellversuche je Endpunkt und Minute, Strategie `delay`; je Endpunkt überschreibbar. **Zwei Zustände:** `limit_value IS NULL` = kein Override (⇒ 60), `limit_value = 0` = abgeschaltet (⇒ `limit: 0`, `limited: false`)."
+    - "F-02: 30 Tage, getrennt für Ereignisse und Zustellprotokolle; Fristbeginn **je Datensatz** = letzter Versuch (`last_attempt_at`, für Ereignisse ohne Versuch `accepted_at`); je Mandant überschreibbar. Zwei Stufen: **markieren**, dann **Purge** nach der Karenzzeit (`purge_delay_days`). Das Löschen eines Ereignisses **nimmt seine Zustellläufe und Versuche mit**."
     - "F-03: Replay nur für den Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` erhalten HTTP 403."
-    - "F-04: 8 Versuche, Basis 1 Minute, Verdopplung, Deckel 60 Minuten, Streuung ± 20 %."
+    - "F-04: 8 Versuche, Basis 1 Minute, Verdopplung, Deckel 60 Minuten, Streuung ± 20 % — Gesamtfenster bis zum letzten Versuch **≈ 2 Stunden**."
   tenant:
     - "Der Mandant stammt ausschließlich aus dem JWT-Claim `organisation_id` (D-01)."
-    - "Ein Mandantenparameter im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."
+    - "Ein Mandantenparameter (`organisation_id`) im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."
     - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02)."
+    - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002), **nicht** über eine Rolle mit `BYPASSRLS`. In den mandantenübergreifenden Antworten ist `organisation_id` **im Datensatz** gefüllt."
   errors:
     - "Alle Fehlerantworten nutzen das Schema `Problem` mit `Content-Type: application/problem+json`."
+    - "**400** = *syntaktisch* fehlerhaft (kein gültiges JSON). **422** = *semantisch* ungültig: jede Abweichung vom Schema des Request-Bodys (unbekanntes Feld, falscher Typ, fehlendes Pflichtfeld) ist `validation_failed` mit einem `violations`-Eintrag; ein **Mandantenparameter** ist `tenant_parameter_rejected`."
     - "500-Antworten enthalten weder Stacktrace noch interne Kennungen."
   idempotency:
     - "Der Idempotenzschlüssel gilt je (Mandant, Schlüssel) (D-05)."

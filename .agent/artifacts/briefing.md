@@ -1,14 +1,16 @@
-# Steckbrief — Schritt 1 (Rücksprung: PRD nachziehen)
+# Steckbrief — Schritt 2 (Rücksprung: Vertragsdefekte und Schema korrigieren)
 
 > Einstiegspunkt für den Rollen-Agenten. Ein **Zeiger**: Status, Commit, Festlegungen,
 > offene Punkte. **Die Dateien sind die Wahrheit, nicht dieser Steckbrief.**
 
 | Feld | Wert |
 |---|---|
-| Stand | Rücksprung aus Schritt 4 — Commit `bdb03d3` `docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen` |
-| Dieser Schritt | 1 (Anforderungserhebung) erneut — **ausschliesslich zur Nachpflege des PRD** (Befund N-09, Entscheidung E-06) |
-| Nächster Schritt danach | 2 (Konzept & Architektur) — Rücksprung, behebt 22 Vertragsdefekte, Schema und ADRs |
-| Vertrag | `docs/api/openapi.yaml` — Entwurf, wird im Rücksprung zu Schritt 2 korrigiert und **nach Schritt 4 eingefroren** |
+| Stand | Rücksprung aus Schritt 4 — Commit `bdb03d3` `docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen`; Schritt 1 nachgezogen in `cc67445` |
+| Dieser Schritt | 2 (Konzept & Architektur) erneut — **22 Vertragsdefekte, 1 Architekturbruch, 2 Schema-Befunde** |
+| Nächster Schritt danach | 3 (Simplify) und 4 (Stresstest) — **erst nach Schritt 4 wird der Vertrag eingefroren** |
+| Vertrag | `docs/api/openapi.yaml` — 17 Operationen, 23 Stories / 101 AKs / 24 Anforderungen; **Entwurf, noch nicht eingefroren** |
+| Schema | `.agent/knowledge/schema.sql` (kanonisch) + Spiegel `docs/architecture/schema.sql` — **beide byte-identisch ändern** |
+| Stack | `.agent/knowledge/stack.md` — entschieden (ADR-001) |
 | Codebasis | `src/` existiert nicht — Neuaufbau |
 
 ## Was du lesen musst — und sonst nichts
@@ -17,83 +19,59 @@
 |---|---|---|
 | 1 | `AGENTS.md` | Regeln, Gates, Folder Ownership, Commit Convention |
 | 2 | `.agent/PHASES.md` | Schritt → Instanz → Agent → Skill → Gate; Commit pro Schritt |
-| 3 | `.agent/workflows/01-requirements.md` | dieser Schritt, Output-Liste, Commit-Befehl |
-| 4 | `.agent/prompts/orchestrator/01_orchestrator_requirements.md` | dein Systemprompt |
-| 5 | `docs/requirements/PRD.md` | das PRD, das nachgezogen wird |
-| 6 | `.agent/artifacts/stress-test.md` | Abschnitt zu **N-09** (Befund) und **E-06** (Entscheidung) |
-| 7 | `docs/adr/ADR-008-retry-backoff-streuung.md`, `ADR-010-rate-limit.md`, `ADR-012-aufbewahrung.md`, `ADR-015-fehlersemantik-tenant-rollen.md` | die ADRs tragen die entschiedenen Werte — Quelle fuer die PRD-Aussagen |
-| 8 | `docs/requirements/traceability_matrix.json` | Offene-Punkte-Eintraege O-01/O-02/O-03/O-06 |
+| 3 | `.agent/workflows/02-architecture.md` | dieser Schritt, Output-Liste, Commit-Befehl |
+| 4 | `.agent/prompts/orchestrator/02_orchestrator_architecture.md` | dein Systemprompt |
+| 5 | `.agent/artifacts/stress-test.md` | **der Stresstest** — Abschnitte 2 (Befunde N-01…N-12), 3 (S-01…S-23), 5 (V-01…V-22), 8 (E-01…E-09) |
+| 6 | `docs/api/openapi.yaml` | der Vertrag, der korrigiert wird |
+| 7 | `docs/architecture/` | architecture.md, domain_model.md, diagrams/, GLOSSARY.md, folder-structure.md, schema.sql |
+| 8 | `docs/adr/ADR-*.md` | die Entscheidungen, die nachgezogen werden |
+| 9 | `.agent/knowledge/schema.sql`, `.agent/knowledge/stack.md` | kanonisches Schema, Stack |
 
-Bei Bedarf: `docs/requirements/stories/US-0xx.json` (Story-Dateien bleiben unveraendert).
+Bei Bedarf: `docs/requirements/PRD.md`, `docs/requirements/stories/US-0xx.json`.
 
 ## Entscheidungen, die gelten
 
-| ID | Entscheidung | Stand |
+| ID | Entscheidung | Wirkung in diesem Schritt |
 |---|---|---|
-| **F-01** | O-01 Rate-Limit: **60 Versuche je Endpunkt und Minute**, Strategie `delay` (verschieben) | entschieden (Gate 1) |
-| **F-02** | O-02 Aufbewahrung: **30 Tage, getrennt konfigurierbar** fuer Ereignisse und Zustellprotokolle, Fristbeginn = **letzter Versuch** | entschieden (Gate 1) |
-| **F-03** | O-03 Replay-Berechtigung: **nur der Empfänger-Admin des Endpunkts** (Entwickler und Betrieb: 403) | entschieden (Gate 1) |
-| **F-04** | O-06 Wiederholung: **8 Versuche, Basis 1 Minute, ×2, Deckel 60 Minuten, Streuung ±20 %** (Gesamtfenster ≈ 2 Stunden) | entschieden (Gate 1) |
-| E-01 | Mandantenuebergreifende Sicht des Service-Admins ueber **SECURITY DEFINER-Funktionen** | entschieden (Gate 1-Nachfrage) |
-| E-08 | 3xx im ausgehenden Vertrag: **kein Wiederholen**, Status `client_error`; Redirects werden **nicht** gefolgt | entschieden |
-| E-09 | Replay auf denselben aufgegebenen Lauf: **einmal**, danach **409** | entschieden |
-| D-01…D-15 | Festlegungen der Anforderungserhebung | bestaetigt |
+| D-01…D-15 | Festlegungen der Anforderungserhebung | bestaetigt, nicht neu aufrollen |
+| ADR-001…ADR-018 | Architekturentscheidungen | bestaetigt, nicht neu aufrollen |
+| F-01 | O-01 Rate-Limit: 60 Versuche je Endpunkt und Minute, Strategie `delay` | V-03, E-02 |
+| F-02 | O-02 Aufbewahrung: 30 Tage, getrennt fuer Ereignisse und Protokolle, ab letztem Versuch | V-02, E-04 |
+| F-03 | O-03 Replay: nur Empfaenger-Admin | V-14, V-18 |
+| F-04 | O-06 Wiederholung: 8 Versuche, 1 min, ×2, 60 min Deckel, ±20 % | V-16, E-03 |
+| **E-01** | Mandantenuebergreifende Sicht des Service-Admins ueber **SECURITY DEFINER-Funktionen** (kein BYPASSRLS, keine Mandantenliste) | S-01, ADR-002, Schema, Vertrag |
+| **E-02** | Wirksamer Rate-Limit-Grenzwert: **zwei Zustaende** — `limit_value IS NULL` = kein Override (60/min gilt), `0` = abgeschaltet. Die Spalte `enabled` **entfaellt** | S-04, N-08, ADR-010, Schema, Vertrag |
+| **E-03** | ADR-008: Gesamtfenster **≈ 2 Stunden** (nicht 4), Fenster in den Vertrag | V-16, ADR-008, Vertrag |
+| **E-04** | **Zwei** Aufbewahrungsfristen; das Loeschen eines Ereignisses **nimmt seine Laeufe und Versuche mit** — im Vertrag benennen | V-02, ADR-012, Vertrag |
+| **E-08** | 3xx: **kein Wiederholen**, Status `client_error`; Redirects werden **nicht** gefolgt | V-12, ADR-009, Vertrag |
+| **E-09** | Replay auf denselben aufgegebenen Lauf **einmal**, danach **409** | V-18, ADR-006/ADR-015, Schema (z. B. UNIQUE), Vertrag |
+
+E-05 (Klassenname bleibt, Semantik im Kommentar), E-06 (PRD nachgezogen — erledigt in
+`cc67445`), E-07 (Testmatrix aus den 101 AKs in Schritt 5) sind entschieden und brauchen
+keine Arbeit in diesem Schritt.
 
 ## Offene Punkte
 
 | ID | Thema | Owner | Gate |
 |---|---|---|---|
-| O-04 | Verschluesselung im Ruhezustand — fachliche Pflichtfrage (NFR-004 sagt ja, Abschnitt 13 der Anforderung fragt) | Fachbereich + Datenschutz | Gate 2 |
-| O-05 | Vertrag ueber die Auftragsverarbeitung (AVV bei Fremddaten) | Fachbereich + Recht | Gate 2 |
+| O-04 | Verschluesselung im Ruhezustand — fachliche Pflichtfrage | Fachbereich + Datenschutz | Gate 2 |
+| O-05 | AVV bei Fremddaten | Fachbereich + Recht | Gate 2 |
 
-## Dein Auftrag — eng begrenzt
-Der Rucksprung dient **einer** Sache: das PRD an den entschiedenen Stand nachziehen, damit
-die Spezifikation sich nicht selbst widerspricht (Befund N-09).
-1. **PRD aktualisieren** (`docs/requirements/PRD.md`): die Stellen, die O-01/O-02/O-03/O-06 noch
-   als offen fuehren — Zeile zur Rolle „Entwickler/Empfänger-Admin" (Berechtigung Replay),
-   FR-033 (zulässige Rate), die Abschnitt-13-Liste der offenen Punkte, MoSCoW — auf den
-   entschiedenen Stand bringen und mit **F-01…F-04** bzw. E-01/E-08/E-09 kennzeichnen.
-2. **Offene-Punkte-Liste** im PRD: O-01/O-02/O-03/O-06 streichen bzw. als „entschieden am
-   2026-10-21 (F-0x)" ausweisen; **O-04 und O-05 bleiben offen** (Gate 2).
-3. **Traceability-Matrix** `docs/requirements/traceability_matrix.json`: die Eintraege zu
-   O-01/O-02/O-03/O-06 entsprechend nachziehen (entschieden statt offen) — **nur** diese
-   Felder, sonst nichts an der Matrix.
-4. **Story-Dateien** `docs/requirements/stories/US-0xx.json`: **nicht** aendern. Die
-   Akzeptanzkriterien bleiben unveraendert; die Stories nennen ihre offenen Punkte ueber
-   `open_points` — dort, wo eine Story O-01/O-02/O-03/O-06 nennt, ersetze den Eintrag durch
-   den jeweiligen F-Wert, **ohne** Akzeptanzkriterium oder ID zu aendern.
-5. **Feature-Dateien** `docs/requirements/features/US-0xx.feature`: **nicht** aendern.
-6. **Keine** neuen Anforderungen, keine **neuen** Akzeptanzkriterien, keine neuen Stories.
-   Der Umfang bleibt 23 Stories / 101 AKs / 24 Anforderungen — `python3 .agent/tools/traceability_check.py`
-   muss gruen bleiben.
+## Was du in diesem Schritt **nicht** tust
+- **Keinen Anwendungscode.** `src/` bleibt unberuehrt.
+- **Den Vertrag noch nicht einfrieren** — der Freeze kommt nach Schritt 4.
+- **Keine Änderung an `docs/requirements/`** (Ergebnisbereich Schritt 1, in `cc67445` erledigt).
+- **Keine Änderung an `docs/Anforderung.md`.**
+- **Keine Schemadatei ohne die andere.** Jede Änderung an `.agent/knowledge/schema.sql`
+  braucht die byte-identische Änderung an `docs/architecture/schema.sql` **im selben Schritt**
+  (ADR-016, Spiegel-Regel).
+- **Keine Erweiterung des Umfangs.** 17 Operationen, 23 Stories, 101 AKs, 24 Anforderungen —
+  du **behebst** Defekte, du fuegst nichts hinzu.
 
-## Was du **nicht** tust
-- **Keine Anwendungscode-Dateien.** `src/` bleibt unberuehrt.
-- **Keine Änderung an `docs/api/`, `docs/adr/`, `docs/architecture/`, `.agent/knowledge/`,
-  `docs/Anforderung.md`** — das gehoert Schritt 2.
-- **Keine Gherkin-Szenarien ergaenzen** (Befund N-10 / E-07 ist so entschieden: die Testmatrix
-  in Schritt 5 entsteht direkt aus den 101 Akzeptanzkriterien, die Szenarien bleiben ein
-  lesbarer Smoke-Layer). Das ist **kein** Lueckenbefund fuer dich.
-- **Keinen Namenumbau** der Traceability-Matrix (E-05 ist so entschieden: Name bleibt,
-  Semantik wird im Kommentar festgeschrieben).
-- **Keine Festlegung von O-04/O-05.**
-- **No output commands.** Kein `echo`, `printf`, `pwd`, kein `cat` zur Orientierung.
-- Kein `git push`.
+## Werkzeuge
 
-## Commit — genau einer, Befehl aus der Workflow-Datei
-```bash
-mkdir -p docs/requirements/ .agent/artifacts/
-git reset -q
-git add -A -- docs/requirements/ .agent/artifacts/
-git commit -m "docs(sdlc-1): PRD und Traceability auf den entschiedenen Stand nachgezogen" \
-  -m "Schritt 1 - Anforderungserhebung (Ruecksprung) | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/"
-```
-
-## Antwortformat — genau so, die drei Zeilen ZUERST
-Danach hoechstens zwei optionalen Zeilen (Artefaktpfade, Pruefergebnis). Keine Herleitung, keine Auszuege.
-
-```
-STATUS: done | done_with_open_points | blocked
-COMMIT: <hash> <subject>
-OFFENE PUNKTE: <kurz, mit O-xx> | -
-```
+| Zweck | Kommando |
+|---|---|
+| Konsistenz der Traceability-Kette | `python3 .agent/tools/traceability_check.py` |
+| Schema-Spiegel | `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` |
+| Schema anwenden und belegen | PostgreSQL 16 (Testcontainers oder lokal) — RLS-Verhalten und neue Objekte nachweisen |

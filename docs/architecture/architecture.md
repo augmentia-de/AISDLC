@@ -163,9 +163,11 @@ Der Vertrag gegenüber dem Empfänger ist in `docs/api/openapi.yaml` unter
 
 Zwei Festlegungen, die man leicht übersieht:
 
-- **Der Request-Body sind exakt die Nutzlastbytes**, keine Hülle. Grund: die
-  zugestellten Bytes müssen byteidentisch mit den eingelieferten sein
-  (AC-007-3), und die Signatur gilt über genau diese Bytes.
+- **Der Request-Body sind die Nutzlastbytes**, keine Hülle. Grund: die
+  zugestellten Bytes müssen byteidentisch mit dem sein, **was das Ereignis
+  trägt** (AC-007-3) — bei Einlieferung als `payload` die **kanonisch
+  materialisierten** Bytes (RFC 8785), bei `payload_base64` die exakt
+  gelieferten. Die Signatur gilt über genau diese Bytes.
 - **at-least-once.** Der Empfänger erkennt Dubletten an gleicher Ereignis-ID
   und gleicher Zustelllauf-ID bei unterschiedlicher Versuchs-ID.
 
@@ -174,10 +176,12 @@ Zwei Festlegungen, die man leicht übersieht:
 | Regel | Vorgabe | Wo |
 |---|---|---|
 | Wiederholen bei | 5xx, 408, 429, Netzwerkfehler | ADR-008 |
-| Aufgeben bei | 2xx (fertig), 410 und übrige 4xx (`rejected`) | ADR-008 |
+| Aufgeben bei | 2xx (fertig), 410 und übrige 4xx sowie **3xx** (`rejected`, `client_error`; Redirects werden **nicht** gefolgt) | ADR-008, ADR-009 |
 | Versuche | **8** (Vorgabe, F-04), je Lauf eingefroren | ADR-008 |
 | Abstand | Basis **1 min**, ×2, Deckel **60 min**, Streuung **± 20 %** (F-04) | ADR-008 |
+| Gesamtfenster | **≈ 2 Stunden** bis zum letzten Versuch (7 Wartezeiten = 123 min, ± 20 % Streuung) | ADR-008 |
 | Zeitlimit je Versuch | 5 s Verbindung + 10 s Lese = 15 s < 30 s; ein Timeout ist ein Fehlversuch | ADR-008 |
+| Replay | **einmal** je aufgegebenem Zustelllauf; danach 409 (auf Datenbankebene erzwiesen) | ADR-006, ADR-015 |
 
 ---
 
@@ -189,12 +193,13 @@ Konsequenzen stehen in der genannten ADR:
 | Thema | Festlegung | ADR |
 |---|---|---|
 | **Mandantentrennung** | Drei Ebenen, die sichern: Vertrag (Mandant aus dem JWT, Fremdes ⇒ 404), Anwendung (jede Abfrage trägt den Mandanten), **Datenbank** (RLS auf jeder fachlichen Tabelle, `fail-closed`, keine Rolle mit `BYPASSRLS`) | ADR-002 |
+| **Mandantenübergreifende Sicht** | Der `service_admin` sieht alle Mandanten — über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** des Schemas (`app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`, `app.enforce_retention_cross_tenant`), **nicht** über eine Rolle mit `BYPASSRLS`. Sie liefern nur die benötigte Projektion (kein Nutzlastklartext, keine Chiffre, keine Secrets), sind `fail-closed` ohne die Freigabe `app.cross_tenant = 'service_admin'` und nur der Applikationsrolle freigegeben. | ADR-002 §7, ADR-015 |
 | **Mandant und Transaktion** | `app.set_tenant(...)` wird **innerhalb** der Transaktion ausgeführt, die auch liest — nie in einem Servlet-Filter, nie beim Anlegen einer Pool-Verbindung, nie nach einem Commit. Der Wert ist transaktionslokal (`set_config(…, is_local = true)`); steht er nicht in derselben Transaktion, liefert `current_setting(…, true)` `NULL` und **jede** Abfrage liefert 0 Zeilen (fail-closed). Jeder Repository-Zugriff braucht deshalb eine Transaktion, die den Mandanten gesetzt hat. | ADR-002 §2-3 |
-| **Mandant im Worker** | Der Worker ermittelt seine Mandanten über `app.tenant_ids_for_worker()` (nur Kennungen, keine Nutzlast) und arbeitet **mandantenweise**: erst `set_tenant`, dann beanspruchen. Ohne diesen Schritt liefert die Beanspruchung 0 Zeilen. | ADR-002 §5, ADR-006 §3 |
+| **Mandant im Worker** | Der Worker ermittelt seine Mandanten über `app.tenant_ids_for_worker()` (nur Kennungen, keine Nutzlast) und arbeitet **mandantenweise**: Scheduler → Mandantenermittlung → je Mandant `set_tenant` → beanspruchen; je Mandant **eine eigene Transaktion**. Ohne diesen Schritt liefert die Beanspruchung 0 Zeilen — es würde nichts zugestellt. | ADR-002 §5, ADR-006 §3 |
 | **Verschlüsselung im Ruhezustand** | AEAD **AES-256-GCM** für Nutzlast und Endpunkt-Secret; Schlüssel aus dem Secret-Store, **außerhalb** der Datenbank; entschlüsselt **nur** zur Zustellung; Suche ausschließlich über Metadaten | ADR-003, ADR-017 |
 | **Idempotenz** | Je **(Mandant, Schlüssel)**; gleiche Nutzlast ⇒ 202 mit erster ID; abweichende Nutzlast ⇒ 409; Vergleich über gezielten HMAC | ADR-007 |
-| **Endpunkt-Begrenzung** | **60 Versuche je Endpunkt und Minute**, Strategie `delay` (F-01) — verschieben, nicht verwerfen; je Endpunkt überschreibbar | ADR-010 |
-| **Aufbewahrung** | **30 Tage**, getrennt für Ereignisse und Zustellprotokolle, Fristbeginn = letzter Versuch (F-02); markieren, dann Purge; `dry_run` als Default | ADR-012 |
+| **Endpunkt-Begrenzung** | **60 Versuche je Endpunkt und Minute**, Strategie `delay` (F-01) — verschieben, nicht verwerfen; je Endpunkt überschreibbar. **Zwei Zustände:** `limit_value IS NULL` = kein Override (⇒ 60), `limit_value = 0` = abgeschaltet; im Vertrag `rate_limit.limit` (immer der wirksame Wert) + `rate_limit.limited` | ADR-010 |
+| **Aufbewahrung** | **30 Tage**, getrennt für Ereignisse und Zustellprotokolle, Fristbeginn **je Datensatz** = letzter Versuch (F-02); **Anker** je Datenart, zwei Stufen (markieren, dann Purge nach der **Karenzzeit**), **Kaskade** (das Löschen eines Ereignisses nimmt seine Läufe und Versuche mit), Geltungsbereich **alle Mandanten**; `dry_run` als Default | ADR-012 |
 | **Betrieb** | Zwei Rollen `api` und `worker` aus einem Image, nicht-privilegiert, keine Secrets im Image, Staging/Produktion getrennt; `/health` + `/health/ready` ohne Authentifizierung | ADR-013 |
 | **Kennzahlen** | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false`, wenn keine Daten im Fenster vorliegen | ADR-011 |
 | **Oberfläche** | Next.js 15 App Router; Barrierefreiheit als **Bauregel** (native Bedienelemente, echte `<table>`, Status nie nur über Farbe, axe als CI-Gate) | ADR-018 |

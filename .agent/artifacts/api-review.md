@@ -1,8 +1,13 @@
 # API-Review — EchoBox
 
-> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung aus Schritt 4)** ·
+> Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Geprüfter Vertrag: `docs/api/openapi.yaml` (OpenAPI 3.0.3, `info.version` 1.0.0)
 > Vertrag ist ein **Entwurf** — er wird **nach Schritt 4** eingefroren.
+> Die 22 Vertragsdefekte des Stresstests sind in diesem Rücksprung **alle**
+> behoben; die Bilanz steht in `.agent/artifacts/ruecksprung-bilanz.md`.
+> Die früheren Befund-IDs dieses Reviews heißen jetzt **A-01…A-10**, damit sie
+> nicht mit den Defekt-IDs **V-01…V-22** des Stresstests verwechselt werden.
 
 ---
 
@@ -108,16 +113,31 @@ Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 
 | ID | Befund | Behandlung | Status |
 |---|---|---|---|
-| V-01 | Die **Nutzlast** als JSON-Wert vs. byte-exakte Bytes | Beides angeboten: `payload` (JSON, kanonisch materialisiert) und `payload_base64` (byte-exakt). Genau eines ist Pflicht. | entschieden (ADR-008, AC-007-3) |
-| V-02 | `max_attempts` ohne Wert | Vorgabewert **8** (F-04), je Lauf eingefroren; `null` = keine Grenze gesetzt | **entschieden (F-04)** |
-| V-03 | Rate-Limit-Grenzwert | Vorgabewert **60/Endpunkt/Minute**, Strategie `delay` (F-01), je Endpunkt überschreibbar | **entschieden (F-01)** |
-| V-04 | Aufbewahrungsfrist | **zwei** Fristen, Vorgabewert je **30 Tage** ab dem letzten Versuch (F-02); die Antwort weist beide Fristen und Stichtage aus | **entschieden (F-02)** |
-| V-05 | Replay-Berechtigung | 403 für alle außer dem Empfänger-Admin des Endpunkts | **entschieden (F-03)** |
-| V-06 | Ob die Verschlüsselung Pflicht ist | Der Vertrag gibt die Nutzlast nie aus — unabhängig von der Antwort des Fachbereichs bleibt die API gleich | teilweise (ADR-003); fachlich offen (O-04) |
-| V-07 | Ablehnungssignal | HTTP 410 + Header + Body-Format im Vertrag **festgeschrieben** | entschieden (ADR-009) |
-| V-08 | Zeitlimit je Versuch | 5 s + 10 s, nicht Teil des eingehenden Vertrags, sondern des ausgehenden | entschieden (ADR-008, O-07) |
-| V-09 | **Eine** Frist im Aufbewahrungs-Body, aber **zwei** Fristen in der Wirklichkeit | Antwort auf zwei Fristen und zwei Stichtage umgestellt (`event_retention_days`, `delivery_retention_days`, `event_cutoff`, `delivery_cutoff`) | entschieden in Schritt 3 (F-02) |
-| V-10 | Ereignisliste ohne Abnehmer (`listEvents`) | entfernt — kein Abnehmer, kein Zweck | entschieden in Schritt 3 |
+| A-01 | Die **Nutzlast** als JSON-Wert vs. byte-exakte Bytes | Beides angeboten: `payload` (JSON, kanonisch materialisiert) und `payload_base64` (byte-exakt). Genau eines ist Pflicht. | entschieden (ADR-008, AC-007-3) |
+| A-02 | `max_attempts` ohne Wert | Vorgabewert **8** (F-04), je Lauf eingefroren; `null` = keine Grenze gesetzt | **entschieden (F-04)** |
+| A-03 | Rate-Limit-Grenzwert | Vorgabewert **60/Endpunkt/Minute**, Strategie `delay` (F-01), je Endpunkt überschreibbar | **entschieden (F-01)** |
+| A-04 | Aufbewahrungsfrist | **zwei** Fristen, Vorgabewert je **30 Tage** ab dem letzten Versuch (F-02); die Antwort weist beide Fristen und Stichtage aus | **entschieden (F-02)** |
+| A-05 | Replay-Berechtigung | 403 für alle außer dem Empfänger-Admin des Endpunkts | **entschieden (F-03)** |
+| A-06 | Ob die Verschlüsselung Pflicht ist | Der Vertrag gibt die Nutzlast nie aus — unabhängig von der Antwort des Fachbereichs bleibt die API gleich | teilweise (ADR-003); fachlich offen (O-04) |
+| A-07 | Ablehnungssignal | HTTP 410 + Header + Body-Format im Vertrag **festgeschrieben** | entschieden (ADR-009) |
+| A-08 | Zeitlimit je Versuch | 5 s + 10 s, nicht Teil des eingehenden Vertrags, sondern des ausgehenden | entschieden (ADR-008, O-07) |
+| A-09 | **Eine** Frist im Aufbewahrungs-Body, aber **zwei** Fristen in der Wirklichkeit | Antwort auf zwei Fristen und zwei Stichtage umgestellt (`event_retention_days`, `delivery_retention_days`, `event_cutoff`, `delivery_cutoff`) | entschieden in Schritt 3 (F-02) |
+
+---
+
+## 4a. Stand nach dem Rücksprung aus Schritt 4 (2026-10-21)
+
+| Thema | Stand |
+|---|---|
+| **22 Vertragsdefekte** (V-01…V-22 des Stresstests) | **alle behoben** — Bilanz: `.agent/artifacts/ruecksprung-bilanz.md` §1 |
+| **S-01** — `service_admin` sieht alle Mandanten | **behoben** über drei `SECURITY DEFINER`-Eigentümerfunktionen (ADR-002 §7); `organisation_id` ist in den mandantenübergreifenden Antworten **im Datensatz** gefüllt |
+| **Rate-Limit** | `rate_limit.limit` = **immer** der wirksame Grenzwert (Vorgabe 60); `rate_limit.limited: false` ⇒ abgeschaltet (`limit: 0`). `null` ist als Grenzwert **ausgeschlossen** |
+| **Aufbewahrung** | Anker (`last_attempt_at`), zwei Stufen (`marked_*` / `purged_*`), Karenzzeit (`purge_delay_days`), Kaskade und Geltungsbereich (`scope: all`, `tenants[]`) im Vertrag benannt |
+| **Byte-Identität** | „Die zugestellten Bytes sind die **Nutzlastbytes des Ereignisses**“ — bei `payload` kanonisch materialisiert (RFC 8785), bei `payload_base64` exakt geliefert |
+| **3xx** | Zeile in der Ergebnismatrix: kein Wiederholen, `rejected` / `client_error`; Redirects werden **nicht** gefolgt |
+| **Replay** | **einmal** je aufgegebenem Zustelllauf; der zweite ⇒ **409** (auf Datenbankebene erzwiesen) |
+| **Operationen** | **17** — keine neue, keine entfernte |
+| A-10 | Ereignisliste ohne Abnehmer (`listEvents`) | entfernt — kein Abnehmer, kein Zweck | entschieden in Schritt 3 |
 
 ---
 
@@ -135,13 +155,22 @@ Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 | 101 Akzeptanzkriterien im Vertrag auffindbar | **ok** |
 | `x-acceptance-coverage` vollständig (101 Einträge, keine unbekannten, keine Dubletten) | **ok** |
 | 24 Anforderungen im Vertrag auffindbar, `x-requirement-coverage` vollständig | **ok** |
-| `python3 .agent/tools/traceability_check.py` | **grün** |
+| `python3 .agent/tools/traceability_check.py` | **grün** (23 Stories, 101 AKs, 24 Anforderungen) |
+| Statuscode-Matrix: **429** von **keiner** Operation erreichbar | **behoben** — 429 wird von allen 15 authentifizierten Operationen referenziert; die 503 von `/health/ready` benutzt die Komponente `ServiceUnavailable`; **keine** tote Komponente mehr |
+| `tenant_parameter_rejected` im Enum, aber nicht erzeugbar | **behoben** — die 422 trägt zwei Beispiele und ein `oneOf` über `ValidationFailedProblem` und `TenantParameterRejected` |
 
 ---
 
 ## 6. Empfehlung für Schritt 4 (Stresstest)
 
-Der Vertrag ist **stabil und vollständig**, aber bewusst **nicht eingefroren**.
+> **Stand 2026-10-21:** Der Stresstest **ist** gelaufen (`.agent/artifacts/
+> stress-test.md`). Seine 22 Vertragsdefekte und der Architekturbruch S-01 sind
+> im Rücksprung **alle** behoben. Die folgende Liste ist damit **historisch** —
+> sie beschreibt den Auftrag an den Stresstest. Offen für den **zweiten**
+> Stresstest sind die fünf beim Beheben gefundenen Punkte **R-01…R-05**
+> (Bilanz §5) — insbesondere R-03 (nullable `abandoned_at` in der Totenliste).
+
+Der Vertrag war **stabil und vollständig**, aber bewusst **nicht eingefroren**.
 Der Stresstest sollte gezielt prüfen:
 
 1. **Grenzfälle des Idempotenzvergleichs** — zwei Nutzlasten, die sich nur in

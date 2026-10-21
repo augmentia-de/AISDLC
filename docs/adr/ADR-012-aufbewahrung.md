@@ -70,8 +70,21 @@ ist konfigurierbar; ohne gesetzte Frist läuft der Vorgang als **No-Op**.
 3. `events` löschen
 
 `ON DELETE CASCADE` von `delivery_attempts → delivery_runs → events` deckt die
-Kaskade ab; der Service löst sie **explizit** aus, damit die Zähler
-(`deleted_*`) je Stufe stimmen.
+Kaskade ab; der Service löst sie **explizit** aus, damit die Zähler je Stufe
+stimmen.
+
+**Die Kaskade ist Teil der Semantik, nicht nur der Implementierung:** Das
+Löschen eines **Ereignisses** nimmt seine **Zustellläufe und Versuche mit** —
+auch wenn die Protokollfrist für sie noch nicht abgelaufen ist. Die
+Protokollfrist gilt deshalb nur für Läufe, deren Ereignis **noch steht**
+(E-04). Umgekehrt gilt: das Löschen eines Zustelllaufs nimmt **nicht** sein
+Ereignis mit — die Ereignisfrist gilt unabhängig davon.
+
+**Der Vertrag benennt das ausdrücklich** (`POST /api/v1/retention/enforcement`):
+Anker je Datenart, die beiden Stufen mit getrennten Zählern (`marked_*` /
+`purged_*`), die Karenzzeit (`purge_delay_days`), die Kaskade und den
+Geltungsbereich (`scope: all` — alle Mandanten). Ohne diese Angaben ist
+„älter als die Frist wird gelöscht" **nicht entscheidbar** (S-03, V-02).
 
 ### 5. Durchsetzung
 
@@ -92,7 +105,7 @@ Stichtage und die Zahl der betroffenen Datensätze.
 | Frist Ereignisse | `echobox.retention.event-days` | **30** |
 | Frist Zustellprotokolle | `echobox.retention.delivery-days` | **30** |
 | Bezugspunkt | `echobox.retention.anchor` | **`last_attempt_at`** |
-| Karenzzeit | `echobox.retention.purge-delay` | konfigurierbar |
+| Karenzzeit | `echobox.retention.purge-delay` | konfigurierbar (der Vorgabewert ist **nicht** entschieden) |
 
 - Der Vorgabewert gilt **pro Umgebung**; je Mandant kann `retention_settings`
   beide Fristen überschreiben. `NULL` bedeutet: **kein Override** — es gilt

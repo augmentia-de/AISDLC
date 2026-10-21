@@ -82,8 +82,8 @@
 
 | Datei | Verantwortung |
 |---|---|
-| `delivery/DeliveryWorker.java` | Hintergrundprozess: beansprucht fällige Läufe, plant Wiederholungen, beendet Läufe. |
-| `delivery/DeliveryService.java` | Fachlogik des Zustelllaufs: Zustandsautomat, Replay (neuer Lauf, neue ID, Versuchszahl zurückgesetzt). |
+| `delivery/DeliveryWorker.java` | Hintergrundprozess: arbeitet **mandantenweise** — Scheduler → `app.tenant_ids_for_worker()` → je Mandant `set_tenant` → beanspruchen; je Mandant eine eigene Transaktion. Beansprucht fällige Läufe, plant Wiederholungen, beendet Läufe. |
+| `delivery/DeliveryService.java` | Fachlogik des Zustelllaufs: Zustandsautomat, Replay (neuer Lauf, neue ID, Versuchszahl zurückgesetzt). Ein Vorgängerlauf ist **einmal** replaybar; der zweite Versuch scheitert an `UNIQUE (replay_of)` ⇒ HTTP 409 `delivery_state_conflict`. |
 | `delivery/DeliveryController.java` | REST-Adapter: `POST /deliveries/{id}/replay` (US-013). |
 | `delivery/DeliveryStateMachine.java` | Die Zustandsübergänge des Zustelllaufs — die einzige Stelle, die Zustände ändert. |
 | `delivery/DeliveryDispatcher.java` | Fächer: nimmt einen beanspruchten Lauf, holt Nutzlast, signiert, versendet, wertet aus. |
@@ -110,18 +110,19 @@
 |---|---|
 | `protocol/ProtocolController.java` | REST-Adapter: **Zustellprotokoll** (`GET /deliveries`, `GET /deliveries/{id}`), **Totenliste** und **Aufbewahrung** erzwingen. Der Replay liegt im `delivery`-Modul (Traceability-Matrix, Schritt 1). |
 | `protocol/ProtocolQueryService.java` | Protokollsuche **nur über Metadaten** (D-11), cursor-basiert paginiert. |
-| `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin`. |
+| `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin` — über `app.list_dead_deliveries_cross_tenant` (nur mit `CrossTenantScope`). |
 | `protocol/EndpointMetricsService.java` | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false` ohne Daten (FR-032). |
 | `protocol/MetricsController.java` | REST-Adapter der Kennzahlen. |
-| `protocol/RetentionService.java` | Durchsetzung der Aufbewahrung; zwei Fristen, Vorgabe je 30 Tage ab dem letzten Versuch (D-12, F-02). |
+| `protocol/RetentionService.java` | Durchsetzung der Aufbewahrung — mandantenübergreifend über `app.enforce_retention_cross_tenant` (nur mit `CrossTenantScope`). Zwei Fristen, Vorgabe je 30 Tage ab dem **letzten Versuch** (D-12, F-02); Anker je Datenart, Stufen *markieren* → *Purge* nach der Karenzzeit, Kaskade Ereignis → Läufe → Versuche. |
 
 ### 2.6 `tenant` — Mandantentrennung (US-004, US-022)
 
 | Datei | Verantwortung |
 |---|---|
 | `tenant/TenantContext.java` | Hält `organisation_id` und die Rollen aus dem Token. |
-| `tenant/TenantConnectionInitializer.java` | Setzt `app.set_tenant(...)` **innerhalb** der Transaktion, auf der die Abfrage läuft (AC-022-3). **Transaktionsgebunden, nicht verbindungsgebunden** — siehe die Konvention „Mandant“ in §4. Der Name ist historisch; die Traceability-Matrix (Schritt 1) nennt ihn so. |
+| `tenant/TenantConnectionInitializer.java` | Setzt `app.set_tenant(...)` **innerhalb** der Transaktion, auf der die Abfrage läuft (AC-022-3). **Transaktionsgebunden, nicht verbindungsgebunden** — siehe die Konvention „Mandant“ in §4. Der Name ist historisch; die Traceability-Matrix (Schritt 1) nennt ihn so — die **Semantik** ist transaktionsgebunden und in ADR-002 §3 festgeschrieben. |
 | `tenant/TenantFilter.java` | Liest **nur** das JWT und füllt `TenantContext` (request-scoped). **Kein** Datenbankzugriff, **kein** `set_tenant()` — der Mandant wird erst in der Transaktion gesetzt, die auch liest. |
+| `tenant/CrossTenantScope.java` | Setzt `app.cross_tenant = 'service_admin'` **transaktionslokal**, **nachdem** die JWT-Rolle geprüft ist, und ruft danach die schmalen Eigentümerfunktionen des Schemas auf (`app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`, `app.enforce_retention_cross_tenant`). Ohne diesen Scope liefern die Funktionen **keine** Zeile (fail-closed, ADR-002 §7). **Nur** `service_admin` darf sie benutzen. |
 
 > **Warum der Unterschied entscheidend ist:** `app.set_tenant()` nutzt
 > `set_config(…, is_local = true)` — der Wert gilt **nur innerhalb der

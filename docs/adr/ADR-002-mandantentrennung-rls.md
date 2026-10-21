@@ -24,10 +24,18 @@ fällige Zustellläufe aller Mandanten an. Ihm die Datenbankrolle mit
    `current_setting('app.organisation_id', true)`. Ist die Variable **nicht**
    gesetzt, liefert `current_setting(…, true)` `NULL` → die Policy liefert
    **keine** Zeile. **Fail-closed.**
-3. Der Mandant wird **zu Beginn jeder Transaktion** aus dem Auftragssatz
-   gesetzt: `SELECT app.set_tenant('m-1')`. Die Funktion setzt die Variable
-   transaktionslokal (`set_config(…, is_local = true)`); nach `COMMIT` ist sie
-   zurückgesetzt. Ein Parameter aus dem Request-Body wird **nicht** übernommen.
+3. Der Mandant wird **innerhalb der Transaktion** gesetzt, die auch liest:
+   `SELECT app.set_tenant('m-1')` — **immer vor der ersten Abfrage**, in
+   derselben Transaktion. Die Funktion setzt die Variable transaktionslokal
+   (`set_config(…, is_local = true)`); nach `COMMIT` ist sie zurückgesetzt. Der
+   Kontext ist damit **transaktionsgebunden**, nicht **verbindungsgebunden**:
+   kein Autocommit, kein Zugriff auf `app.*` außerhalb einer solchen
+   Transaktion, kein `REQUIRES_NEW` nach dem Setzen. Ein Connection-Pool
+   ändert daran nichts — ein in einem Servlet-Filter oder beim Anlegen einer
+   Pool-Verbindung gesetzter Wert wäre beim ersten Query entweder
+   zurückgesetzt oder auf einer **anderen** Connection gesetzt; dann liefert
+   `current_setting(…, true)` `NULL` und **jede** Abfrage liefert 0 Zeilen. Ein
+   Parameter aus dem Request-Body wird **nicht** übernommen.
 4. **Keine Rolle hat `BYPASSRLS`.** Der Eigner `echobox_owner` ist `NOLOGIN` und
    wird nur für Migrationen verwendet. `FORCE ROW LEVEL SECURITY` wird bewusst
    **nicht** gesetzt — der Eigner braucht die schmalen `SECURITY DEFINER`-Funktionen.
@@ -38,6 +46,41 @@ fällige Zustellläufe aller Mandanten an. Ihm die Datenbankrolle mit
 6. Im Vertrag wird ein mitgelieferter Mandantenparameter mit **HTTP 422**
    abgelehnt (D-01); fremde Ressourcen werden mit **HTTP 404** beantwortet (D-02),
    damit die Existenz fremder Objekte nicht preisgegeben wird.
+7. **Ausnahme: die mandantenübergreifende Sicht des Service-Admins.** Die
+   Regel „ein Mandant pro Transaktion" gilt für die Regel **nicht**, wo ein
+   Mandant nicht reicht: der `service_admin` muss alle Mandanten sehen
+   (FR-004, AC-004-2, AC-016-1, AC-016-5). Sie wird über **drei schmale
+   Eigentümerfunktionen** im Schema `app` hergestellt — nicht über eine
+   Laufzeitrolle mit `BYPASSRLS`, nicht über eine Mandantenliste, nicht über
+   ein Sonderrecht:
+
+   | Funktion | Operation | Art |
+   |---|---|---|
+   | `app.list_endpoints_cross_tenant(...)` | `GET /api/v1/endpoints` | **Lesend** |
+   | `app.list_dead_deliveries_cross_tenant(...)` | `GET /api/v1/dead-deliveries` | **Lesend** |
+   | `app.enforce_retention_cross_tenant(...)` | `POST /api/v1/retention/enforcement` | **schreibend** (nur `deleted_at` + Purge) |
+
+   Die Regeln:
+
+   - `SECURITY DEFINER`, ausgeführt als `echobox_owner` (NOLOGIN, **kein**
+     `BYPASSRLS`; der Eigner umgeht die RLS nur, weil `FORCE ROW LEVEL
+     SECURITY` bewusst **nicht** gesetzt ist).
+   - `search_path` ist fest verdrahtet (`app, pg_temp`) — kein Aufruf kann eine
+     fremde Funktion einschleusen.
+   - `EXECUTE` ist **nur** der Applikationsrolle `echobox_app` gegeben
+     (`REVOKE … FROM PUBLIC`); der Worker bekommt ihn **nicht**.
+   - **Fail-closed:** ohne `app.cross_tenant = 'service_admin'` (transaktionslokal
+     gesetzt, **nachdem** die JWT-Rolle geprüft ist) liefern alle drei
+     Funktionen **keine** Zeile.
+   - Die Funktionen liefern **nur die jeweils benötigte Projektion** — **kein**
+     Nutzlastklartext, **keine** Chiffre, **keine** Secrets, **keine** Schlüssel.
+   - Die **einzige** schreibende Funktion ist `enforce_retention_cross_tenant`:
+     sie schreibt ausschließlich das Aufbewahrungsfeld `deleted_at` und führt im
+     Purge die dokumentierte Löschung aus. Sie kann **keine** fachlichen Daten
+     anlegen, ändern oder löschen. Es gibt **keinen** allgemeinen
+     Schreibzugriff mandantenübergreifend.
+   - In den mandantenübergreifenden Antworten ist `organisation_id` **im
+     Datensatz** gefüllt, damit der Client die Herkunft erkennt.
 
 ## Konsequenzen
 
@@ -47,8 +90,21 @@ fällige Zustellläufe aller Mandanten an. Ihm die Datenbankrolle mit
   Zugriffsregel für alle Laufzeitrollen.
 - **Negativ:** Jede Transaktion muss den Kontext setzen. Das ist der Preis der
   Trennung und wird durch einen Spring-Interceptor (`TenantFilter`) und einen
-  `TenantConnectionInitializer` automatisiert — der Kontext wird **vor** dem
-  ersten Repository-Zugriff gesetzt.
+  `TenantConnectionInitializer` automatisiert — der Kontext wird **innerhalb
+  der Transaktion** gesetzt, die auch liest, **vor** der ersten Abfrage. Der
+  `TenantFilter` liest **nur** das JWT und füllt einen request-scoped
+  `TenantContext` — **ohne** Datenbankzugriff und **ohne** `set_tenant()`. Der
+  Name des Initializers ist **historisch** (die Traceability-Matrix aus
+  Schritt 1 nennt ihn so); die **Semantik** ist transaktionsgebunden, und sie
+  ist hier festgeschrieben.
+- **Grenze (ehrlich benannt, Ausnahme):** Die mandantenübergreifende Sicht des
+  Service-Admins ist eine **bewusste Ausnahme** von „ein Mandant pro
+  Transaktion". Sie ist so eng zugeschnitten, dass sie nur die drei genannten
+  Operationen betrifft, und sie ist **kein** allgemeiner Mandantenzugriff: die
+  Freigabe an `echobox_app` bedeutet **nicht**, dass `developer` oder
+  `receiver_admin` sie benutzen dürfen — die Rollenprüfung bleibt in der
+  Anwendung, und ohne die Freigabe `app.cross_tenant` liefern die Funktionen
+  nichts.
 - **Negativ:** Der Worker muss Mandanten durchlaufen, statt alle Zeilen in
   einem Lauf zu sehen. Der Aufwand ist gering (die Mandatenliste ist klein);
   der Gewinn ist, dass es keine Rolle mit Sonderrechten gibt.
@@ -81,6 +137,11 @@ Gegen PostgreSQL 16 geprüft:
 | gleicher Idempotenzschlüssel in `m-1` und `m-2` | je ein eigenes Ereignis (Gültigkeitsbereich je Mandant) |
 | `app.tenant_ids_for_worker()` | liefert nur die Mandantenkennungen |
 | Worker ohne Kontext | 0 Zeilen |
+| `app.list_endpoints_cross_tenant(...)` **ohne** `app.cross_tenant` | 0 Zeilen (fail-closed) |
+| `app.list_endpoints_cross_tenant(...)` **mit** `app.cross_tenant = 'service_admin'` | Endpunkte **aller** Mandanten, je mit `organisation_id` |
+| `app.list_dead_deliveries_cross_tenant(...)` / `app.enforce_retention_cross_tenant(...)` ohne Freigabe | 0 Zeilen (fail-closed) |
+| `echobox_worker` ruft eine der drei Funktionen auf | `permission denied` — der Worker ist **nicht** freigegeben |
+| Rückgabeprojektion der drei Funktionen | enthält **kein** Feld für Secret, Chiffre, Nutzlast oder Schlüssel |
 
 ## Status
 
