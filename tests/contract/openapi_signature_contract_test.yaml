@@ -1,0 +1,37 @@
+# =============================================================================
+# Vertragsspezifikation — Signaturverfahren (eingefrorener Zustellvertrag)
+# -----------------------------------------------------------------------------
+# Diese Datei ist die maschinenlesbare Fassung der Erwartung aus AC-009-3:
+#
+#   "der oeffentliche Vertrag des Dienstes / wenn er geprueft wird / dann sind
+#    Verfahren und Header-Name der Signatur dort benannt; ein Vertragstest
+#    schlaegt fehl, wenn eines von beiden fehlt"
+#
+# Geprueft wird in zwei Richtungen:
+#   1. gegen docs/api/openapi.yaml  — der Vertrag muss Verfahren und Header-Name
+#      nennen (der Vertragstest schlaegt fehl, wenn eines von beiden fehlt);
+#   2. gegen die Implementierung      — der Header-Name der ausgehenden Zustellung
+#      muss mit dem Vertrag uebereinstimmen.
+#
+# Testklasse: tests/contract/SignatureContractTest.java
+# =============================================================================
+
+ac_id: AC-009-3
+story: US-009
+requirement_id: FR-020
+title: Verfahren und Header-Name der Signatur sind im oeffentlichen Vertrag benannt
+
+contract:
+  file: docs/api/openapi.yaml
+  section: x-delivery-protocol
+  key: signature
+
+expect:
+  algorithm: HMAC-SHA256
+  header_name: X-EchoBox-Signature
+  header_value_format: "v1=<hex-lowercase>"
+  signing_input: "<timestamp>.<payload_bytes>"
+
+implementation:
+  class: com.echobox.delivery.DeliveryHeaders
+  constant: SIGNATURE

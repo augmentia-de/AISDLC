@@ -1,0 +1,43 @@
+# =============================================================================
+# Vertragsspezifikation — Ablehnungssignal (eingefrorener Zustellvertrag)
+# -----------------------------------------------------------------------------
+# Diese Datei ist die maschinenlesbare Fassung der Erwartung aus AC-014-2:
+#
+#   "das Ablehnungssignal / wenn der oeffentliche Vertrag geprueft wird / dann
+#    ist das Signal dort beschrieben und ein Vertragstest schlaegt fehl, wenn
+#    es fehlt"
+#
+# Geprueft wird in zwei Richtungen:
+#   1. gegen docs/api/openapi.yaml — der Vertrag muss das Signal (Statuscode,
+#      Pflicht-Kopfzeile und Koerperformat) beschreiben;
+#   2. gegen die Implementierung     — die ausgehende Zustellung muss den
+#      Ablehnungs-Header kennen.
+#
+# Testklasse: tests/contract/RejectionContractTest.java
+# =============================================================================
+
+ac_id: AC-014-2
+story: US-014
+requirement_id: FR-025
+title: Das Ablehnungssignal ist im oeffentlichen Vertrag beschrieben
+
+contract:
+  file: docs/api/openapi.yaml
+  section: x-delivery-protocol
+  key: response
+
+expect:
+  status_code: 410
+  required_header:
+    name: X-EchoBox-Rejection
+    value: permanent
+  body_schema: DeliveryRejection
+  body_required_fields:
+    - rejection
+    - reason
+  body_enum_rejection:
+    - permanent
+
+implementation:
+  class: com.echobox.delivery.DeliveryHeaders
+  constant: REJECTION
