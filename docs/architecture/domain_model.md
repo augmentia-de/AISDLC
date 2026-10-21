@@ -188,7 +188,7 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | `failed` | Endpunkt-Limit greift | `delayed` | Zähler je Endpunkt/Fenster über dem Grenzwert | FR-033, AC-018-2 |
 | `delayed` | Zeitfenster frei | `scheduled` | — | FR-033 |
 | `failed`/`delayed` | Versuchsgrenze erreicht | `abandoned` | `attempt_count >= max_attempts` | FR-023, AC-012-1 |
-| `abandoned` | Replay | **neuer** Lauf in `pending` | Empfänger-Admin des Endpunkts, Endpunkt nicht pausiert, Vorgängerlauf ist `abandoned` | FR-024, AC-013-1, AC-013-4 |
+| `abandoned` | Replay | **neuer** Lauf in `pending` | Empfänger-Admin des Endpunkts, Endpunkt nicht pausiert, Vorgängerlauf ist `abandoned` und **noch nicht** replayed — ein Replay ist je Lauf **einmal** möglich (UNIQUE `replay_of`, E-09); sonst HTTP 409 `delivery_state_conflict` | FR-024, AC-013-1, AC-013-4, AC-013-5 |
 | `pending` | Ereignis ohne Abnehmer | `no_subscriber` | kein Endpunkt abonniert den Ereignistyp | D-04 |
 
 ### 3.4 Invarianten

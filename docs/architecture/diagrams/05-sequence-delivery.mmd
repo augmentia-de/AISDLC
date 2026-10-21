@@ -1,6 +1,6 @@
 %% EchoBox — Sequenzdiagramm der Zustellung (inkl. Wiederholung, Backoff, Streuung und Replay)
 %% Quelle: docs/architecture/architecture.md, docs/architecture/domain_model.md
-%% Stand: Schritt 2 (Konzept & Architektur)
+%% Stand: Schritt 2 (Konzept & Architektur), korrigiert in Schritt 4 (zweite Runde: 3xx, Mandantenkette, Replay-einmal)
 
 sequenceDiagram
     autonumber
@@ -25,14 +25,16 @@ sequenceDiagram
     else neues Ereignis
         API->>API: Nutzlast verschlüsseln (AEAD), Fingerprint bilden
         API->>DB: INSERT events (Chiffre) — RLS erzwingt den Mandanten
-        API->>DB: INSERT delivery_runs je abonniertem Endpunkt (Status pending/scheduled)
+        API->>DB: INSERT delivery_runs je abonniertem Endpunkt (Status pending — ein Versuch ist noch nicht gelaufen)
         Note over API,DB: Gleiche Transaktion — transaktionales Outbox-Muster
         API-->>Dev: 202 Accepted, event_id
     end
 
     Note over W,EP: Die Zustellung beginnt erst NACH der Antwort (NFR-002, D-10)
 
-    W->>DB: SELECT fällige Läufe … FOR UPDATE SKIP LOCKED (Lease setzen)
+    W->>DB: SELECT app.tenant_ids_for_worker() — Mandantenermittlung
+    W->>DB: je Mandant: SELECT app.set_tenant(mandant), dann SELECT fällige Läufe … FOR UPDATE SKIP LOCKED (Lease setzen)
+    Note over W,DB: Ohne gesetzten Mandanten liefert die Beanspruchung unter RLS 0 Zeilen — es würde nichts zugestellt (ADR-002 §5, ADR-006 §3)
     W->>DB: Nutzlast entschlüsseln (oder Chiffre unverändert weiterreichen)
     W->>W: Signatur bilden: HMAC-SHA256(secret, timestamp.payload)
     W->>EP: POST Ziel-URL<br/>X-EchoBox-Event-Id, X-EchoBox-Delivery-Run-Id,<br/>X-EchoBox-Attempt-Id, X-EchoBox-Timestamp, X-EchoBox-Signature
@@ -49,6 +51,10 @@ sequenceDiagram
         EP-->>W: 400/403/404 …
         W->>DB: Versuch als „client_error" protokollieren, Lauf = rejected
         Note over W,EP: Keine Wiederholung (AC-014-4)
+    else 3xx (301, 302, 307, 308 …)
+        EP-->>W: 302 Found
+        W->>DB: Versuch als „client_error“ protokollieren, Lauf = rejected,<br/>rejection_reason = client_error
+        Note over W,EP: Umleitungen werden **nicht** befolgt, kein Wiederholen (ADR-009, E-08)
     else 5xx / 408 / 429 / Netzwerkfehler
         EP-->>W: 503 Service Unavailable (oder Timeout)
         W->>W: Backoff: Abstand verdoppeln, Streuung anwenden (D-09)
@@ -70,6 +76,7 @@ sequenceDiagram
     opt Replay durch den Empfänger-Admin (FR-024)
         Dev->>API: POST /api/v1/deliveries/{deliveryRunId}/replay
         API->>DB: Prüfung: Empfänger-Admin des Endpunkts? (nur dieser, F-03 — sonst 403, D-15)
+        API->>DB: Prüfung: Vorgängerlauf ist `abandoned` und **noch nicht** replayed?<br/>(sonst 409 delivery_state_conflict — ein Replay ist **einmal** möglich, E-09)
         API->>DB: Neuer Zustelllauf: neue delivery_run_id, gleiche event_id,<br/>Versuchszahl startet bei 1, Altdatensatz bleibt erhalten
         API-->>Dev: 202 Accepted, neue delivery_run_id
         Note over W,EP: Der neue Lauf durchläuft denselben Weg

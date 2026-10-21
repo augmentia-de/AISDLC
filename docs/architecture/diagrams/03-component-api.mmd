@@ -1,5 +1,5 @@
 %% EchoBox — C4 Komponenten (Level 3) des API-Layers
-%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur)
+%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur), korrigiert in Schritt 4 (zweite Runde: mandantenuebergreifender Zugriff ergaenzt)
 %% Welche Komponenten sitzen hinter dem Container "API-Layer"?
 
 C4Component
@@ -21,6 +21,7 @@ C4Component
         Component(metricsController, "MetricsController\n(REST)", "HTTP-Adapter", "Kennzahlen je Endpunkt: Erfolgsquote, p95-Zustelllatenz, Rate-Limit-Zähler (FR-032, ADR-011).")
         Component(replayService, "ReplayService\n(Fachlogik)", "Domänenlogik", "Neuer Zustelllauf mit neuer Zustelllauf-ID und zurückgesetzter Versuchszahl, Berechtigung des Empfänger-Admins (FR-024, D-15, F-03).")
         Component(retentionService, "RetentionService\n(Aufräumen)", "Domänenlogik", "Löscht Ereignisse, Zustellläufe und Versuche nach der konfigurierten Frist (D-12; Vorgabe je 30 Tage, F-02).")
+        Component(crossTenantScope, "Mandantenübergreifender Zugriff\n(CrossTenantScope)", "Fachlogik", "Setzt app.cross_tenant = 'service_admin' transaktionslokal, **nachdem** die JWT-Rolle geprüft ist, und ruft danach die schmalen Eigentümerfunktionen des Schemas auf (app.list_endpoints_cross_tenant, app.list_dead_deliveries_cross_tenant, app.enforce_retention_cross_tenant). Ohne diese Freigabe liefern sie **keine** Zeile (fail-closed, ADR-002 §7). **Kein** BYPASSRLS, **keine** Mandantenliste, **kein** allgemeiner Mandantenzugriff.")
         Component(errorMapping, "Fehlerabbildung\n(Problem-Responses)", "Cross-Cutting", "Ein einheitliches Fehlerschema für alle Fehlerantworten: 400/401/403/404/409/413/422/429/500/503.")
     }
 
@@ -47,6 +48,10 @@ C4Component
     Rel(metricsController, deliveryQueryService, "Kennzahlen")
     Rel(metricsController, errorMapping, "Fehlerabbildung")
     Rel(endpointService, database, "CRUD Endpunkte, Ereignistypen, Secret-Historie", "JDBC/RLS")
+    Rel(endpointService, crossTenantScope, "mandantenübergreifende Endpunktliste (nur service_admin)")
+    Rel(deliveryQueryService, crossTenantScope, "mandantenübergreifende Totenliste (nur service_admin)")
+    Rel(retentionService, crossTenantScope, "mandantenübergreifende Aufbewahrung (nur service_admin)")
+    Rel(crossTenantScope, database, "die drei schmalen Eigentümerfunktionen — SECURITY DEFINER, Eigentümer echobox_owner, freigegeben nur der Applikationsrolle", "JDBC/SECURITY DEFINER")
     Rel(eventService, database, "Ereignis und Zustellläufe anlegen, Idempotenz prüfen", "JDBC/RLS")
     Rel(eventService, crypto, "Nutzlast verschlüsseln, Fingerprint bilden")
     Rel(eventService, worker, "Zustellläufe in der Warteschlange — kein direkter Aufruf", "Datenbank")

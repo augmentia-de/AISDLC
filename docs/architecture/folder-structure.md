@@ -110,7 +110,7 @@
 |---|---|
 | `protocol/ProtocolController.java` | REST-Adapter: **Zustellprotokoll** (`GET /deliveries`, `GET /deliveries/{id}`), **Totenliste** und **Aufbewahrung** erzwingen. Der Replay liegt im `delivery`-Modul (Traceability-Matrix, Schritt 1). |
 | `protocol/ProtocolQueryService.java` | Protokollsuche **nur über Metadaten** (D-11), cursor-basiert paginiert. |
-| `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin` — über `app.list_dead_deliveries_cross_tenant` (nur mit `CrossTenantScope`). |
+| `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin` — über `app.list_dead_deliveries_cross_tenant` (nur mit `CrossTenantScope`). **Auflage:** der Statusfilter ist **immer** `abandoned` zu setzen — ohne diesen Wert liefert die Funktion **alle** Zustände (auch `sent`) und ihre Projektion entspricht dann nicht der Vertragsprojektion `DeadDelivery` (`abandoned_at` ist dort Pflicht). |
 | `protocol/EndpointMetricsService.java` | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false` ohne Daten (FR-032). |
 | `protocol/MetricsController.java` | REST-Adapter der Kennzahlen. |
 | `protocol/RetentionService.java` | Durchsetzung der Aufbewahrung — mandantenübergreifend über `app.enforce_retention_cross_tenant` (nur mit `CrossTenantScope`). Zwei Fristen, Vorgabe je 30 Tage ab dem **letzten Versuch** (D-12, F-02); Anker je Datenart, Stufen *markieren* → *Purge* nach der Karenzzeit, Kaskade Ereignis → Läufe → Versuche. |

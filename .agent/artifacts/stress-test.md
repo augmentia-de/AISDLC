@@ -1,654 +1,478 @@
-# Stresstest-Bericht — Schritt 4 (Grill-Me-Stresstest)
+# Stresstest-Bericht — Schritt 4 (Grill-Me-Stresstest), **zweite Runde**
 
 > Schritt 4 · Agent: `aisdlc-architecture` · Stand: 2026-10-21
-> Skill: `aisdlc-grill-stress` · Eingang: Schritt 3, Commit `296662d`
-> Gelesen: `docs/api/openapi.yaml` (Entwurf), `docs/architecture/*`, `docs/adr/*`,
+> Skill: `aisdlc-grill-stress` · Eingang: Schritt 3, Commit `05bceca`
+> (davor Schritt 2 **nach dem Rücksprung** `9bb9bf4`, Schritt 1 `cc67445`,
+> erster Stresstest `bdb03d3`)
+> Gelesen: `docs/api/openapi.yaml`, `docs/architecture/*`, `docs/adr/*`,
 > `docs/requirements/*`, `.agent/knowledge/schema.sql`, `.agent/artifacts/*`
 >
-> **Vertrag noch nicht eingefroren.** Dieser Bericht dokumentiert Vertragsdefekte
-> **ohne** den Vertrag zu ändern (ADR-016: ein Eigentümer, eine Wahrheit). Der
-> Orchestrator entscheidet über den Rücksprung zu Schritt 2.
+> **Dieser Bericht ersetzt den ersten** (Commit `bdb03d3`). Der erste Bericht
+> beschreibt einen überholten Stand; seine Befunde sind hier **nachgeprüft**
+> (§ 1) und die **neuen** Befunde stehen in § 3 und § 6.
 
 ---
 
 ## 0. Kurzfassung
 
-### Ampel: **Rücksprung noetig** 🟠→🔴
+### Ampel: 🟢 **einfrierreif** (mit drei Schema-Nachzügen für Schritt 2)
 
-Der Vertrag ist **noch nicht einfrierreif**: 22 Vertragsdefekte, davon 4
-blockierend. Dazu kommt ein **architektonischer Bruch**, der weder im Vertrag
-noch im Schema auflösbar ist (S-01): der `service_admin` soll alle Mandanten
-sehen, die RLS erlaubt genau einen, und `BYPASSRLS` ist ausgeschlossen.
+**Der Vertrag kann eingefroren werden.** Die 26 Befunde des ersten
+Stresstests sind **am aktuellen Stand nachweisbar behoben**; die neue Runde
+findet **keinen** offenen „muss"-Befund **gegen den Vertrag**. Acht neue
+Befunde betreffen das **Schema**, die **ADRs** und die **Diagramme** — drei
+davon („muss") sind **Korrekturen auf den Vertrag hin**: der Vertrag beschreibt
+die gewünschte Semantik, das Schema weicht davon ab. Sie ändern den Vertrag
+**nicht** und sind deshalb **kein** Freeze-Blocker, aber sie müssen **vor
+Schritt 5** in Schritt 2 nachgezogen werden (Schema-only).
 
-| Achse | Befunde | muss | sollte | optional |
-|---|---|---|---|---|
-| **Achse 1 — Standards** (Konventionen, Struktur, Benennung, tote Artefakte, Implementierbarkeit) | 12 | **2** | 9 | 1 |
-| **Achse 2 — Spezifikation** (Vertrag ↔ Anforderung ↔ ADR ↔ Schema) | 23 | **5** | 15 | 3 |
-| **Summe** | **35** | **7** | 24 | 4 |
-| davon **Vertragsdefekte** in `docs/api/openapi.yaml` | **22** | **4** | 15 | 3 |
+| Umfang | Befunde | Behoben | Offen |
+|---|---|---|---|
+| **Nachprüfung** (V-01…V-22, S-01, N-01, N-02, N-08) | 26 | **26** | 0 |
+| **Neue Befunde** (N-13…N-20) | 8 | 0 | **8** — davon 3 „muss" (Schema), 5 „sollte" |
+| **Neue Vertragsdefekte** (V-23…V-25) | 3 | 0 | **3** — alle „sollte", keiner „muss" |
+| **Korrekturen in `docs/architecture/`** | 4 | **4** (in diesem Schritt) | 0 |
 
-**Die sieben „muss"-Befunde in einem Satz:**
-S-01 (Service-Admin sieht alle Mandanten — RLS verhindert es) ·
-S-02 (`page.nextCursor` vs. `next_cursor` — jeder Listenaufruf) ·
-S-03 (Aufbewahrung: Stichtag statt Anker, Markieren/Purge/Karenzzeit fehlen im Vertrag) ·
-S-04 (wirksamer Rate-Limit-Grenzwert: `null` heißt zwei verschiedene Dinge) ·
-S-05 („exakt die Nutzlastbytes" vs. kanonische Materialisierung) ·
-N-01 (Mandantenkontext an die *Verbindung* statt an die *Transaktion* gebunden — jeder Query liefert 0 Zeilen) ·
-N-02 (der Worker beansprucht Läufe ohne Mandantenermittlung — es wird nichts zugestellt).
+### Freeze-Empfehlung — **ausdrücklich**
 
-**Was ohne Rücksprung geht:** 7 Architekturdateien sind bereits korrigiert
-(§ 7). Die 4 blockierenden Vertragsdefekte sind **billig** zu beheben — je
-ein bis drei Sätze in `docs/api/openapi.yaml` —, aber sie sind **nicht** im
-Vorbeigehen zu machen: der Vertrag wird nach diesem Schritt eingefroren, und
-eine Änderung daran ohne den Eigentümer (Schritt 2) erzeugt die zweite
-Wahrheit, die ADR-016 ausdrücklich verbietet.
+> **Der Vertrag `docs/api/openapi.yaml` kann eingefroren werden.**
+>
+> **Ab welchem Commit:** der Vertrag gilt ab dem Commit dieses Schritts
+> (`docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen`) als
+> **eingefroren** — ab da ist jede Änderung ein Rücksprung zu Schritt 2
+> (AGENTS.md, `.agent/PHASES.md` → „Einfrierpunkt des Vertrags: nach Schritt 4").
+>
+> **Begründung:** 26 von 26 Nachprüfungen sind am aktuellen Stand belegt
+> (22 Vertragsdefekte, der Architekturbruch S-01, die drei Standards-Befunde
+> N-01/N-02/N-08) — 20 davon allein am **Vertrag** und am **Schema**, S-01
+> zusätzlich **gegen eine echte PostgreSQL-16-Instanz** (Abschnitt 1.2). Die
+> neue Runde hat **8** neue Befunde und **3** neue Vertragsdefekte gefunden —
+> **keiner** davon ist ein „muss" gegen den Vertrag; die drei Vertragsdefekte
+> sind „sollte" und betreffen je **einen Satz** (Fundstellen in § 6).
+>
+> **Auflage (kein Freeze-Blocker, aber vor Schritt 5):** die drei „muss"-Befunde
+> N-13, N-14 und N-15 sind **Schema-Korrekturen** (Schritt 2, **ohne**
+> Vertragsänderung): das Schema setzt drei Vertragszusagen derzeit nicht um
+> (markierte Versuche unsichtbar, Totenlisten-Projektion, Replay-Historie).
+> Da der Vertrag die **Zielsemantik** ist, wird er **vor** der
+> Schema-Nachführung eingefroren — nicht danach.
+
+**Was sich seit dem ersten Bericht geändert hat:** Der Rücksprung hat
+**22 Vertragsdefekte**, den **Architekturbruch S-01** und die drei
+**Standards-Befunde** behoben (Commit `9bb9bf4`), Schritt 1 hat das PRD
+nachgezogen (`cc67445`), Schritt 3 hat R-03/R-04/R-05 und den `enabled`-Zustand
+bearbeitet (`05bceca`). Offen bleiben **O-04**, **O-05** und **R-01**.
+
+**Neu in dieser Runde — die acht Befunde in einem Satz:**
+N-13 markierte Versuche bleiben sichtbar und zählen in den Kennzahlen ·
+N-14 die Totenlisten-Funktion ist breiter als die Vertragsprojektion (fail-open)
+· N-15 die Replay-Historie verschwindet, wenn der Vorgängerlauf aufbewahrt wird ·
+N-16 markieren ist für die Applikationsrolle nicht direkt möglich ·
+N-17 die mandantenübergreifenden Listen haben keinen stützenden Index ·
+N-18 ADR-002 nennt die neue Grenze (Applikationsrolle + `app.cross_tenant`) nicht ·
+N-19 ADR-015 verspricht ein mandantenübergreifendes Protokoll, das es nicht gibt ·
+N-20 der konkurrierende zweite Replay wartet auf die Sperre des ersten.
 
 ---
 
-## 1. Designbaum — jeder Ast besucht
+## 1. Nachprüfung — sind die Korrekturen **wirklich** drin?
 
-Die Wurzel ist die Absicht: *Ein zentraler Dienst nimmt Ereignisse entgegen,
-stellt sie signiert und at-least-once an registrierte Empfänger-URLs weiter und
-hält ein nachvollziehbares Protokoll über jeden Versuch.* Jeder folgende Ast
-ist eine Entscheidung, die von der vorangehenden abhängt. **Kein Ast wurde
-stillschweigend angenommen** — jeder wurde geprüft, und jeder trägt entweder
-„geprüft, kein Befund" oder eine Befundnummer.
+Eine Korrektur, die nicht nachweisbar ist, ist kein Fix. Geprüft wurde am
+aktuellen Stand (`docs/api/openapi.yaml`, `.agent/knowledge/schema.sql`,
+`docs/adr/`, `docs/architecture/`), nicht am Protokoll des Rücksprungs.
+
+### 1.1 Die 22 Vertragsdefekte (V-01…V-22)
+
+| ID | Status | Fundstelle **jetzt** | Begründung |
+|---|---|---|---|
+| **V-01** | 🟢 behoben | `openapi.yaml:68` | „Antwort unter `page.next_cursor` / `page.has_more`" — deckt sich mit `components.schemas.Page` (`:3109-3122`). |
+| **V-02** | 🟢 behoben | `:1456-1477` (Anker, zwei Stufen, Karenzzeit, Kaskade, Geltungsbereich), `:2874-2887` (`purge_delay_days`, nullable, „Ein Vorgabewert ist nicht festgelegt"), `:2923-2956` (`marked_*` / `purged_*`), `:2969-3064` (`TenantRetention` mit `*_retention_source`) | Alle fünf Teile des Befunds sind getrennt ausgewiesen; „gelöscht“ ist über `marked_*`/`purged_*` **entscheidbar**. |
+| **V-03** | 🟢 behoben | `:118-126` (zweistufige Auskunft), `:2762-2804` (`RateLimitObservation.limit` ohne `nullable`, `limited` Pflicht), `:425-465` (`states: kein_override / abgeschaltet`), Beispiel `:1424-1430` (`limit: 60, limited: true`) | „Kein Override“ (⇒ 60) und „abgeschaltet“ (⇒ 0) sind **unterscheidbar**; der Standardfall ist nicht mehr „sieht aus wie aus“. |
+| **V-04** | 🟢 behoben | `:255-273` (Body = Nutzlastbytes, kanonisch materialisiert bzw. exakt geliefert), `:2276-2285` (`EventIntakeRequest.payload`) | Die Zusage lautet jetzt „identisch mit dem, **was das Ereignis trägt**“ — nicht mit dem Rohtext des Aufrufers. |
+| **V-05** | 🟢 behoben | `:2430-2437` (`replay_of`, nullable, „null, wenn der Lauf kein Replay ist“) | Feld vorhanden und beschrieben; in beiden Zustelllauf-Beispielen sichtbar (`:1076`, `:1138`). |
+| **V-06** | 🟢 behoben | `:1348` (Beispiel `status: pending`), `:2013-2023` (`DeliveryStatus`) | `pending` = „angelegt, noch kein Versuch — auch nach einem Replay“; `scheduled` = „ein Versuch läuft gerade“. Deckt sich mit `schema.sql:202` (DEFAULT `'pending'`). |
+| **V-07** | 🟢 behoben | `:995-997` (Liste `listDeliveries`), `:2477-2481` (`DeliveryRun.next_attempt_at`) | `no_subscriber` steht in **beiden** Endgültigkeits-Listen; deckt sich mit `delivery_runs_terminal_no_next_attempt_ck` (`schema.sql:229-231`). |
+| **V-08** | 🟢 behoben | `:2363` (`payload_media_type` in `required`), `:2377-2382` („immer gefüllt“) | `nullable` entfernt, Pflichtfeld ergänzt; deckt sich mit `schema.sql:160` (`NOT NULL DEFAULT 'application/json'`). |
+| **V-09** | 🟢 behoben | 15 von 15 authentifizierten Operationen mit `"429"` (maschinell geprüft, § 9), `:1609-1610` (503 über die Komponente `ServiceUnavailable`), `:1851-1866`, `:1880-1892` | Keine tote Komponente mehr; **alle** 15 authentifizierten Operationen nennen die 429. |
+| **V-10** | 🟢 behoben | `:1804-1850` (422 mit **zwei** Beispielen), `:1968-1997` (`ValidationFailedProblem`, `TenantParameterRejected`) | Der Code `tenant_parameter_rejected` ist erzeugbar und dokumentiert; die Fehlerform bleibt **ein** Schema (`oneOf` über zwei `allOf` auf `Problem`). |
+| **V-11** | 🟢 behoben | `:58-63` (400/422-Grenze), `:1805-1810` (Komponente), `no_tenant_parameter` in **allen 6** Request-Bodies: `:2116`, `:2140`, `:2221`, `:2318`, `:2677`, `:2819` | Kein Request-Body ohne die Regel mehr. |
+| **V-12** | 🟢 behoben | `:347-357` (Zeile 3xx in der Ergebnismatrix), `:2055-2056` (`client_error` erfasst 3xx) | „Kein Wiederholen, `rejected`, `rejection_reason = client_error`, Redirects werden nicht befolgt“ — steht im **ausgehenden** Vertrag. |
+| **V-13** | 🟢 behoben | `:2047-2064` (`AttemptOutcome`), `:358-373` (Trennlinie im Transportfehler-Block) | `timeout` = Connect-/Lese-Timeout, `network_error` = DNS/TLS/Verbindung **ohne** Timeout. |
+| **V-14** | 🟢 behoben | `:1316-1319` | „Ist der Endpunkt pausiert … HTTP 409 `delivery_state_conflict`; es entsteht **kein** neuer Zustelllauf.“ |
+| **V-15** | 🟢 behoben | `:1067-1087` und `:1130-1166` (beide `attempt_count: 2`, zwei Versuche, `next_attempt_at` = letzter Versuch + **2 min**), `:912`/`:966`/`:2351` (`payload_size_bytes: 35` = kanonische Bytes), `:520` (`organisation_id: null`) | Die Beispiele widersprechen sich nicht mehr; der Backoff ist rechnerisch konsistent (2 min ± 20 %). |
+| **V-16** | 🟢 behoben | `:408-415` (`expected_completion_window`: 7 Wartezeiten = 123 min ≈ 2 h, ± 20 % ⇒ 1 h 38 – 2 h 28) | Die Zusage steht jetzt dort, wo die Empfänger sie lesen; `ADR-008:199` nennt dieselbe Zahl. |
+| **V-17** | 🟢 behoben | `:1668-1688` (Parameter `From`/`To`), `:1390-1391` (Beschreibung der Kennzahlen) | „Ohne `from`/`to` gilt das Fenster der **letzten 7 Tage** bis jetzt“ — an beiden Stellen. |
+| **V-18** | 🟢 behoben | `:1306-1310` | „Ein aufgegebener Zustelllauf kann **einmal** replayed werden … ein **weiterer** Replay ⇒ HTTP 409“; auf Datenbankebene erzwiesen (`schema.sql:240-241`). |
+| **V-19** | 🟢 behoben | `:858-862` (Request-Body bis 2 MiB), `:2316-2317` (Validierungsregel), `:2286-2295` (`payload_base64`, ~1,4×) | An allen drei Stellen gesagt. |
+| **V-20** | 🟢 behoben | `:187` | `value: "<payload_media_type des Ereignisses> (Vorgabe: application/json)"` — Wert und Beschreibung stimmen überein. |
+| **V-21** | 🟢 behoben | `:2066-2074` | `enum: [permanent_rejection, client_error]`, `nullable: true` — kein Nullwert im Enum. |
+| **V-22** | 🟢 behoben | `:2276-2277` (`nullable: false`), `:2247-2250` und `:2311-2313` (Regel: „`payload: null` gilt als **nicht** gesetzt“) | *Anmerkung:* `nullable: false` ohne `type` ist in OpenAPI 3.0 formal ein **No-Op**; die Entscheidbarkeit trägt die ausformulierte Regel in `x-validation-rules` — für die Implementierung eindeutig, für strenge Validatoren auffällig (kein Mangel). |
+
+### 1.2 S-01 — der Architekturbruch (E-01)
+
+| | |
+|---|---|
+| **Status** | 🟢 **behoben** |
+| **Fundstelle** | `schema.sql:479-502` (Regelwerk), `:505-559` (`list_endpoints_cross_tenant`), `:568-629` (`list_dead_deliveries_cross_tenant`), `:655-822` (`enforce_retention_cross_tenant`), `:1021-1026` (`REVOKE … FROM PUBLIC`), `:1037-1039` (`GRANT` nur an `echobox_app`); `ADR-002:49-83` (§ 7), `:100-107` (Grenze); Vertrag `:555-559`, `:1201-1205`, `:1452-1454`, `:3290`; `folder-structure.md:125` (`CrossTenantScope`) |
+| **Nachweis** | **erneut gegen eine echte PostgreSQL-16-Instanz** geführt (16.15, Unix-Socket, Trust-Auth, frische Datenbank). Die Ergebnisse in § 1.3. |
+
+#### 1.3 PostgreSQL-16-Nachweis (erneut, 2026-10-21)
+
+Die vier Fragen aus dem Auftrag — je mit dem **gemessenen** Ergebnis:
+
+| Frage | Prüfung | Ergebnis |
+|---|---|---|
+| **Existieren die drei Funktionen?** | `pg_proc` / `pg_namespace` | **3 von 3**: `list_endpoints_cross_tenant`, `list_dead_deliveries_cross_tenant`, `enforce_retention_cross_tenant` — alle `prosecdef = t`, `proconfig = {"search_path=app, pg_temp"}`, Eigentümer `echobox_owner`. |
+| **`search_path` fest verdrahtet?** | `proconfig` | **ja** — bei allen drei `app, pg_temp` (fest verdrahtet, nicht per Aufrufparameter). |
+| **`REVOKE`/`GRANT` gesetzt?** | `has_function_privilege` | `public_may = **f**` (REVOKE), `app_may = **t**` (GRANT), `worker_may = **f**` — der Worker ist **nicht** freigegeben. |
+| **Rolle mit `BYPASSRLS`?** | `pg_roles` | `echobox_owner`, `echobox_app`, `echobox_worker`: `rolsuper = f`, `rolbypassrls = f`, `rolcanlogin = f`. **Keine** Rolle umgeht die RLS; `FORCE ROW LEVEL SECURITY` ist bewusst nicht gesetzt (10/10 Tabellen mit RLS, je 1 Policy). |
+| **Projektionen ohne Nutzlastklartext und ohne Secrets?** | Rückgabe gegen die Klartextwerte geprüft | **0 Treffer** auf `deadbeef`, `c0ffee` (Chiffre/Nonce des Endpunkt-Secrets), `cafe`, `f00d` (Chiffre/Nonce der Nutzlast), `order_id`, `4711`. Die Projektionen enthalten nur Vertragsfelder (`secret_version` = Rotationszähler, `target_url`, `event_types`, Zeitstempel). |
+| **Fail-closed: 0 Zeilen ohne Kontext?** | `echobox_app` **ohne** `set_tenant` | `endpoints` **0**, `events` **0**, `delivery_runs` **0**, `delivery_attempts` **0**; alle drei Eigentümerfunktionen **0 Zeilen** ohne `app.cross_tenant`. |
+| **Normaler Mandant sieht keine fremden Zeilen?** | `set_tenant('m-1')`, zwei Mandanten | `endpoints`: **1** (nur m-1), `events` mit `organisation_id = 'm-2'`: **0**, `delivery_runs` von m-2: **0**. |
+| **`service_admin` sieht mandantenübergreifend, aber nichts weiter?** | `set_config('app.cross_tenant','service_admin', true)` | Endpunktliste: **2 Zeilen** (m-1 **und** m-2), je mit `organisation_id`; Totenliste: beide Mandanten; Aufbewahrung: je Mandant eine Zeile mit den **angewandten** Fristen. Nichts weiter: kein Secret, keine Chiffre, kein Nutzlastinhalt, keine Fremdzeile ohne Mandantenbezug. |
+
+**Weitere Prüfungen, die die Korrekturen bestätigen:**
+
+| Prüfung | Ergebnis |
+|---|---|
+| `app.endpoint_rate_limits` | Spalte `enabled` **entfallen** (7 Spalten), `limit_value` nullable **ohne** `DEFAULT`, `window_seconds DEFAULT 60`, `strategy DEFAULT 'delay'` — E-02 ✓ |
+| `app.delivery_runs` | `delivery_runs_replay_of_uq UNIQUE (replay_of)` vorhanden ✓; `replay_of_fk` mit `ON DELETE SET NULL` ⚠️ → **neuer Befund N-15** |
+| Erstes Replay auf einen `abandoned`-Lauf | **erlaubt** ✓ |
+| Zweites Replay desselben Laufs | **`unique_violation` (SQLSTATE 23505)** ⇒ HTTP 409 `delivery_state_conflict` ✓ |
+| Mehrere Läufe mit `replay_of IS NULL` | **erlaubt** (NULLs sind in einem UNIQUE-Index paarweise verschieden) ✓ — die Constraint blockiert normale Läufe nicht |
+| `dry_run = true` | zählt, **ändert nichts** ✓ (`schema.sql:788` — der Schreibblock liegt hinter `IF NOT p_dry_run`) |
+| Aufbewahrung 30 Tage, m-1 (40 Tage alt) / m-2 (5 Tage alt) | m-1: **1 Ereignis markiert, 2 Läufe markiert** (Kaskade), 1 Versuch gezählt; m-2: **nichts** ✓ |
+| Schema anwendbar | `psql -f .agent/knowledge/schema.sql` auf eine frische Datenbank: **ohne Fehler** ✓ |
+| `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** ✓ |
+
+### 1.4 Die drei Standards-Befunde
+
+| ID | Status | Fundstelle **jetzt** | Begründung |
+|---|---|---|---|
+| **N-01** (Mandantenkontext an die **Transaktion**, nicht an die Verbindung) | 🟢 behoben | `ADR-002:27-38` (§ 3), `schema.sql:25-32` (Kopfkommentar), `:425-436` (`app.set_tenant`), `folder-structure.md:123` (Klassenbeschreibung), `:190` (Konvention „Mandant“), `diagrams/03:12`, `architecture.md:197` | Der Kontext ist **überall** transaktionsgebunden: „innerhalb der Transaktion, die auch liest, immer vor der ersten Abfrage; kein Autocommit, kein `REQUIRES_NEW`“. **Kein Rest auf „Connection-Initializer“-Semantik** — der Klassenname bleibt nur historisch (E-05, ausdrücklich so entschieden). *Restbefund:* der **Vertrag** nennt in seiner Abdeckungstabelle noch den „Connection-Initializer“ (→ **V-23**). |
+| **N-02** (Worker beansprucht ohne Mandantenermittlung) | 🟢 behoben | `ADR-006:45-56` (§ 3, mit der Kette und dem SQL), `schema.sql:41-43` (Kopfkommentar), `:454-463` (`app.tenant_ids_for_worker`), `architecture.md:198`, `folder-structure.md:85`, `diagrams/04:9-11` + `:26-29` | Die Kette steht **überall gleich**: Scheduler → `app.tenant_ids_for_worker()` → je Mandant `set_tenant` → Claim; **je Mandant eine eigene Transaktion**. *Restbefund:* `diagrams/05:35` zeigte die Beanspruchung noch ohne den Mandantenschritt (→ **N-21**, in diesem Schritt korrigiert). |
+| **N-08** (Schema-Kommentare vor F-01/F-02) | 🟢 behoben | `schema.sql:15-19` (Kopf), `:290-295` (Tabelle), `:327-333` (Tabelle + Spalte), `:350-352` (Zähler), `:368-372` (`retention_settings`), `:425-436`, `:454-463`, `:479-502` | Alle Kommentare nennen den **entschiedenen** Stand: `NULL` = **kein Override** ⇒ es gilt die Vorgabe (60/min bzw. 30 Tage). Kein Kommentar behauptet mehr „vorbelegen, solange O-01/O-02 offen“. |
+
+**Nachprüfung gesamt: 26 von 26 Befunden am aktuellen Stand belegt behoben.**
+
+---
+
+## 2. Designbaum — jeder Ast besucht (zweite Runde)
+
+Die Wurzel ist unverändert die Absicht: *Ein zentraler Dienst nimmt Ereignisse
+entgegen, stellt sie signiert und at-least-once an registrierte Empfänger-URLs
+weiter und hält ein nachvollziehbares Protokoll über jeden Versuch.* Jeder Ast
+wurde erneut geprüft; die neuen Befunde sind **fett** markiert.
 
 ```
 Wurzel: EchoBox — Ereignis-Briefkasten mit Zustellgarantie
 │
-├── A. ANNAHME (POST /api/v1/events)                        geprüft
-│   ├── A1 Mandant & Identität (D-01)                       → S-01 (Soll: „muss“)
+├── A. ANNAHME (POST /api/v1/events)                        geprüft, kein neuer Befund
+│   ├── A1 Mandant & Identität (D-01)                       → V-23 (Vertragstext), sonst ok
 │   ├── A2 Idempotenz (Mandant, Schlüssel)                  → geprüft, ok
-│   ├── A3 Größengrenze 1 MB & Kanonisierung               → S-05, S-20
-│   ├── A4 Verschlüsselung im Ruhezustand (FR-012)         → geprüft, ok
+│   ├── A3 Größengrenze 1 MB & Kanonisierung               → geprüft, ok (V-04/V-19 behoben)
+│   ├── A4 Verschlüsselung im Ruhezustand (FR-012)         → geprüft, ok (O-04 fachlich offen)
 │   └── A5 Transaktionales Outbox (Ereignis + Läufe)        → geprüft, ok
 │
 ├── B. ZUSTELLUNG (Worker)                                   geprüft
-│   ├── B1 Beanspruchung: SKIP LOCKED + Lease               → N-02
-│   ├── B2 Zustandsautomat (9 Zustände)                     → S-07, N-06
-│   ├── B3 Backoff & Streuung (F-04)                        → S-17
+│   ├── B1 Beanspruchung: SKIP LOCKED + Lease               → N-20 (Sperrenwait), N-21 (Diagramm)
+│   ├── B2 Zustandsautomat (9 Zustände)                     → geprüft, ok (V-06 behoben)
+│   ├── B3 Backoff & Streuung (F-04)                        → geprüft, ok (V-16 behoben)
 │   ├── B4 Signatur & drei Kennungen (ADR-004/005)          → geprüft, ok
-│   ├── B5 Ablehnungssignal 410                              → S-13, S-14
-│   ├── B6 Endpunkt-Begrenzung (F-01)                       → S-04
-│   └── B7 RLS im Worker (mandantenweise)                    → N-01, N-02
+│   ├── B5 Ablehnungssignal 410 + 3xx                        → geprüft, ok (V-12/V-13 behoben)
+│   ├── B6 Endpunkt-Begrenzung (F-01)                       → geprüft, ok (V-03 behoben, `enabled` entfallen)
+│   └── B7 RLS im Worker (mandantenweise)                    → N-21 (Sequenzdiagramm), sonst ok
 │
 ├── C. PROTOKOLL & BETRIEB                                    geprüft
-│   ├── C1 Zustellprotokoll (Metadaten, Cursor)             → S-02, S-08
-│   ├── C2 Tote Zustellungen (mandantenübergreifend)         → S-01
-│   ├── C3 Kennzahlen (Erfolgsquote, p95)                   → S-18
-│   ├── C4 Aufbewahrung (zwei Fristen, F-02)                → S-03
-│   └── C5 Health / Readiness                                → S-10
+│   ├── C1 Zustellprotokoll (Metadaten, Cursor)             → V-25 (Feld `organisation_id`)
+│   ├── C2 Tote Zustellungen (mandantenübergreifend)         → N-14 (Funktion breiter als die Projektion)
+│   ├── C3 Kennzahlen (Erfolgsquote, p95)                   → N-13 (markierte Versuche zählen mit)
+│   ├── C4 Aufbewahrung (zwei Fristen, F-02)                → N-13, N-15, N-16, N-17
+│   └── C5 Health / Readiness                                → geprüft, ok
 │
 ├── D. MANDANT & ROLLEN                                       geprüft
-│   ├── D1 RLS fail-closed                                   → geprüft, ok
-│   ├── D2 Rollenmatrix (F-03)                               → geprüft, ok
-│   └── D3 service_admin mandantenübergreifend               → S-01  ← BRUCH
+│   ├── D1 RLS fail-closed                                   → geprüft, ok (erneut gemessen)
+│   ├── D2 Rollenmatrix (F-03)                               → N-19 (ADR-015 verspricht mehr als der Vertrag)
+│   └── D3 service_admin mandantenübergreifend               → N-18 (neue Grenze nicht benannt)
 │
-├── E. OBERFLÄCHE                                             geprüft
+├── E. OBERFLÄCHE                                             geprüft, kein neuer Befund
 │   ├── E1 Drei Seiten, Datenquellen                         → geprüft, ok
 │   ├── E2 Barrierefreiheit als Bauregel (ADR-018)           → geprüft, ok
-│   └── E3 Fehlerdarstellung (Problem.violations)            → S-12
+│   └── E3 Fehlerdarstellung (Problem.violations)            → geprüft, ok (V-10/V-11 behoben)
 │
-├── F. BETRIEB & CONTAINER                                    geprüft
+├── F. BETRIEB & CONTAINER                                    geprüft, kein neuer Befund
 │   ├── F1 Zwei Rollen, ein Image (ADR-013)                  → geprüft, ok
-│   ├── F2 Konfiguration statt verdrahteter Zahlen           → N-08
+│   ├── F2 Konfiguration statt verdrahteter Zahlen           → geprüft, ok (R-01 bleibt offen)
 │   └── F3 Instanz je Mandant vorbereitet                    → geprüft, ok
 │
 └── G. QUERVERTRAG & GOVERNANCE                               geprüft
     ├── G1 Ein Ort pro Wahrheit (ADR-016)                    → geprüft, ok
-    ├── G2 Glossar als einziger Ort je Begriff               → N-07
-    └── G3 Traceability Anforderung→Story→AK→Feature→Test    → N-10, N-12
+    ├── G2 Glossar als einziger Ort je Begriff               → geprüft, ok
+    └── G3 Traceability Anforderung→Story→AK→Feature→Test    → geprüft, ok (32 AKs ohne Szenario: Schritt 5)
 ```
 
-**Am Rand des Baums** (nicht eigene Äste, aber geprüft): der **Vertrag**
-(17 Operationen, 157 `$ref`, 33 Schemas), das **Schema** (10 Tabellen, 10
-Policies, 33 Indizes), die **17 ADRs**, die **23 Features** (69 Szenarien),
-die **Traceability-Matrix** und die **3 Artefakte** in `.agent/knowledge/`.
+**Am Rand des Baums** (erneut geprüft): der **Vertrag** (17 Operationen, 176
+Verweise, 37 Schemas, alle referenziert), das **Schema** (10 Tabellen, 10
+Policies, 33 Indizes, 7 Funktionen, 3 Cross-Tenant-Funktionen), die **17
+ADRs**, die **23 Features** (69 Szenarien), die **Traceability-Matrix** und die
+**3 Artefakte** in `.agent/knowledge/`.
 
-**Frontier leer.** Jeder Ast ist besucht; die verbleibenden offenen Fragen
-sind keine Architekturfragen mehr, sondern **Entscheidungen des Menschen**
-(§ 8) — der Skill verlangt, sie dem Menschen zu geben, nicht sie zu erfinden.
+**Frontier leer.** Die verbleibenden offenen Punkte sind Entscheidungen des
+Menschen (§ 7) — nicht Architekturfragen.
 
 ---
 
-## 2. Achse 1 — Standards
+## 3. Achse 1 — Standards
 
 *Axe: Repo-Konventionen, Benennung, Struktur, Konsistenz zwischen
 `docs/architecture/` ↔ `docs/adr/` ↔ `.agent/artifacts/` ↔ `.agent/knowledge/`,
 tote Artefakte, Implementierbarkeit.*
 
-### N-01 — Der Mandantenkontext ist an die *Verbindung* gebunden statt an die *Transaktion* — **muss**
+### N-13 — Markierte Versuche bleiben sichtbar und zählen in den Kennzahlen — **muss** (Schema)
 
 | | |
 |---|---|
-| **Fundstelle** | `docs/architecture/folder-structure.md:123-124` (vor der Korrektur `:121-122`), `docs/architecture/diagrams/03-component-api.mmd:12` („Connection-Initializer"), `docs/architecture/diagrams/03-component-api.mmd:30` („SET LOCAL app.organisation_id je Transaktion"), `docs/adr/ADR-002-mandantentrennung-rls.md:50-51` („Spring-Interceptor (TenantFilter) und ein TenantConnectionInitializer"), `docs/architecture/schema.sql:22-27` und `:386-396` (`set_config(…, is_local = true)`) |
-| **Problem** | `app.set_tenant()` setzt `app.organisation_id` über `set_config(…, is_local = true)` — der Wert gilt **nur in der Transaktion, die ihn gesetzt hat**. Die Dokumente benennen aber eine *Verbindungs*-Initialisierung („Connection-Initializer“, „setzt den Kontext **vor** dem ersten Repository-Zugriff“). Mit einem Connection-Pool (HikariCP) ist das der klassische Fehler: der Wert landet entweder auf einer **anderen** Connection als die Abfrage (⇒ `current_setting('app.organisation_id', true)` = `NULL` ⇒ RLS fail-closed ⇒ **0 Zeilen**) oder, bei `set_config(…, false)`, **dauerhaft** auf der Connection und damit im Mandantenleck (Mandant A sieht Mandant B). |
-| **Auswirkung** | Betrifft **jede** Operation: alle 17 antworten dann mit 404 (Ressource „nicht sichtbar“) bzw. leeren Listen. Umgekehrt ist die Le Variante ein **Mandantenleck** — NFR-003, AC-022-1/2/3, US-022, Z3 („Ein Anwendungsfehler kann kein fremdes Ereignis zeigen"). Der Fehler ist im Betrieb nicht als „Mandant falsch“, sondern als „alles leer“ sichtbar und wird deshalb leicht falsch diagnostiziert. |
-| **Lösung** | Eine verbindliche Regel in der Architektur: `app.set_tenant(...)` wird **innerhalb** der Transaktion ausgeführt, die auch liest, und **immer** vor der ersten Abfrage. Kein Zugriff auf `app.*` außerhalb einer solchen Transaktion; kein `REQUIRES_NEW` nach dem Setzen; kein Autocommit. Die Trennung der Rollen: `TenantFilter` liest **nur** das JWT und füllt `TenantContext` (request-scoped, **ohne** DB-Zugriff); das Setzen des Mandanten passiert in der Transaktionsschicht. |
-| **Empfehlungsstärke** | **muss** — die Umsetzung „wie dokumentiert“ macht den Dienst entweder tot oder undicht. |
-| **Behandlung in diesem Schritt** | **Korrigiert** in `docs/architecture/`: `folder-structure.md` (Klassenbeschreibung + neue Konvention „Mandant“ in §4), `diagrams/03-component-api.mmd` (Komponente + Beschreibung), `architecture.md` §4 (zwei neue Zeilen: „Mandant und Transaktion“, „Mandant im Worker“). ADR-002 §„Konsequenzen“ nennt denselben Fehler und gehört Schritt 2 → **E-05** (offene Entscheidung: ADR-002 nachziehen, Klassenname umbenennen und die Traceability-Matrix nachziehen). |
+| **Fundstelle** | `.agent/knowledge/schema.sql:256-283` (Tabelle `delivery_attempts` — **keine** Spalte `deleted_at`), `:870-875` (Policy: `USING (organisation_id = current_setting(...))` — **kein** Bezug zum Zustand des Vaters), `docs/architecture/GLOSSARY.md:205-206` („`deleted_at` markiert die betroffenen Zeilen (sie sind **sofort unsichtbar**)“) |
+| **Problem** | Die Aufbewahrung hat zwei Stufen: **markieren** (`deleted_at` setzen → sofort unsichtbar) und **Purge** (physisch löschen). Für `events` und `delivery_runs` stimmt das: deren Policies enthalten `AND deleted_at IS NULL` (`schema.sql:861-871`). Für `delivery_attempts` gibt es **weder** eine `deleted_at`-Spalte **noch** einen Policy-Filter auf den Zustand des Vaters. Ein markierter Lauf ist unsichtbar — **seine Versuche sind es nicht**. |
+| **Messung** | Nach dem Markieren (über `enforce_retention_cross_tenant`, `dry_run=false`): Lauf sichtbar → **0** Zeilen; Versuch sichtbar → **1** Zeile; Kennzahl „Versuche je Endpunkt“ → **1**; Kennzahl „erfolgreiche Versuche“ → **1**. Der markierte Versuch zählt also **weiter** in der Erfolgsquote und im p95. |
+| **Auswirkung** | Die Vertragszusage „Versuche, die mit ihrem Zustelllauf markiert wurden — sie verlieren mit ihm die Sichtbarkeit“ (`openapi.yaml:2937-2939`) und die ADR-Zusage („sofort unsichtbar“, `ADR-012:58`) sind **nicht** erfüllt. FR-032/AC-017-1…4 weisen Zahlen aus, die aufbewahrte Datensätze enthalten. Bis zum Purge (Karenzzeit, R-01) bleiben die Versuchzeilen auffindbar. |
+| **Lösung** | **Schema (Schritt 2):** `delivery_attempts` eine `deleted_at`-Spalte geben **oder** die Policy auf den Zustand des Vaters beziehen (`delivery_run_id` → `delivery_runs.deleted_at IS NULL`); beide Stufen (Markieren und Purge) im selben Durchlauf nachziehen. Der **Vertrag bleibt unverändert** — er beschreibt die gewünschte Semantik. |
+| **Empfehlungsstärke** | **muss** (Schema) — nicht am Vertrag |
+| **Behandlung** | **Dokumentiert, nicht geändert** (Schema = Schritt-2-Eigentum, außerhalb des Commit-Scopes dieses Schritts). Gehört zum Rücksprung **vor Schritt 5**. |
 
-### N-02 — Der Worker beansprucht Läufe ohne Mandantenermittlung — **muss**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/architecture/diagrams/04-component-worker.mmd:9` und `:29` (vor der Korrektur `:25`), `docs/adr/ADR-006-zustellprozess-hintergrundprozess.md:46-53` (die Claim-SQL ohne Mandanten), `docs/adr/ADR-002-mandantentrennung-rls.md:34-37`, `docs/architecture/schema.sql:405-414` (`app.tenant_ids_for_worker()`) |
-| **Problem** | Die Claim-Abfrage ist mandantenfiltert (`WHERE organisation_id = :mandant`). Das Worker-Diagramm zeigt den Schritt „Mandant ermitteln“ **nicht**; `app.tenant_ids_for_worker()` (SECURITY DEFINER, liefert nur Kennungen) kommt in keinem Diagramm vor. Wer das Diagramm umsetzt, schreibt eine mandantenlose Claim-Abfrage — und die liefert unter RLS **0 Zeilen**. |
-| **Auswirkung** | AC-023-3 („genau eine Instanz führt den Versuch aus“), AC-023-4, NFR-006, Z1 („nichts verschwindet still“): es wird **gar nichts** zugestellt, und der Zustand bleibt auf `pending` — ohne Fehler, ohne Logeintrag. Der Ausfall ist still, also genau der, den der Dienst vermeiden soll. |
-| **Lösung** | Im Worker-Diagramm die Kette „Scheduler → Mandantenermittlung (`app.tenant_ids_for_worker()`) → je Mandant `set_tenant` → Claim“ explizit zeichnen. Der Worker arbeitet **mandantenweise**; je Mandant eine eigene Transaktion. |
-| **Empfehlungsstärke** | **muss** |
-| **Behandlung** | **Korrigiert** in `docs/architecture/diagrams/04-component-worker.mmd` (Komponente `tenantResolver` + drei Relationen) und in `architecture.md` §4 (Zeile „Mandant im Worker“). |
-
-### N-03 — Die Fehlerabbildung kennt 429 und 503 nicht — **sollte**
+### N-14 — Die Totenlisten-Funktion ist **breiter** als die Vertragsprojektion (fail-open) — **muss** (Schema)
 
 | | |
 |---|---|
-| **Fundstelle** | `docs/architecture/folder-structure.md:141` (vor der Korrektur `:130`; „400/401/403/404/409/413/422/500“) vs. `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md:106-108` (429 `rate_limit_exceeded`, 503 `service_unavailable`) und `docs/api/openapi.yaml:43-54` (Fehlertabelle) |
-| **Problem** | Die Abbildungstabelle der Ausnahme-Handler nennt 429 und 503 nicht. Die 503 der Readiness-Prüfung (`/health/ready`, `openapi.yaml:1401-1413`) würde dann als Standard-Spring-Fehler statt als `Problem` herausgehen. |
-| **Auswirkung** | AC-023-1, NFR-006, ADR-015 §4 („Die Fehler werden **ausschließlich** an einer Stelle erzeugt“). Ein Aufrufer bekommt zwei Fehlerformate. |
-| **Lösung** | 429 und 503 in die Liste aufnehmen. |
+| **Fundstelle** | `.agent/knowledge/schema.sql:568-629` (`list_dead_deliveries_cross_tenant`), besonders `:619` (`AND (p_status IS NULL OR d.status = p_status)`) und `:622-623` (Zeitraumfilter auf `COALESCE(abandoned_at, created_at)`); Vertrag `:2035-2045` (`DeadDeliveryStatus` — **nur** `abandoned`), `:2602-2609` (`abandoned_at` **Pflicht**), `:2646-2652` („**Immer** gefüllt“) |
+| **Problem** | Der Statusfilter der Funktion ist **optional**: ohne Wert liefert sie **alle** Zustände — auch `sent`, auch `cancelled`. Ihre Projektion entspricht dann **nicht** der Vertragsprojektion `DeadDelivery`: `abandoned_at` wäre `NULL` (im Vertrag Pflicht), `status` wäre ein Wert außerhalb des Enums. Der Rücksprung-Bilanz und der Reduktionsbericht haben die Pflicht „die Anwendung setzt `abandoned` **immer**“ erkannt und als **Auflage für Schritt 6** notiert — in einer `SECURITY DEFINER`-Funktion, die die RLS umgeht, ist eine vergessene Parameterbindung aber ein **Datenabfluss**, kein Formfehler. |
+| **Messung** | `list_dead_deliveries_cross_tenant()` **ohne** `p_status` lieferte **einen `sent`-Lauf** (`abandoned_at = NULL`) neben den zwei `abandoned`-Läufen. |
+| **Auswirkung** | Der `service_admin` sähe bei vergessener Parameterbindung das **vollständige Zustellprotokoll aller Mandanten** statt der Totenliste — eine Verletzung der Datenminimierung (ADR-002 §7: „nur die jeweils benötigte Projektion“) und ein Vertragsbruch. |
+| **Lösung** | **Schema (Schritt 2):** den Status **fest verdrahten** (`AND d.status = 'abandoned'`) statt ihn zu parametrisieren, oder den Parameter `NOT NULL` mit Vorgabe `'abandoned'`; zusätzlich `abandoned_at` in der Projektion auf `NOT NULL` festziehen. **Der Vertrag bleibt unverändert** — er ist die Zielsemantik. |
+| **Empfehlungsstärke** | **muss** (Schema) |
+| **Behandlung** | **Dokumentiert, nicht geändert.** Die **Anwendungspflicht** („`abandoned` immer setzen“) steht jetzt in `docs/architecture/folder-structure.md:113` (in diesem Schritt ergänzt) — das ist die **anwendungsseitige** Absicherung; die **schema-seitige** Absicherung fehlt noch. |
+
+### N-15 — Die Replay-Historie verschwindet, wenn der Vorgängerlauf aufbewahrt wird — **muss** (Schema)
+
+| | |
+|---|---|
+| **Fundstelle** | `.agent/knowledge/schema.sql:238-241` (`delivery_runs_replay_of_fk` mit `ON DELETE SET NULL`), `:248-251` (Spaltenkommentar), Vertrag `:2430-2437` (`DeliveryRun.replay_of`: „Die **Replay-Historie bleibt am Lauf sichtbar.“`), `:2684-2687` (`ReplayResponse.previous_delivery_run_id`), ADR-006 §6 (`:98-112`), ADR-015 §6 (`:123-131`), AC-013-2 |
+| **Problem** | `replay_of` ist ein ** Fremdschlüssel mit `ON DELETE SET NULL`**. Wird der Vorgängerlauf aufbewahrt (Purge), setzt die Datenbank `replay_of` des überlebenden Replays auf `NULL` — der Replay-Lauf ist damit **nicht mehr als Replay erkennbar**. |
+| **Messung** | Nach dem Löschen des Vorgängerlaufs: `replay_of` des überlebenden Laufs = `NULL` (vorher: der Vorgängerlauf). |
+| **Auswirkung** | AC-013-2 („die Historie bleibt erhalten“) ist für überlebende Replays nicht mehr einsehbar; ein Client kann einen Replay nicht von einem Erstlauf unterscheiden. Der Vorgängerlauf (40 Tage alt) wird **früher** aufbewahrt als der jüngere Replay (30 Tage später markiert) — das Fenster, in dem die Historie fehlt, ist real, nicht theoretisch. Zusätzlich: `ON DELETE SET NULL` löst den UNIQUE-Eintrag des Vorgängers auf — die Einmal-Regel (E-09) hängt dann an einem Lauf, den es nicht mehr gibt. |
+| **Lösung** | **Schema (Schritt 2):** `replay_of` **ohne** Fremdschlüssel führen (die UUID ist ein **historischer Verweis**, kein Live-Bezug) oder den FK auf `ON DELETE NO ACTION` umstellen und die Löschreihenfolge (Lauf vor Ereignis) einhalten. Der **Vertrag bleibt unverändert** — die Zusage ist richtig und soll gelten. |
+| **Empfehlungsstärke** | **muss** (Schema) |
+| **Behandlung** | **Dokumentiert, nicht geändert.** |
+
+### N-16 — Markieren ist für die Applikationsrolle **nicht direkt** möglich (RLS-Falle) — **sollte**
+
+| | |
+|---|---|
+| **Fundstelle** | `.agent/knowledge/schema.sql:860-875` (Policies mit `AND deleted_at IS NULL` im `USING`-Teil), `:994-1005` (Rechte: `echobox_app` hat `UPDATE` auf `delivery_runs`) |
+| **Problem** | PostgreSQL prüft bei einem `UPDATE` auch den `USING`-Ausdruck gegen die **neue** Zeile. Weil die Policy `deleted_at IS NULL` enthält, ist ein `UPDATE … SET deleted_at = now()` durch `echobox_app` **nicht möglich** — der Lauf endet mit `new row violates row-level security policy`. Das Design ist trotzdem **richtig**: markieren kann ausschließlich die Eigentümerfunktion `enforce_retention_cross_tenant` (SECURITY DEFINER, Eigentümer `echobox_owner`). |
+| **Messung** | `SET ROLE echobox_app; BEGIN; SELECT app.set_tenant('m-1'); UPDATE app.delivery_runs SET deleted_at = now() …` → **ERROR: new row violates row-level security policy**; über die Eigentümerfunktion: **1** Lauf markiert, **0** Fehler. |
+| **Auswirkung** | Heute kein Fehler — die Aufbewahrung läuft über die Eigentümerfunktion. Aber: **jede** künftige logische Löschung (ein Endpunkt, ein Ereignis, ein Lauf) durch die Applikationsrolle endet als **500**, nicht als 404/409. Das ist eine implementationskritische Falle, die in **keinem** Artefakt steht. |
+| **Lösung** | **Dokumentation** (ADR-002 oder `folder-structure.md`): „Logische Löschung ist der Applikationsrolle **nicht** möglich — sie läuft über die Eigentümerfunktion (oder über einen Eigentümer-/`SECURITY DEFINER`-Pfad).“ |
+| **Empfehlungsstärke** | **sollte** (Dokumentation) |
+| **Behandlung** | **Dokumentiert** (ADR = Schritt-2-Eigentum). Der Vertrag ist nicht betroffen. |
+
+### N-17 — Die mandantenübergreifenden Listen haben **keinen** stützenden Index — **sollte** (Schema/Performance)
+
+| | |
+|---|---|
+| **Fundstelle** | `.agent/knowledge/schema.sql:505-559` (Sortierung `ORDER BY e.updated_at DESC, e.endpoint_id DESC`, `LIMIT v_limit + 1`), `:568-629` (`ORDER BY d.created_at DESC, d.delivery_run_id DESC`); Indizes `:901-962` — **alle** mit `organisation_id` als erstem Präfix |
+| **Problem** | Für die mandantenübergreifende Sicht gibt es **keinen** Index, der die globale Sortierung stützt: die vorhandenen Indizes beginnen mit `organisation_id` und sind für „alle Mandanten, sortiert nach `updated_at`“ unbrauchbar. Die Parameter in `WHERE` stehen in `OR`-Form, was den Filter zusätzlich unindizierbar macht. |
+| **Messung** | `EXPLAIN` des inneren Queries: `Limit → Sort (Sort Key: e.updated_at DESC, e.endpoint_id DESC) → Nested Loop Left Join → **Seq Scan** on endpoints` — plus ein LATERAL-Aggregat **pro Zeile** (`Bitmap Index Scan` + `Sort` je Endpunkt). Für die Totenliste: `Seq Scan on delivery_runs` + `Sort`. |
+| **Auswirkung** | Jede Seite der Totenliste und der Endpunktliste ist ein **Vollscan mit Sortierung** — mit wachsender Datenmenge linear. Für den Betrieb (ein Service-Admin, wenige Aufrufe) unkritisch, für eine Instanz mit vielen Mandanten ein echtes Skalierungsproblem. |
+| **Lösung** | **Schema (Schritt 2):** partielle Indizes `endpoints (updated_at DESC, endpoint_id DESC) WHERE deleted_at IS NULL` und `delivery_runs (created_at DESC, delivery_run_id DESC) WHERE deleted_at IS NULL`; die Parameterfilter auf getrennte Abfragen verzweigen (statt `OR`), damit der Planner sie nutzen kann. |
 | **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Korrigiert** in `docs/architecture/folder-structure.md:130`. |
+| **Behandlung** | **Dokumentiert, nicht geändert.** |
 
-### N-04 — `PageResponse` benennt die Paginierungsfelder camelCase — **sollte**
+### N-18 — ADR-002 nennt die **neue** Grenze nicht: die Applikationsrolle kann `app.cross_tenant` setzen — **sollte** (ADR)
 
 | | |
 |---|---|
-| **Fundstelle** | `docs/architecture/folder-structure.md:142` (vor der Korrektur `:131`; „`limit`, `hasMore`, `nextCursor`“) vs. `docs/api/openapi.yaml:2586-2594` (`limit`, `has_more`, `next_cursor`) |
-| **Problem** | Die Zielstruktur schreibt camelCase vor, das Schema snake_case. Wer ihr folgt, baut DTOs und Frontend-Typen mit falschen Feldnamen — der Fehler fällt erst im Vertragstest auf. |
-| **Auswirkung** | Alle Listenoperationen (3) + die generierten Frontend-Typen + die Vertragstests. |
-| **Lösung** | Feldnamen wie im Vertrag: `limit`, `has_more`, `next_cursor`; den Vertrag als Quelle nennen. |
+| **Fundstelle** | `docs/adr/ADR-002:100-115` (Abschnitt „Grenze (ehrlich benannt, Ausnahme)“ und „Grenze (ehrlich benannt)“), `schema.sql:498-501` (Freigabe-Variable), `:1031-1039` (Rechte) |
+| **Problem** | ADR-002 benennt zwei Grenzen ehrlich: die mandantenübergreifende Sicht als **bewusste Ausnahme** (`:100-107`) und die Standardgrenze der RLS („RLS schützt vor **Anwendungsfehlern**, nicht vor einem kompromittierten Anwendungsprozess mit Datenbankzugriff“, `:111-115`). Der zweite Punkt nennt nur `app.set_tenant('m-2')`. **E-01 hat die Grenze erweitert, ohne sie zu benennen:** dieselbe Applikationsrolle kann `set_config('app.cross_tenant','service_admin', true)` setzen und danach **alle** Mandanten-Endpunkte und -Totenlisten lesen. |
+| **Auswirkung** | Die ehrliche Grenzenliste der zentralen Sicherheitsentscheidung ist **unvollständig** — genau der Abschnitt, der Vertrauen schaffen soll. Eine SQL-Injektion oder ein fehlerhafter Query-Builder in der Applikation hätte über `app.cross_tenant` **alle** Mandanten im Blick. |
+| **Lösung** | **ADR-002 (Schritt 2):** einen Absatz in „Grenze (ehrlich benannt)“ ergänzen: „Die Applikationsrolle kann `app.cross_tenant` setzen und damit die mandantenübergreifende Sicht öffnen. Das ist die **einzige** Erweiterung gegenüber dem Normalfall und die einzige Stelle, an der eine Fehlkonfiguration mandantenübergreifend sichtbar macht.“ Optional: eine **eigene** Laufzeitrolle `echobox_ops` für die drei Funktionen (dann wäre die Freigabe nicht an die Allzweckrolle gebunden) — das wäre eine **neue** Festlegung und braucht den Menschen. |
+| **Empfehlungsstärke** | **sollte** (Dokumentation; die technische Härtung ist eine offene Entscheidung → § 7, E-12) |
+| **Behandlung** | **Dokumentiert, nicht geändert** (ADR = Schritt-2-Eigentum). |
+
+### N-19 — ADR-015 verspricht dem `service_admin` ein **mandantenübergreifendes Protokoll**, das es nicht gibt — **sollte** (ADR ↔ Vertrag)
+
+| | |
+|---|---|
+| **Fundstelle** | `docs/adr/ADR-015:31-35` (Rollenmatrix: `service_admin` → „Protokoll lesen | **ja (alle Mandanten)**“), Vertrag `:1062` (Antwortbeschreibung `listDeliveries`: „Zustellprotokoll (**mandantengefiltert**)“), `:2446-2449` (`DeliveryRun.organisation_id`: „**Nur** für `service_admin` gefüllt“), `docs/requirements/PRD.md:74` (Rollenzeile: „Endpunkte aller Mandanten sehen, Tote-Zustellungsliste abholen, Aufbewahrung erzwingen“ — **kein** Protokoll) |
+| **Problem** | Die Rollenmatrix der ADR verspricht dem `service_admin` mehr als der Vertrag anbietet: die mandantenübergreifende Sicht existiert **nur** für die drei Operationen (Endpunktliste, Totenliste, Aufbewahrung) — für die **Prozessliste** gibt es weder einen Vertragspfad noch eine Eigentümerfunktion. Die PRD-Zeile nennt nur die drei Rechte; **kein** Akzeptanzkriterium verlangt ein mandantenübergreifendes Protokoll (AC-020-1 = Entwickler, AC-020-2 = Totenliste). |
+| **Auswirkung** | Wer ADR-015 §1 liest, erwartet eine Funktion, die es nicht gibt — und der Vertragssatz `DeliveryRun.organisation_id` („Nur für `service_admin` gefüllt“) bestätigt diesen falschen Eindruck (→ **V-25**). Kein AK ist betroffen; die Betriebsdeckung ist über die Totenliste gegeben. |
+| **Lösung** | **ADR-015 (Schritt 2):** die Zelle der Rollenmatrix auf „eigener Mandant“ korrigieren (die mandantenübergreifende Sicht gilt nur für Endpunktliste, Totenliste und Aufbewahrung). **Kein** Vertrags-, **kein** Schema-, **kein** PRD-Änderungsbedarf. |
 | **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Korrigiert** in `docs/architecture/folder-structure.md:131`. Die Zwillingsfehler **im Vertrag** (S-02) bleiben Vertragsdefekte. |
+| **Behandlung** | **Dokumentiert, nicht geändert.** |
 
-### N-05 — Der Replay ist zwei Controllern zugewiesen, die Controllerzahl stimmt nicht — **sollte**
+### N-20 — Der konkurrierende zweite Replay **wartet** auf die Sperre des ersten — **sollte** (Implementierung/ADR)
 
 | | |
 |---|---|
-| **Fundstelle** | `docs/architecture/folder-structure.md:87` (vor der Korrektur `:86`; `delivery/DeliveryController` = Protokoll **und** Replay) vs. `:111` (`protocol/ProtocolController` = „Protokoll, Totenliste, **Replay**, Aufbewahrung“) vs. `docs/architecture/diagrams/03-component-api.mmd:18-21` (ein `deliveryController` für alles) vs. `.agent/artifacts/architecture.md:51` („4 Controller“) vs. `docs/requirements/traceability_matrix.json` (US-013 → `delivery/DeliveryController`, US-015/016 → `protocol/ProtocolController`, US-017 → `protocol/MetricsController`) |
-| **Problem** | Dieselbe Operation (`POST /deliveries/{id}/replay`) steht in zwei Modulen; `GET /deliveries` ebenso. Der Katalog zählt 4 Controller, die Zielstruktur listet 5. |
-| **Auswirkung** | Schritt 6 („ein `operationId` ein Controller“) — zwei Implementierungen oder eine unklare Zuordnung. |
-| **Lösung** | Der Traceability-Matrix folgen (Schritt 1 hat sie entschieden): `delivery/DeliveryController` = Replay; `protocol/ProtocolController` = Protokoll, Totenliste, Aufbewahrung; `protocol/MetricsController` = Kennzahlen. Diagramm und Zielstruktur anpassen, Zählung korrigieren. |
+| **Fundstelle** | `.agent/knowledge/schema.sql:240-241` (`UNIQUE (replay_of)`), `docs/adr/ADR-006:98-112` (§ 6), `docs/adr/ADR-015:123-131` (§ 6) |
+| **Problem** | Die Einmal-Regel ist richtig durchgesetzt — aber der **verlierende** Replay blockiert auf dem UNIQUE-Index, bis die gewinnende Transaktion endet. Fällt in eine unbegrenzte Transaktion oder ein Statement-Timeout, antwortet der Verlierer **nicht** mit 409, sondern mit 500. Die ADRs sagen „die Constraint **erzwingt** die Regel“ — die Sperrenwartezeit erwähnen sie nicht. |
+| **Messung** | Zwei gleichzeitige Replays desselben Laufs: der Verlierer wartete **4,005 s** (bis der Gewinner committet hatte) und erhielt dann `unique_violation` (23505) ⇒ 409. |
+| **Auswirkung** | Korrekt im Ergebnis (genau ein Replay), aber die Latenz des Verlierers hängt an der Transaktionsdauer des Gewinners. Für einen Endbenutzer sichtbar als „hängen“. |
+| **Lösung** | **Implementierung (Schritt 6) + ADR (Schritt 2):** die 23505 auf `delivery_state_conflict` abbilden (schon zugesagt) **und** ein `lock_timeout`/`statement_timeout` setzen, das kürzer ist als das HTTP-Timeout; die Sperrenwartezeit als erwartetes Verhalten in ADR-006 §6 benennen. |
 | **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Korrigiert** in `docs/architecture/folder-structure.md:86, 110`, `docs/architecture/diagrams/03-component-api.mmd:18-21, 35-48`, `.agent/artifacts/architecture.md:51` („5 Controller, 8 Fachservices“). |
+| **Behandlung** | **Dokumentiert.** |
 
-### N-06 — Der Zustandsautomat erlaubt den Replay jedes endgültigen Laufs — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/architecture/domain_model.md:169-173` (ASCII-Automat) und `:192` (Übergangstabelle, „beliebig endgültig“) vs. `docs/architecture/GLOSSARY.md:58` („ein abgelehnter Lauf (`rejected`) … nicht replaybar“) und `docs/api/openapi.yaml:1573-1585` („Nur **aufgegebene** Zustellungen können erneut ausgelöst werden“, 409 `delivery_state_conflict`) |
-| **Problem** | Das Domain-Modell ist an dieser Stelle der Ausreißer: es erlaubt den Replay von `rejected` und `cancelled`, der Vertrag verbietet es (409). |
-| **Auswirkung** | AC-013-2/3/5, FR-024, D-15, F-03. Ein Entwickler, der dem Domain-Modell folgt, liefert 202 für einen Replay, den der Vertrag mit 409 beantwortet. |
-| **Lösung** | Übergang auf `abandoned` einschränken und im Automaten vermerken, dass `rejected`/`cancelled` endgültig, aber **nicht** replaybar sind. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Korrigiert** in `docs/architecture/domain_model.md` (ASCII-Automat und Übergangstabelle). |
-
-### N-07 — Die Zustandswerte stehen im Fließtext deutsch, in den Werten englisch — **sollte**
+### N-21 — Die Diagramme zeigen den **neuen** Pfad und die **neuen** Regeln nicht — **sollte** (Diagramme) — **in diesem Schritt korrigiert**
 
 | | |
 |---|---|
-| **Fundstelle** | `docs/architecture/GLOSSARY.md:15` („Status `aktiv` oder `pausiert`“), `docs/architecture/domain_model.md:39-40` („status (aktiv|pausiert)“), `docs/api/openapi.yaml:398-399` („mit dem Status `aktiv` angelegt“) vs. die tatsächlichen Werte `active`/`paused` (`openapi.yaml:1740`, `schema.sql:81`) |
-| **Problem** | Der Fließtext schreibt deutsche Wörter in Code-Formatierung — als wären sie die Werte. Ein Client-Entwickler, der dem Text folgt, sendet `"aktiv"` und bekommt 422 `validation_failed`. |
-| **Auswirkung** | AC-001-1, AC-002-1/2, US-019 (Statusdarstellung der Oberfläche). |
-| **Lösung** | Entweder die deutschen Wörter ohne Code-Formatierung („Status *aktiv* oder *pausiert*“) oder beide ausdrücken („`active` oder `paused` (deutsch: aktiv/pausiert)“). Die **Werte** bleiben englisch, das Schema ist die Wahrheit. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Korrigiert** in `docs/architecture/GLOSSARY.md:14` und `docs/architecture/domain_model.md:38-39`. Die Vertragsstelle (`openapi.yaml:398-399`) ist ein Vertragsdefekt (S-21-Art, dort als **optional** geführt). |
+| **Fundstelle** | `docs/architecture/diagrams/03-component-api.mmd:49-55` (alle Datenbankzugriffe mit `JDBC/RLS` — auch die mandantenübergreifenden), `diagrams/05-sequence-delivery.mmd:28` („Status pending/scheduled“), `:35` (Beanspruchung ohne Mandantenschritt), `:40-57` (kein 3xx-Zweig), `:70-76` (Replay ohne Einmal-Regel) — **jeweils der Stand vor der Korrektur in diesem Schritt** |
+| **Problem** | E-01, E-08 und E-09 haben das Design verändert, **ohne** dass die C4-Ebene nachgezogen wurde: das Komponentendiagramm des API-Layers zeigte den mandantenübergreifenden Zugriff **nicht** (und behauptete für alle Zugriffe `JDBC/RLS`), das Sequenzdiagramm nannte weder 3xx noch die Mandantenkette noch die Einmal-Regel und behauptete „pending/scheduled“ (V-06). |
+| **Auswirkung** | Wer die Diagramme umsetzt, baut den mandantenlosen Claim und die 3xx-Lücke — genau die beiden Fehler, die der erste Stresstest gefunden hat. |
+| **Lösung** | Diagramme nachziehen (Komponente `CrossTenantScope` + drei Beziehungen; Sequenz: 3xx-Zweig, Mandantenkette, Einmal-Prüfung, `pending` statt `pending/scheduled`). |
+| **Behandlung** | 🟢 **in diesem Schritt korrigiert** (§ 3.1) |
 
-### N-08 — Die Kommentare im Schema beschreiben den Stand **vor** F-01/F-02 — **sollte**
+### 3.1 Korrekturen in `docs/architecture/` (in diesem Schritt vorgenommen)
 
-| | |
-|---|---|
-| **Fundstelle** | `.agent/knowledge/schema.sql:15-16` („Keine Frist- oder Grenzwert vorbelegen, solange O-01/O-02 offen sind“), `:273-274`, `:294-295`, `:297-298`, `:312-313`, `:315`, `:328-329` (dieselbe Formulierung) vs. ADR-010 §3 (Vorgabewert 60 gilt), ADR-012 §6 (Vorgabewert 30 gilt) |
-| **Problem** | O-01 und O-02 sind **entschieden** (F-01, F-02). Die Kommentare behaupten weiterhin das Gegenteil. Schlimmer: `endpoint_rate_limits.enabled BOOLEAN NOT NULL DEFAULT FALSE` (`:281`) ist ein **dritter** Zustand neben „kein Override“ (`limit_value IS NULL`) und „abgeschaltet“ (`limit_value = 0`) — ADR-010 kennt nur zwei, und `enabled = FALSE` bedeutet faktisch „die Begrenzung ist aus“, obwohl ADR-010 sagt: „der Vorgabewert gilt **pro Umgebung**“. |
-| **Auswirkung** | AC-018-4, AC-016-5, F-01, F-02. Der Default `FALSE` macht die Grenze **an** genau dort aus, wo sie **an** sein soll. |
-| **Lösung** | Kommentare auf den entschiedenen Stand bringen; `enabled` entweder entfernen (zwei Zustände genügen) oder als „Override aktiv“ umdeuten und mit `DEFAULT`/CHECK in Einklang bringen. **Beide** Schemadateien byte-identisch ändern (ADR-016, Spiegel-Regel). |
-| **Empfehlungsstärke** | **sollte** — aber **nicht** in diesem Schritt: `.agent/knowledge/schema.sql` ist die kanonische Datei und liegt außerhalb des Commit-Scopes; eine Änderung nur an der Kopie würde den Spiegel-Test brechen. Gehört in den Rücksprung (E-02). |
+Alle vier betreffen **echte Fehler**; keine bestätigte Festlegung (F-01…F-04,
+E-01…E-09, D-01…D-15, ADR-001…ADR-018) wurde angetastet, kein Vertrag und kein
+ADR wurde geändert.
 
-### N-09 — Das PRD führt die entschiedenen Punkte noch als offen — **sollte**
+| # | Datei | Was | Grund |
+|---|---|---|---|
+| 1 | `docs/architecture/diagrams/03-component-api.mmd:24`, `:51-54` | Neue Komponente **`CrossTenantScope`** („Mandantenübergreifender Zugriff“, fail-closed, ADR-002 §7) + drei Beziehungen aus den Fachservices + eine Beziehung zur Datenbank mit `JDBC/SECURITY DEFINER` | N-21 — die mandantenübergreifende Sicht (E-01) war im C4-Bild **nicht** vorhanden; alle Zugriffe standen als `JDBC/RLS` |
+| 2 | `docs/architecture/diagrams/05-sequence-delivery.mmd:28` | „Status **pending/scheduled**“ → „Status **pending** — ein Versuch ist noch nicht gelaufen“ | V-06 (Rest) — der Vertrag und das Schema sagen `pending`; das Diagramm war die letzte Stelle mit der Doppelangabe |
+| 3 | `docs/architecture/diagrams/05-sequence-delivery.mmd:37-39` | Mandantenkette in der Beanspruchung (`tenant_ids_for_worker()` → je Mandant `set_tenant` → Claim) + Notiz zum fail-closed | N-02 (Rest) — die Sequenz zeigte die mandantenlose Beanspruchung |
+| 4 | `docs/architecture/diagrams/05-sequence-delivery.mmd:54-57`, `:79-80` | Zweig **3xx** (kein Wiederholen, `client_error`, Redirects nicht befolgt) und die **Einmal-Prüfung** beim Replay | E-08/E-09 — die neuen Regeln fehlten im Ablaufbild |
 
-| | |
-|---|---|
-| **Fundstelle** | `docs/requirements/PRD.md:68` („totes Endpunkt-Ziel neu auslösen (Berechtigung offen, O-03)“), `:170` (FR-033 „die zulässige Rate steht noch nicht fest“), `:231-237` (O-01/O-02/O-03/O-06 mit Owner „Gate 1“), `:183` (MoSCoW) |
-| **Problem** | Die Entscheidungen F-01…F-04 sind gefallen (Gate 1, 2026-10-21). Das PRD ist der Auftragseingang für Schritt 1 und wurde nicht nachgezogen. |
-| **Auswirkung** | Wer das PRD statt der ADRs liest, arbeitet mit dem alten Stand. Die ADRs und das Briefing tragen die Wahrheit, aber „die Dateien sind die Wahrheit“ heißt: **die Dateien widersprechen sich**. |
-| **Lösung** | Beim nächsten Schritt-1-S touch nachziehen: O-01/O-02/O-03/O-06 auf „entschieden“ setzen, die Zeile zu FR-033 und die Rollenzeile in §3 anpassen. |
-| **Empfehlungsstärke** | **sollte** — kein Code-Blocker, aber ein Dauerwiderspruch in der Spec. |
-| **Behandlung** | Nicht geändert: `docs/requirements/` gehört Schritt 1 (Folder Ownership). **E-06** (offen). |
-
-### N-10 — Die Traceability-Prüfung prüft **kein** AK→Szenario — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `.agent/tools/traceability_check.py:126-129` (prüft nur „Story hat eine Feature-Datei“) |
-| **Problem** | Der Check meldet „Keine Lücken“, obwohl **32 der 101 Akzeptanzkriterien kein Gherkin-Szenario** haben (23 Features × 3 Szenarien = 69 Szenarien; 22 der 23 Stories sind unterdeckt). Konkret ohne Szenario: AC-016-4 (Filter/Paginierung der Totenliste) und **AC-016-5 (Aufbewahrung)** in US-016, AC-023-2/3 (Sharding, SKIP LOCKED) in US-023, AC-005-3…6 in US-005. |
-| **Auswirkung** | Die Abdeckung wirkt vollständig, ist es aber nicht. Genau die Kriterien, die die uneindeutigen Punkte treffen (Aufbewahrung, Rate-Limit, Byte-Identität), haben **kein** Szenario — die Uneindeutigkeit fällt also nicht einmal auf. |
-| **Lösung** | (a) In Schritt 5 die Testmatrix aus den **Story-JSONs** (101 AKs) bauen, nicht aus den Features (69 Szenarien); (b) den Check um eine AK→Szenario-Zählung erweitern (Ergebnis: „Kriterien ohne Szenario: 32“) — oder die Lücke in Schritt 1 schließen. |
-| **Empfehlungsstärke** | **sollte** — die Prüfung ist ein Werkzeug des Frameworks, kein Anwendungscode. |
-
-### N-11 — Leere Platzhalter-Artefakte in `.agent/artifacts/` — **optional**
-
-| | |
-|---|---|
-| **Fundstelle** | `.agent/artifacts/deploy-report.md` (16 Byte), `.agent/artifacts/security-audit.md` (17 Byte), `.agent/artifacts/test-report.md` (14 Byte) |
-| **Problem** | Drei Dateien ohne Inhalt — die Zielorte der Schritte 5, 8 und 9. Kein Fehler, aber tote Artefakte im Kanonischen Bereich. |
-| **Auswirkung** | Gering: sie werden von den jeweiligen Schritten gefüllt. |
-| **Lösung** | Stehen lassen (kein Löschen ohne menschliche Freigabe, AGENTS.md Regel 5) oder beim nächsten Framework-Touch aufräumen. |
-| **Empfehlungsstärke** | **optional** |
-
-### N-12 — Zwei Testebenen fehlen in der Zielstruktur — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/architecture/folder-structure.md:40-45` (Testbaum) und `:193` (Testkonvention) |
-| **Problem** | (a) **Kein Lasttest** — NFR-002 verlangt „p95 < 200 ms **über 1.000 Einlieferungen**“ (PRD:118, 172). Das ist eine Messung über 1.000 Requests mit bis zu 1 MB Nutzlast; sie gehört in einen eigenen Lasttest, nicht in die Unit-Suite. (b) **Kein Parallelbetriebstest** — AC-023-3 („bei zwei parallelen Instanzen führt **genau eine** den Versuch aus“) und AC-023-4 (Lease-Ablauf) brauchen zwei Worker-Instanzen gegen dieselbe Datenbank. Ein normaler Integrationstest mit einem Worker prüft beides nicht. |
-| **Auswirkung** | AC-023-3, AC-023-4, NFR-002, NFR-006 — drei Kriterien, die mit der beschriebenen Teststruktur **nicht** prüfbar sind. |
-| **Lösung** | `tests/performance/` im Baum ergänzen; in der Testkonvention festhalten, welche Kriterien Parallelbetrieb brauchen. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Korrigiert** in `docs/architecture/folder-structure.md` (Baum + Konvention „Tests“). |
+**Zusätzlich** (kein Fehler, sondern eine Pflichtübergabe, die nirgends stand):
+`docs/architecture/folder-structure.md:113` — die Auflage, den Statusfilter der
+Totenliste **immer** auf `abandoned` zu setzen (N-14), und
+`docs/architecture/domain_model.md:191` — die Einmal-Bedingung in der
+Übergangstabelle des Zustandsautomaten (E-09).
 
 ---
 
-## 3. Achse 2 — Spezifikation
+## 4. Achse 2 — Spezifikation
 
-*Axe: `docs/api/openapi.yaml` ↔ `docs/requirements/` ↔ `docs/adr/` ↔ `docs/architecture/schema.sql`.
-Die vollständige, zeilengenaue Liste der **Defekte im Vertrag** steht in § 5.*
+*Axe: `docs/api/openapi.yaml` ↔ `docs/requirements/` ↔ `docs/adr/` ↔ Schema.*
 
-### S-01 — `service_admin` soll alle Mandanten sehen, die RLS erlaubt genau einen — **muss**
+### 4.1 Die Konsistenzmatrix — geprüft, nicht behauptet
 
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:36` (Rollenmatrix: `service_admin` sieht „Endpunkte aller Mandanten“), `:464-469` (`listEndpoints`), `:1067-1074` + `:1117` (`listDeadDeliveries` „mandantenübergreifend“), `:1306` (`enforceRetention`, nur `service_admin`) · `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md:35` (Rollenmatrix) und `:59-62` („Für `service_admin` gibt es **auch** keinen Mandantenfilter: der Service-Admin sieht alle Mandanten“) · `docs/requirements/PRD.md:156` (FR-004) · `docs/requirements/stories/US-016.json:17-22` (AC-016-1) · `docs/requirements/features/US-016.feature:10-13` — vs. `docs/adr/ADR-002-mandantentrennung-rls.md:20-37` und `.agent/knowledge/schema.sql:421-483` (jede Policy filtert auf `current_setting('app.organisation_id', true)`; **keine** Rolle mit `BYPASSRLS`) |
-| **Problem** | Der Vertrag und die Rollenmatrix verlangen einen **mandantenübergreifenden** Blick für `service_admin`. ADR-002 legt RLS auf **jede** fachliche Tabelle fest, ohne Ausnahme, und schließt `BYPASSRLS` aus. Es gibt **keinen** Mechanismus, der „alle Mandanten“ darstellt: `current_setting(…, true)` liefert genau **einen** Wert oder `NULL`. Die Transaktion läuft also entweder mit einem fremden Mandanten (dann sieht der Admin nur dessen Zeilen) oder ohne gesetzten Mandanten (dann liefert die Policy **0 Zeilen** — der Admin sieht **nichts**). Beides verletzt FR-004, AC-004-2, AC-016-1, AC-017-1. |
-| **Auswirkung** | Drei Operationen (`listEndpoints`, `listDeadDeliveries`, `enforceRetention`) sind gegen die vorliegende Architektur **nicht erfüllbar**; die Rollenmatrix aus ADR-015 §1 ist zur Hälfte nicht abgedeckt. Z6 („tote Zustellungen sind mandantenübergreifend abholbar“) ist nicht erfüllbar. Zusätzlich: `enforceRetention` ist per Schema **je Mandant** konfiguriert (`retention_settings`, PK `organisation_id`) — ein mandantenübergreifender Aufruf hat damit **keinen** eindeutigen Mandantenbezug (siehe S-03). |
-| **Lösung** | Drei tragfähige Wege — **keiner davon darf am Vertrag vorbeigezogen werden**: (a) eine eigene Laufzeitrolle `echobox_ops` mit einer Policy, die `current_setting('app.organisation_ids', true)` als **Liste** auswertet (`organisation_id = ANY(...)`), gesetzt aus den Rollen des Tokens; (b) `SECURITY DEFINER`-Funktionen für die drei mandantenübergreifenden Abfragen, analog `app.tenant_ids_for_worker()`; (c) eine **zweite** Mandantenkontext-Variable neben `app.organisation_id`, die „alle Mandanten“ ausdrückt (z. B. `app.cross_tenant = true`), mit einer eigenen Policy-Variante. (a) ist die kleinste Änderung ohne Sonderrecht für Endbenutzerrollen; (b) passt am besten zum bestehenden Muster der schmalen Eigentümerfunktionen. Jeder Weg berührt **ADR-002 und das Schema** (beide Dateien byte-identisch) und ist damit ein **Rücksprung zu Schritt 2**. |
-| **Empfehlungsstärke** | **muss** — blockiert die Implementierung der Service-Admin-Rolle. |
-| **Entscheidung** | **E-01** (Abschnitt 8) — der Mensch wählt den Weg. Der Stresstest ändert **weder** ADR-002 noch das Schema (Schritt-2-Eigentum, und der Spiegel verlangt beide Dateien im selben Schritt). |
+| Gegenstand | Vertrag | Schema | ADR | Ergebnis |
+|---|---|---|---|---|
+| Zustandswerte (`EndpointStatus`, `EventStatus`, `DeliveryStatus`, `DeadDeliveryStatus`, `AttemptOutcome`, `RejectionReason`) | `:2000-2074` | CHECK-Constraints `:92-93`, `:169-170`, `:217-219`, `:224-225`, `:276-278` | ADR-006 §5-7 | 🟢 **identisch** — inklusive der Vertragsverengung `DeadDeliveryStatus = [abandoned]` (R-03) |
+| Spaltennamen ↔ Vertragsfelder | `DeliveryRun`, `DeliveryAttempt`, `DeadDelivery`, `Endpoint`, `Event` | Tabellendefinitionen | ADR-002, ADR-011 | 🟢 1:1 (Fingerprint, `replay_of`, `abandoned_at`, `secret_version`, `paused_at` …) |
+| Idempotenz (Mandant, Schlüssel) | `:846-851`, `:3295-3298` | `events_idempotency_uq` `:167-168` | ADR-007 | 🟢 identisch |
+| Größengrenze 1.048.576 Byte | `:853-862`, `:2316-2317` | `events_payload_size_ck` `:175-176`, `payload_ciphertext_ck` `:177-178` | NFR-001 | 🟢 identisch — inkl. Chiffre-Reserve (1.048.592) |
+| „Kein Abnehmer“ | `EventStatus`, `DeliveryStatus`, `:1003-1004` | `delivery_runs_no_subscriber_ck` `:226-228` | D-04 | 🟢 identisch |
+| Endgültige Zustände | `:995-997`, `:2477-2481` | `delivery_runs_terminal_no_next_attempt_ck` `:229-231` | ADR-006 §7 | 🟢 identisch (V-07 behoben) |
+| Rate-Limit: **zwei** Zustände | `:118-126`, `:425-465`, `:2762-2804` | `endpoint_rate_limits` `:296-312` (kein `enabled`, `limit_value >= 0`) | ADR-010 §3 | 🟢 identisch (E-02) |
+| Aufbewahrung: Anker, Stufen, Kaskade, Karenzzeit | `:1456-1477`, `:2822-3064` | `enforce_retention_cross_tenant` `:655-822` | ADR-012 §2-4 | 🟡 **identisch in der Absicht**, 🟠 **abweichend in der Wirkung** (N-13: markierte Versuche bleiben sichtbar) |
+| Replay: einmal, 409 | `:1306-1310` | `delivery_runs_replay_of_uq` `:240-241` | ADR-006 §6, ADR-015 §6 | 🟢 Regel durchgesetzt; 🟠 Historie geht beim Purge verloren (N-15) |
+| 3xx: kein Wiederholen, `client_error`, keine Redirects | `:347-357`, `:2055-2056` | `delivery_attempts_outcome_ck` `:276-278` (`client_error`), `rejection_reason_ck` `:224-225` | ADR-008 `:56`, ADR-009 `:88-113` | 🟢 identisch |
+| Mandant: Transaktion, nicht Verbindung | `:3233` **nennt noch den „Connection-Initializer“** | `schema.sql:25-32`, `:425-436` | ADR-002 §3 | 🟡 **Vertragstext** (V-23) — Schema und ADR sind richtig |
+| Mandantenübergreifende Sicht | `:555-559`, `:1201-1205`, `:1452-1454`, `:3290` | drei `SECURITY DEFINER`-Funktionen `:505-822` | ADR-002 §7, ADR-015 §1-2 | 🟢 identisch; 🟠 **eine** Funktion ist breiter als die Projektion (N-14) |
+| Rollenmatrix | `:30-36` | — | ADR-015 §1 | 🟡 **ADR** verspricht mehr (N-19) |
+| Cursor über Mandantgrenzen | `:83-95` | Sortierung + Keyset-Vergleich `:554-556`, `:624-626` | ADR-017 | 🟢 identisch (R-04) |
+| Herkunft der Fristen (Mandant vs. Vorgabe) | `:3006-3030` (`*_retention_source`) | `retention_settings` `:356-366` | ADR-012 §6 | 🟢 identisch (R-05) |
 
-### S-02 — Die Paginierungsfelder sind im Text camelCase, im Schema snake_case — **muss**
+### 4.2 Was die neue Runde am Vertrag **nicht** gefunden hat
 
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:59-60` („Antwort unter `page.nextCursor` / `page.hasMore`“) vs. `:2586-2594` (`Page.properties`: `limit`, `has_more`, `next_cursor`; `required: [limit, has_more]`) |
-| **Problem** | Der Prosa-Text nennt zwei Feldnamen, das Schema zwei andere. Das Schema ist die Norm — aber die Prosa steht im `info.description`, also **oben** im Vertrag, in dem Abschnitt, den jeder liest. |
-| **Auswirkung** | Jede Listenoperation (`listEndpoints`, `listDeliveries`, `listDeadDeliveries`) und alle generierten Client-Typen. Ein Vertragstest, der gegen die Prosa gebaut wird, prüft die falschen Felder. |
-| **Lösung** | In `info.description` `page.nextCursor` → `page.next_cursor` und `page.hasMore` → `page.has_more`. Zwei Wörter. |
-| **Empfehlungsstärke** | **muss** — der Vertrag ist die Quelle für generierte Typen; zwei Namen für ein Feld sind ein eingefrorener Widerspruch. |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-01). Die Zwillingsstelle in `docs/architecture/folder-structure.md` ist bereits korrigiert (N-04). |
+Ein zweiter Blick auf genau die Stellen, die die Korrekturen neu eingeführt
+haben, hat **keinen** weiteren Vertragsdefekt ergeben:
 
-### S-03 — Die Aufbewahrung ist im Vertrag als globaler Stichtag beschrieben, nicht als Frist ab dem letzten Versuch — **muss**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1296-1306` (Beschreibung `enforceRetention`), `:2508-2521` (`event_cutoff`, `delivery_cutoff` — „Datensätze **vor** diesem Zeitpunkt werden gelöscht“), `:2522-2533` (`deleted_events`, `deleted_delivery_runs`, `deleted_attempts`) · vs. `docs/adr/ADR-012-aufbewahrung.md:33-36` (zwei Fristen, **je Datenart**, Anker = letzter Versuch), `:54-64` (zwei Stufen: **markieren**, dann **Purge** nach einer **Karenzzeit**), `:66-74` (Reihenfolge und Kaskade), `:140-141` („die Karenzzeit … ist **im Vertrag ausgewiesen**“) |
-| **Problem** | Fünf Widersprüche in einem Feld: (a) Der Vertrag beschreibt **globale Stichtage**, F-02/ADR-012 einen **je Datensatz** laufenden Fristbeginn (letzter Versuch). Ein Datensatz mit `last_attempt_at` vor dem Stichtag, dessen Ereignis aber nach dem Ereignis-Stichtag liegt, fällt bei der einen Regel durch und bei der anderen nicht. (b) Die **Karenzzeit** (ADR-012 §3, §6 — Konfiguration `echobox.retention.purge-delay`) ist im Vertrag **überhaupt nicht vorhanden**, obwohl ADR-012 sie ausdrücklich als „im Vertrag ausgewiesen“ bezeichnet. (c) Die Zähler heißen `deleted_*` — markiert wird aber erst (`deleted_at`), gelöscht wird später; welche Stufe gezählt wird, steht nicht da. (d) ADR-012 §1 sagt: die Ereignisfrist erfasst **auch die zugehörigen Zustellläufe und Versuche** — der Vertrag nennt drei getrennte Zähler und zwei getrennte Stichtage, als wären die Fristen unabhängig. Tatsächlich löscht das Schema per `ON DELETE CASCADE` (`schema.sql:222-225`, `:264-265`) die Läufe und Versuche **mit** dem Ereignis, auch wenn die Protokollfrist noch nicht abgelaufen ist. (e) `enforceRetention` ist eine `service_admin`-Operation über alle Mandanten, `retention_settings` ist aber **je Mandant** (PK `organisation_id`) — die Antwort nennt **ein** Fristenpaar für alle Mandanten. |
-| **Auswirkung** | AC-016-5, FR-031, F-02, US-016. Das Kriterium „älter als die Frist wird gelöscht, jüngere bleiben erhalten“ ist mit dem vorliegenden Vertrag **nicht entscheidbar**: bei zwei Datensätzen mit unterschiedlichem `last_attempt_at` sagt der Vertrag „nach Stichtag“, die ADR „nach Alter je Datensatz“. Zusätzlich ist die Purge-Stufe terminiert (Karenzzeit) — ein Test, der „gelöscht“ prüft, muss warten oder die Stufe kennen. |
-| **Lösung** | Im Vertrag: (1) den **Anker je Datenart** benennen (`last_attempt_at`; für Ereignisse ohne Versuch `accepted_at` — ADR-012 §2/§„Konsequenzen“); (2) die **Karenzzeit** ausweisen (Feld `purge_delay_days` in der Antwort oder in `x-delivery-protocol`/eigenem Abschnitt); (3) die Zähler umbenennen (`marked_*`) **oder** ausdrücklich benennen, welche Stufe sie zählen; (4) den **Geltungsbereich** der Operation angeben (alle Mandanten) und die Frage „welche Frist gilt, wenn die Mandanten unterschiedliche haben“ beantworten (Vorschlag: die jeweils **älteste** angewandte Frist bzw. eine Liste je Mandant); (5) die **Kaskade** benennen: das Löschen eines Ereignisses nimmt seine Läufe und Versuche mit — die Protokollfrist gilt nur für Läufe, deren Ereignis noch steht. |
-| **Empfehlungsstärke** | **muss** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-02). |
-
-### S-04 — Der „wirksame Grenzwert“ des Endpunkt-Limits hat zwei Bedeutungen — **muss**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:2442-2449` (`RateLimitObservation.limit`: „`null` bedeutet: die Begrenzung ist für diesen Endpunkt **abgeschaltet** (kein Override, `limit_value = 0`)“) und `:1273` (Beispiel `limit: null`) vs. `docs/adr/ADR-010-rate-limit.md:66-68` („`limit_value IS NULL` heißt: **kein Override** — es gilt die Vorgabe. `limit_value = 0` schaltet die Begrenzung **ab**“) und `docs/api/openapi.yaml:373` (`default_limit: 60`), `:2447-2448` („Vorgabewert **60**“) |
-| **Problem** | Drei Aussagen, zwei Zustände: ADR-010 kennt **kein Override** (⇒ 60) und **abgeschaltet** (⇒ 0) — zwei verschiedene Werte, aber das Vertrag-Feld hat nur **einen** Wert (`null`) und **eine** Bedeutung („abgeschaltet“). Der Wert „60 durch Vorgabe“ und der Wert „0 abgeschaltet“ sind am Feld nicht unterscheidbar. Das Beispiel zeigt `limit: null` bei gleichzeitig dokumentiertem Vorgabewert 60 — der Standardfall sieht im Vertrag also wie „abgeschaltet“ aus. Dazu passt das Schema nicht: `endpoint_rate_limits.enabled BOOLEAN NOT NULL DEFAULT FALSE` (`schema.sql:281`) ist ein **dritter** Zustand, und der Default `FALSE` schaltet die Begrenzung faktisch aus, obwohl ADR-010 §3 den Vorgabewert **pro Umgebung** vorsieht. |
-| **Auswirkung** | AC-018-4, AC-018-1, FR-033, F-01. Die Aussage „der wirksame Grenzwert ist 60“ ist am Vertragsfeld nicht ablesbar; ein Test, der `limit == 60` prüft, schlägt gegen das Beispiel fehl. Der Rate-Limiter selbst kann den Zustand „kein Override“ nicht vom Zustand „abgeschaltet“ unterscheiden. |
-| **Lösung** | Im Vertrag: `limit` = der **wirksame** Grenzwert (also 60, sofern kein Override); **zusätzlich** ein Boolean, das „abgeschaltet“ ausdrückt (z. B. `limited: false` oder `limit: 0` mit der Bedeutung „0 = unbegrenzt“). `null` aus dem Enum entfernen oder eindeutig definieren. Das Beispiel auf `limit: 60` umstellen. Im Schema: `enabled` entfernen (zwei Zustände genügen) oder als „Override aktiv“ umdeuten — in **beiden** Schemadateien (Spiegel-Regel). |
-| **Empfehlungsstärke** | **muss** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-03) + Schema-Teil in **E-02** (Rücksprung). |
-
-### S-05 — „Exakt die Nutzlastbytes“ vs. kanonische Materialisierung — **muss**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:220-224` („**Der Request-Body sind exakt die Nutzlastbytes des Ereignisses** … zwingend, weil die zugestellten Bytes **byteidentisch** mit den eingelieferten Klartextbytes sein müssen (AC-007-3)“) und `:229` (Beispiel) vs. `:1962-1965` („`payload` nimmt einen beliebigen JSON-Wert entgegen; der Dienst **materialisiert ihn kanonisch** (RFC 8785, UTF-8, sortierte Schlüssel, ohne bedeutungslose Leerzeichen)“) |
-| **Problem** | Für die Einlieferung als `payload` (JSON-Wert) sind die zugestellten Bytes die **kanonischen**, nicht die vom Aufrufer gesendeten. `{"b":1,"a":2}` wird als `{"a":2,"b":1}` zugestellt. Die Byte-Identität zwischen „eingeliefert“ und „zugestellt“ gilt damit nur für `payload_base64` (bytegenaue Übernahme). Der Vertrag behauptet das Gegenteil — und AC-007-3 verlangt die Byte-Identität wörtlich. |
-| **Auswirkung** | AC-007-3, AC-010-1, FR-013, US-007, US-010. Der Empfänger prüft die Signatur über die **empfangenen** Bytes — das ist konsistent —, aber die Zusage „byteidentisch mit den eingelieferten“ ist für `payload` falsch. Ein Empfänger, der seinen eingelieferten Original-JSON-Text byteweise vergleicht, sieht eine Abweichung. |
-| **Lösung** | Im Vertrag präzisieren: „Der Request-Body sind **die Nutzlastbytes des Ereignisses** — bei Einlieferung als `payload` die **kanonisch materialisierten** Bytes (RFC 8785), bei `payload_base64` die **exakt gelieferten** Bytes. Die zugestellten Bytes sind in beiden Fällen byteidentisch mit dem, **was das Ereignis trägt**.“ Zusätzlich in `EventIntakeRequest.payload` den Hinweis, dass die zugestellten Bytes die kanonische Form sind. |
-| **Empfehlungsstärke** | **muss** — der ausgehende Vertrag ist eingefroren; eine falsche Zusage über die Byte-Identität ist ein Dauerfehler bei jedem Empfänger. |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-04). |
-
-### S-06 — `DeliveryRun` führt die Replay-Historie nicht — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:2103-2181` (`DeliveryRun` — kein `replay_of`) vs. `docs/architecture/domain_model.md:103` („`replay_of` — Replay-Historie (AC-013-2)“, unter der Überschrift „Attribute, die den Vertrag tragen“) und `.agent/knowledge/schema.sql:199, 226-227` |
-| **Problem** | Das Domain-Modell führt `replay_of` ausdrücklich als **vertragsrelevant**; im Vertrag existiert das Feld nicht. Der Empfänger-Admin, der in `GET /deliveries/{id}` einen Lauf liest, sieht nicht, dass er ein Replay ist und auf wen. |
-| **Auswirkung** | AC-013-2 (Historie sichtbar), US-013. Der Historiebeweis ist nur in der **Replay-Antwort** sichtbar, nicht am Lauf selbst. |
-| **Lösung** | `replay_of` (nullable UUID) in `DeliveryRun` aufnehmen und in der Beschreibung „`null`, wenn der Lauf kein Replay ist“. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-05). |
-
-### S-07 — Der Ausgangszustand eines neuen Zustelllaufs ist uneindeutig — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1203` (Beispiel `ReplayResponse.status: scheduled` bei `attempt_count: 0`) und `:1035` (`next_attempt_at` gesetzt) vs. `.agent/knowledge/schema.sql:190` (`status TEXT NOT NULL DEFAULT 'pending'`) und `docs/architecture/domain_model.md:116-117` (`pending` = „angelegt, noch kein Versuch ausgeführt“; `scheduled` = „ein Versuch ist geplant“) |
-| **Problem** | Drei Stellen, zwei Zustände. Der Vertrag zeigt einen **neuen** Lauf (0 Versuche) im Zustand `scheduled`; das Schema legt `pending` als Default an. `docs/architecture/diagrams/05-sequence-delivery.mmd:28` schreibt „Status pending/scheduled“ und verschweigt die Wahl. |
-| **Auswirkung** | AC-013-1, AC-012-2, FR-023 — und jede Abfrage, die auf `status = 'pending'` wartet (der Worker!). Falsch implementiert, beansprucht der Worker die Läufe nie. |
-| **Lösung** | Eine Regel festlegen: ein neuer Lauf entsteht in `pending` mit gesetztem `next_attempt_at`; `scheduled` heißt „ein Versuch läuft gerade“. Vertragsbeispiel auf `pending` umstellen und die Zustandsbeschreibung in `DeliveryStatus` schärfen. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-06). In `docs/architecture/domain_model.md` ist die Regel jetzt als „die Zustände des Domain-Modells gelten“ hinterlegt (mit Vermerk auf den Widerspruch). |
-
-### S-08 — Die Liste der endgültigen Zustände ist unvollständig — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:883-885` („Bei endgültigen Zuständen (`sent`, `abandoned`, `rejected`, `cancelled`) ist `next_attempt_at` **leer**“) und `:2162-2165` (dieselbe Liste) vs. `.agent/knowledge/schema.sql:217-219` (`delivery_runs_terminal_no_next_attempt_ck` — **zusätzlich** `no_subscriber`) und `docs/adr/ADR-006-zustellprozess-hintergrundprozess.md:87` |
-| **Problem** | `no_subscriber` ist genauso endgültig (es gab nie einen Versuch) und fällt unter dieselbe DB-Constraint — im Vertrag fehlt es in beiden Aufzählungen. |
-| **Auswirkung** | AC-015-2, AC-007-5, D-04. Ein Aufrufer, der `next_attempt_at` als „nicht endgültig“ interpretiert, wartet auf einen Versuch, den es nie geben wird. |
-| **Lösung** | In beiden Stellen `no_subscriber` ergänzen. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-07). |
-
-### S-09 — `Event.payload_media_type` ist im Vertrag nullable, im Schema `NOT NULL` — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:2077-2079` (`payload_media_type: {type: string, nullable: true}`, **nicht** in `required`) vs. `.agent/knowledge/schema.sql:148` (`payload_media_type TEXT NOT NULL DEFAULT 'application/json'`) |
-| **Problem** | Der Vertrag erlaubt `null` und das Fehlen des Feldes; die Datenbank nicht. `EventIntakeRequest.payload_media_type` hat immerhin einen Default (`application/json`), aber `Event` (die Leseansicht) nicht. |
-| **Auswirkung** | DTO- und Mapper-Logik: ein Mapper, der `null` zulässt, erzeugt einen Verstoß. Minor, aber eine von beiden Seiten muss nachgezogen werden. |
-| **Lösung** | Vertrag: `payload_media_type` in `required` aufnehmen und `nullable` entfernen. (Oder das Schema nullable machen — die Default-Zeile spricht für „not null“.) |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-08). |
-
-### S-10 — 429 und 503 sind definiert, aber von keiner Operation erreichbar — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1619-1634` (`components.responses.RateLimitExceeded`, mit `Retry-After`) und `:1648-1660` (`ServiceUnavailable`) — **beide werden von keiner Operation referenziert**; `:1401-1413` (die 503 von `/health/ready` ist inline statt über die Komponente); die Fehlertabelle `:43-54` nennt 429 und 503; `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md:106-108` ebenfalls |
-| **Problem** | Die Fehlerliste verspricht zwei Codes, die der Client in keiner Operation erwarten kann. Maschinell geprüft: von 17 Operationen hat **keine** eine 429; die einzige 503 ist inline. Zwei Komponenten sind tote Bestandteile. |
-| **Auswirkung** | ADR-015 §5, der Fehlerkatalog. Ein Client, der sich auf 429 einrichtet (Retry-After), findet sie im Vertrag nicht. |
-| **Lösung** | Entweder die 429 dort referenzieren, wo sie entstehen kann (die schreibenden Operationen — `submitEvent`, `createEndpoint`, `rotateEndpointSecret`), oder die Codes aus der Fehlertabelle streichen und die beiden Komponenten löschen. Die 503 von `/health/ready` auf die Komponente umstellen. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-09). |
-
-### S-11 — `tenant_parameter_rejected` ist im Fehlercode-Enum, aber von keiner Operation erzeugbar — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1698` (der Code im `Problem.code`-Enum), `:2760` (die Vertragsregel: „Ein Mandantenparameter im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt“) vs. `:1599-1618` (die einzige 422-Antwort, `ValidationFailed`, mit `code: validation_failed`) |
-| **Problem** | Der Code existiert, aber keine Response erzeugt ihn. Die Regel fordert einen **eigenen** Code, die einzige 422 trägt `validation_failed`. |
-| **Auswirkung** | AC-001-5, AC-004-4, D-01. Ein Aufrufer kann die „Mandantenparameter abgelehnt“ nicht von einer sonstigen Validierungsabweichung unterscheiden. |
-| **Lösung** | Eine Komponente `TenantParameterRejected` (422) anlegen und an den Operationen referenzieren, die einen Body mit unbekanntem Feld ablehnen können — oder den Code aus dem Enum streichen und die Regel auf `validation_failed` umschreiben. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-10). |
-
-### S-12 — `additionalProperties: false` vs. „Mandantenparameter ⇒ 422“: 400 oder 422? — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1793`, `:1835`, `:1956`, `:2344`, `:2470` (`additionalProperties: false` in allen Request-Bodies) und `:1830-1831` (die Regel „Ein `organisation_id` … wird mit HTTP 422 abgelehnt“) vs. die Fehlertabelle `:45` (400 = „syntaktisch fehlerhafte Anfrage (kein gültiges JSON)“) und `:51` (422 = „semantisch ungültig (Validierung)“) |
-| **Problem** | Ein Body mit `organisation_id` verletzt das Schema (`additionalProperties: false`) — also ist er **semantisch** ungültig (422) und nicht syntaktisch (400). Die Fehlertabelle trennt die Fälle, der Vertrag legt sich nicht fest. Die Implementierung entscheidet das dann (Jackson `FAIL_ON_UNKNOWN_PROPERTIES` ist in Spring Boot per Default **aus** → der Feldwert landet im Model, statt abgelehnt zu werden — das wäre eine stille Akzeptanz!). |
-| **Auswirkung** | AC-001-5, AC-004-4, D-01, NFR-003. Ein still akzeptierter Mandantenparameter ist genau der Fall, den ADR-015 §2 („Er wird **nicht** stillschweigend ignoriert“) verbietet. |
-| **Lösung** | Im Vertrag festlegen: „Ein Feld, das das Schema verletzt (unbekanntes Feld, falscher Typ), ist **422** `validation_failed` mit einem `violations`-Eintrag; ein **Mandantenparameter** erhält 422 `tenant_parameter_rejected`.“ Zusätzlich in `x-validation-rules` den Feldnamen `organisation_id` nennen. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-11). |
-
-### S-13 — Der eingefrorene ausgehende Vertrag sagt nichts über 3xx — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:261-311` (die Ergebnismatrix: 2xx, 410, „5xx, 408, 429“, „übrige 4xx (außer 410)“, Transportfehler) |
-| **Problem** | **3xx fehlt** — ebenso 1xx. Ein Empfänger, der mit 301/302 antwortet (sehr üblich bei HTTPS→HTTP-Umleitungen), fällt durch das Raster. Nach der Logik „übrige 4xx ⇒ aufgeben“ wäre 3xx weder 2xx noch 4xx: der Dispatcher müsste entscheiden, und jeder implementiert es anders. Der ausgehende Vertrag ist **eingefroren** — die Lücke wird jetzt dauerhaft. |
-| **Auswirkung** | AC-010-3, AC-014-3/4, D-08, ADR-008 §1. Unentschieden bleibt auch, ob der HTTP-Client Weiterleitungen folgt (Java `HttpClient` folgt **nicht** von selbst; `followRedirects` ist eine bewusste Entscheidung). |
-| **Lösung** | Eine Zeile in der Ergebnismatrix: „**3xx**: kein Wiederholen, der Lauf endet mit `rejected` / `rejection_reason = client_error`“ (oder „wie 5xx, mit Wiederholung“, falls Umleitungen als temporär gelten sollen) — plus die Festlegung, ob der Client Redirects folgt (`NEVER` ist die sichere Wahl, weil die Ziel-URL in der Signatur steckt). |
-| **Empfehlungsstärke** | **sollte** — billig (zwei Sätze), aber vor dem Freeze zu beheben, weil danach jede Änderung eine neue Hauptversion braucht. |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-12). |
-
-### S-14 — `timeout` und `network_error` haben keine Trennlinie — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1769-1779` (`AttemptOutcome` mit `network_error` **und** `timeout`) und `:303-311` (der Transportfehler-Block nennt „Netzwerkfehler, DNS-Fehler, Verbindungs-Timeout, Lese-Timeout“ **ohne** Trennlinie) vs. `docs/architecture/domain_model.md:203-204` („`network_error` = DNS-, Verbindungs-, TLS-Fehler“, „`timeout` = Verbindungs- oder Lese-Timeout“) |
-| **Problem** | Ein **Verbindungs-Timeout** ist in beiden Listen. Welcher `outcome` gilt, ist nicht entscheidbar — und der `outcome` ist ein **Vertragsfeld** im Protokoll (`GET /deliveries/{id}`). ADR-008 §6 nennt den Timeout einen Fehlversuch, aber ohne Trennlinie zum Netzwerkfehler. |
-| **Auswirkung** | AC-011-3, AC-014-3, FR-030. Zwei verschiedene Klassifikationen für dasselbe Ereignis ⇒ die Auswertung „welche Fehlerklasse dominiert“ ist nicht reproduzierbar. |
-| **Lösung** | Eine Trennlinie im Vertrag: „`timeout` = der Connect-Timeout (5 s) oder der Lese-Timeout (10 s) hat ausgelöst; `network_error` = DNS-, TLS- oder Verbindungsfehler **ohne** Timeout.“ Und im Schema prüfen, dass beide Werte zulässig bleiben (sie sind es, `schema.sql:259-261`). |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-13). |
-
-### S-15 — Der Replay auf einen pausierten Endpunkt hat keine definierte Antwort — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1173-1174` („**Pause:** Ist der Endpunkt pausiert, startet **kein** Versuch; die Zustellung endet erneut ohne Zustellung (D-03).“) vs. die 202-Antwort `:1193-1206` und die 409-Antwort `:1213-1214` |
-| **Problem** | Der Vertrag sagt, was **nicht** passiert, nicht, **was** antwortet. 202 mit `status: cancelled`? 202 mit `status: pending`? 409 `delivery_state_conflict`? Der Zustand `cancelled` wäre endgültig und **nicht** replaybar (N-06) — dann wäre die tote Zustellung durch einen Replay **verloren** (ein Zustandswechsel, der gegen „Historie unverändert“ verstößt). |
-| **Auswirkung** | AC-013-4, D-03, F-03. Der Pfad ist in der Übergangstabelle des Domain-Modells als „Endpunkt nicht pausiert“ Bedingung vermerkt — im Vertrag fehlt die Antwort. |
-| **Lösung** | Im Vertrag festlegen: „Ist der Endpunkt pausiert, antwortet der Replay mit **409** `delivery_state_conflict` (Bedingung nicht erfüllt); es entsteht **kein** neuer Lauf.“ (Alternativ 202 mit `status: cancelled` — dann aber mit der Folge, dass der Vorgängerlauf seinen Zustand behält und nur ein Abbruchvermerk entsteht. Die erste Variante ist einfacher und verträgt sich mit „Historie unverändert“.) |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-14). |
-
-### S-16 — Die Beispiele widersprechen sich und dem Backoff — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:962-963` (`listDeliveries`-Beispiel: `attempt_count: 3`, `max_attempts: 8`) vs. `:1021-1022` (`getDeliveryRun`-Beispiel **derselben** `delivery_run_id`: `attempt_count: 2` mit **zwei** Versuchen) · `:1040` (Versuch 1: `next_attempt_at: 09:16:23.004` = +1 min ✓) und `:1050` (Versuch 2: `next_attempt_at: 09:21:04.112` = +4 min 40 s — der Backoff (ADR-008 §2) verlangt nach dem zweiten Fehlversuch **2 min**, nicht 4:40) · `:804` (`payload_size_bytes: 34`) vs. das Nutzlast-Beispiel `:785-786` und `:229` (`{"order_id": 4711, "state": "shipped"}` = **38** Byte) · `:438` (`organisation_id: m-1` in der 201-Antwort von `createEndpoint`) vs. `:1875-1881` (die Feldbeschreibung: „**Nur** für `service_admin` gefüllt; für andere Rollen ist das Feld `null`“) |
-| **Problem** | Vier Beispiele, die sich selbst widersprechen oder den dokumentierten Regeln widersprechen. Der Vertragstest-Plan (`folder-structure.md:217`: „eine Antwort mit **undokumentierten** Feldern ist ein Fehler“) macht die Beispiele zur Referenz — dann sind sie Testdaten mit Fehlern. |
-| **Auswirkung** | AC-007-3, AC-011-1/2, AC-012-2, AC-015-1/2, AC-001-1/4. Besonders das `payload_size_bytes: 34` gegen 38 Byte: ein Test, der die Beispielwerte als Vorlage nimmt, prüft die falsche Größe. |
-| **Lösung** | Die beiden Zustelllauf-Beispiele auf denselben Stand bringen (`attempt_count` und die Versuchsliste konsistent, der zweite `next_attempt_at` auf +2 min). `payload_size_bytes` auf 38 setzen (oder das Beispiel auf 34 Byte kürzen). `organisation_id` in der 201-Antwort auf `null` setzen (der Ersteller ist ein `receiver_admin`) oder die Feldbeschreibung relativieren. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-15). |
-
-### S-17 — ADR-008 nennt die falsche Gesamtdauer — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/adr/ADR-008-retry-backoff-streuung.md:196-198` („Bei 8 Versuchen und Basis 1 Minute mit ×2 und Deckel 60 Minuten liegt der letzte Versuch rund **4 Stunden** nach dem ersten“) |
-| **Problem** | Rechnung: 8 Versuche ⇒ 7 Wartezeiten = 1 + 2 + 4 + 8 + 16 + 32 + 60 = **123 Minuten ≈ 2 h 03 min** (Streuung ± 20 % ⇒ 1 h 38 min … 2 h 28 min). Nicht 4 Stunden — der Wert ist um den Faktor 2 falsch. |
-| **Auswirkung** | ADR-008 nennt die Zahl selbst eine „**Zusage** gegenüber den Empfängern“. Der Vertrag nennt **keine** Gesamtdauer (`x-delivery-protocol.retry_policy` kennt nur die Parameter) — die Zusage existiert damit nur in der ADR, und dort ist sie falsch. Z1 („nach 24 h ein endgültiger Zustand“) bleibt zwar erfüllt, aber der Empfänger plant mit der falschen Zahl. |
-| **Lösung** | ADR-008 auf „rund **2 Stunden**“ korrigieren und die Gesamtdauer **auch** in den Vertrag aufnehmen (als erwartetes Fenster, z. B. `expected_completion_window`), damit die Zusage dort steht, wo die Empfänger sie lesen. |
-| **Empfehlungsstärke** | **sollte** — ADR gehört Schritt 2; der Vertragsteil ist V-16. |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-16) + ADR-Teil in **E-03** (Rücksprung). |
-
-### S-18 — Das Vorgabefenster der Kennzahlen (7 Tage) steht nicht im Vertrag — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1252-1254` (`from`/`to` **optional**, ohne Vorgabe) vs. `docs/adr/ADR-011-metriken-slo.md:32` („Default: die letzten 7 Tage bis jetzt“) und `:119-121` (bestätigt am 2026-10-21) |
-| **Problem** | Ohne `from`/`to` muss der Dienst ein Fenster wählen; das Vertrag nennt keines. Das Beispiel zeigt zufällig 7 Tage (`:1264-1266`), was die Lücke kaschiert. |
-| **Auswirkung** | AC-017-1/3, FR-032. Zwei Implementierungen liefern verschiedene Zahlen für dieselbe Anfrage. |
-| **Lösung** | In den Parameterbeschreibungen `From`/`To` (`:1469-1484`) die Vorgabe nennen: „Ohne `from`/`to` gilt das Fenster der letzten **7 Tage** bis jetzt (ADR-011, bestätigt 2026-10-21).“ |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-17). |
-
-### S-19 — Der Replay eines bereits replayten Laufs ist undefiniert — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1149-1218` (die Replay-Operation, ohne Einschränkung) vs. `docs/architecture/domain_model.md:192` (der Replay ist an `abandoned` gebunden) |
-| **Problem** | Der Vorgängerlauf bleibt `abandoned` (die Historie bleibt unverändert). Damit ist er **beliebig oft** replaybar — jeder Aufruf erzeugt einen **neuen** Zustelllauf. Der Vertrag sagt nichts darüber, ob das erlaubt, gewollt oder begrenzt ist. |
-| **Auswirkung** | AC-013-1/2/5, FR-024. Ein Aufrufer kann durch wiederholte Replays eine Lücke erzeugen — und der Empfänger sieht mehrere Läufe mit derselben Ereignis-ID. |
-| **Lösung** | Festlegen: „Ein Replay ist je aufgegebenem Zustelllauf **einmal** möglich; ein weiterer Replay desselben Laufs antwortet **409** `delivery_state_conflict`.“ (Alternativ bewusst erlauben — dann gehört es in den Vertragstext.) |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-18). |
-
-### S-20 — Die Grenze von 1 MB gilt für die Nutzlast, nicht für den Request-Body — **sollte**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:751-754` („Gemessen werden die **Nutzlastbytes** — bei vorverschlüsselter Einlieferung also die Chiffre“) und `:2020-2021` (Validierungsregel) vs. `:1993-2000` (`payload_base64`) |
-| **Problem** | `payload_base64` ist base64-kodiert: 1.048.576 Byte Nutzlast ⇒ ~1.398.102 Byte **Request-Body** (+ JSON-Overhead). Der Vertrag nennt keine Grenze für den Request-Body. Server mit einer Body-Grenze (Servlet-Container, Ingress, Gateway) lehnen solche Requests ab — mit 413, aber mit **falschem** Code, oder gar mit 400. |
-| **Auswirkung** | NFR-001, D-13, AC-005-2/3, AC-008-1. Die Grenze „1 MB“ ist für einen Aufrufer mit vorverschlüsselter Einlieferung in Wahrheit ~1,4 MB. |
-| **Lösung** | Im Vertrag dazusagen: „Die Grenze von 1.048.576 Byte betrifft die **Nutzlastbytes**; der Request-Body darf entsprechend größer sein (base64 ⇒ ~1,4×). Der Dienst akzeptiert einen Request-Body bis 2 MiB.“ Und in der Betriebsplanung (Schritt 9) die Body-Grenze des Containers entsprechend setzen. |
-| **Empfehlungsstärke** | **sollte** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-19). |
-
-### S-21 — Der ausgehende `Content-Type` ist fest auf `application/json` verdrahtet — **optional**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:148-151` (`value: "application/json"`, daneben „Entspricht `payload_media_type` des Ereignisses“) vs. `:2010-2014` (`payload_media_type` frei, Default `application/json`) |
-| **Problem** | Der `value` nennt `application/json`, die Beschreibung sagt „entspricht `payload_media_type`“. Für ein Ereignis mit `payload_media_type: application/xml` widersprechen sich beide. |
-| **Auswirkung** | FR-013, US-008 — der Empfänger parst nach dem Header, den der Dienst setzt. |
-| **Lösung** | `value: "<payload_media_type des Ereignisses> (Vorgabe: application/json)"`. |
-| **Empfehlungsstärke** | **optional** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-20). |
-
-### S-22 — `RejectionReason` führt `null` im Enum — **optional**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1781-1788` (`type: string`, `nullable: true`, `enum: [permanent_rejection, client_error, null]`) |
-| **Problem** | In YAML ist `null` der Wert `None`; zusammen mit `nullable: true` ist das in OpenAPI 3.0 zulässig, aber mehrere Generatoren (und strenge Linter) stolpern über einen Nullwert im Enum. |
-| **Auswirkung** | Gering — der Wert entsteht in der DTO-Generierung (Schritt 6). |
-| **Lösung** | `null` aus dem Enum streichen; `nullable: true` deckt den Fall ab. |
-| **Empfehlungsstärke** | **optional** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-21). |
-
-### S-23 — `payload: null` ist nicht ausgeschlossen — **optional**
-
-| | |
-|---|---|
-| **Fundstelle** | `docs/api/openapi.yaml:1986-1992` (`payload` ohne `type`, ohne `nullable: false`) und `:2016-2019` (die Regel „Genau **eine** von `payload`/`payload_base64`“) |
-| **Problem** | Ein Schema ohne `type` erlaubt jeden JSON-Wert — auch `null`. „Genau eine gesetzt“ ist mit `payload: null` nicht eindeutig (gesetzt, aber ohne Nutzlast). Bei `payload_encoding: pre_encrypted` ist `payload` verboten — `payload: null` fällt unter dieselbe Regel. |
-| **Auswirkung** | AC-008-2, NFR-001 — ein leeres Ereignis (0 Byte Nutzlast) ist ein Grenzfall, der jetzt schon im Schema steckt. |
-| **Lösung** | `nullable: false` setzen und in der Regel ausdrücklich „`payload: null` gilt als **nicht** gesetzt“ ergänzen. |
-| **Empfehlungsstärke** | **optional** |
-| **Behandlung** | **Vertragsdefekt** (Abschnitt 5, V-22). |
+- **Aufbewahrungs-Kaskade:** Vertrag (`:1469-1471`), Schema (`:643-645`,
+  `:739-758`, `:760-782`) und ADR-012 §4 (`:66-81`) beschreiben **dieselbe**
+  Kaskade, **dieselbe** Reihenfolge (Versuche → Läufe → Ereignisse) und
+  **dieselbe** Purge-Reihenfolge (Schema `:797-805`). Die Zählerbedeutungen
+  (`marked_*` = in diesem Durchlauf markiert, `purged_*` = physisch gelöscht)
+  stehen an **einer** Stelle (`openapi.yaml:2830-2833`) und sind eindeutig.
+  *Die einzige Abweichung ist die Wirkung* (N-13) — nicht die Beschreibung.
+- **3xx:** steht im **ausgehenden** Vertrag (`x-delivery-protocol.response.outcomes`,
+  `:347-357`), in der `AttemptOutcome`-Beschreibung (`:2055-2056`), in der
+  Ergebnismatrix der Architektur (`architecture.md:179`), in ADR-008 (`:56`) und
+  in ADR-009 (`:88-113`) — **an allen fünf Stellen gleich**. Die
+  **Wiederholungsmatrix** des Vertrags (`retry_policy`, `:392-423`) nennt die
+  3xx nicht ausdrücklich, widerspricht ihr aber auch nicht: sie beschreibt
+  **wann** wiederholt wird, und 3xx ist „nein“. → **kein Defekt**, aber eine
+  Stelle, an der ein Leser suchen muss.
+- **Entfernter `enabled`-Zustand:** `limit_value = 0` (abgeschaltet) und
+  `limit_value IS NULL` (kein Override ⇒ 60) stehen **gleich** in
+  `x-delivery-protocol.rate_limit.states` (`:445-455`), in `RateLimitObservation`
+  (`:2762-2787`), in `info.description` (`:118-126`), in `x-contract-rules.defaults`
+  (`:3282`), im Schema (`:290-333`) und in ADR-010 (`:38-85`). **Kein Rest des
+  dritten Zustands** — `enabled` kommt im gesamten Repository nicht mehr vor
+  (maschinell geprüft).
+- **Reduktion aus Schritt 3:** die drei `SECURITY DEFINER`-Funktionen sind
+  **nicht** zusammengelegt worden (die Projektionsgrenze bliebe sonst verloren),
+  `GET /api/v1/events` ist weiterhin nicht da, keine Story/AK/Anforderung ist
+  entfallen, `x-acceptance-coverage` = **101/101**, `x-requirement-coverage` =
+  **24/24**. **Keine Abdeckungslücke** durch die Reduktion.
+- **Prüfbarkeit der AKs:** die früher „nicht entscheidbaren“ AKs sind es jetzt
+  nicht mehr — AC-016-5 (Anker, Stufen, Karenzzeit, Kaskade, Herkunft benannt),
+  AC-018-4 (`limit` + `limited`), AC-007-3 (kanonische Bytes), AC-004-2/AC-016-1
+  (Mechanismus belegt). Offen bleibt die **Testebene** (32 AKs ohne Gherkin-
+  Szenario, Lasttest, Parallelbetriebstest) — das ist **Schritt 5**, kein
+  Vertragsbefund.
 
 ---
 
-## 4. Developer-Interface — 9 Dimensionen
+## 5. Developer-Interface — 9 Dimensionen
 
 | # | Dimension | Ergebnis | Begründung / Fundstelle |
 |---|---|---|---|
-| 1 | **Auffindbarkeit** (Finden der passenden Operation) | 🟢 gut | 17 Operationen, alle mit `operationId`, `summary`, `description`, Tag; `x-acceptance-coverage` (101) und `x-requirement-coverage` (24) verweisen jeden Kriterium auf seinen Ort. Die Tags folgen den Epics. *Anmerkung:* die **Rollen** sind nur im Prosa-Text je Operation, nicht maschinenlesbar (kein `x-roles`) — die Rollenmatrix aus ADR-015 §1 steht an keiner Stelle im Vertrag. |
-| 2 | **Konsistenz** (gleiche Dinge gleich benannt) | 🔴 mangelhaft | Drei Widersprüche: `page.nextCursor` vs. `next_cursor` (S-02), deutsch im Text vs. englisch in den Werten (N-07), `no_subscriber` fehlt in der Endgültigkeitsliste (S-08). Dazu: `Event.payload_media_type` nullable (S-09). |
-| 3 | **Vollständigkeit** (deckt der Vertrag die Aufgabe ab?) | 🟡 weitgehend | Alle 23 Stories / 101 AKs / 24 Anforderungen sind auffindbar. Aber: 4 Fehlercodes sind **unerreichbar** (S-10, S-11), die Karenzzeit der Aufbewahrung fehlt (S-03), `replay_of` fehlt (S-06), 3xx fehlt (S-13), das Vorgabefenster fehlt (S-18), die Gesamtdauer der Zustellung fehlt (S-17). |
-| 4 | **Fehlerbehandlung** (was kann schiefgehen, wie erfährt es der Aufrufer) | 🟡 strukturiert, Lücken | Ein Schema (`Problem`), eine Status→Code-Tabelle, `violations` je Feld, eine einzige Erzeugungsstelle (ADR-015 §4). Lücken: die Erreichbarkeit der Codes (S-10/S-11), die 400/422-Grenze bei Schemaverstößen (S-12), die Antwort auf „pausierter Endpunkt“ (S-15), die 503 der Readiness ist inline statt über die Komponente. |
-| 5 | **Sicherheit & Mandantentrennung** | 🔴 **blockiert** | Stark: JWT-only, Mandant ausschließlich aus dem Token, Fremdes ⇒ 404 (kein Bestandsschutz), Secret nie in der Antwort, `writeOnly`, `additionalProperties: false`, RLS fail-closed. Aber: die **Service-Admin-Sicht auf alle Mandanten ist mit dem vorliegenden Schema nicht darstellbar** (S-01) — der zentrale Schutzfall des Dienstes hängt an einer ungeklärten Architekturentscheidung. |
-| 6 | **Performanz & Grenzen** | 🟢 gut, mit Anmerkungen | Cursor-Paginierung (kein `total`), `limit` ≤ 200, 33 Indizes auf die realen Zugriffspfade, asynchrone Annahme, Metriken on demand. Anmerkungen: die 1-MB-Grenze ist eine **Nutzlast**-, keine Body-Grenze (S-20), die Gesamtdauer der Zustellung ist nirgends zugesagt (S-17), die Metrikenberechnung on demand ist ein acknowledged Risiko (ADR-011 §„Negativ“). |
-| 7 | **Idempotenz & Wiederholbarkeit** | 🟡 gut, mit Lücken | Stark: Idempotenz je (Mandant, Schlüssel) mit gezieltem HMAC-Vergleich, 202 mit der **ersten** ID, 409 bei abweichender Nutzlast, at-least-once mit drei Kennungen, Replay als **neuer** Lauf. Lücken: die Wiederholbarkeit des Replay selbst (S-19), die Antwort bei pausiertem Endpunkt (S-15), die 429 für den Aufrufer (S-10), `pause`/`resume`/`secret-rotation` sind nicht als idempotent ausgewiesen. |
-| 8 | **Testbarkeit** | 🔴 mangelhaft | 7 „muss"-Befunde machen mehrere AKs **nicht entscheidbar** (S-01, S-03, S-04, S-05). Dazu: **32 der 101 AKs haben kein Gherkin-Szenario** (N-10), der Traceability-Check meldet trotzdem „keine Lücken“; zwei Testebenen fehlen (N-12: Lasttest für NFR-002, Parallelbetriebstest für AC-023-3/4). Positiv: `ClockPort`, `IdGenerator` und die Ports machen Backoff, Signatur und Zustandsautomat unit-testbar; die RLS ist gegen echtes PostgreSQL nachgewiesen. |
-| 9 | **Verständlichkeit & Dokumentation** | 🟡 brauchbar | Eine Erzählung, ein Glossar, ADRs mit Begründung und Alternativen, Beispiele je Operation. Lücken: die **Beispiele widersprechen sich** (S-16), der Prosa-/Schema-Widerspruch bei den Paginierungsfeldern (S-02), die falsche Gesamtdauer in ADR-008 (S-17), das PRD ist nicht nachgezogen (N-09), die Schema-Kommentare sind es auch nicht (N-08). |
+| 1 | **Auffindbarkeit** | 🟢 gut | 17 Operationen, alle mit `operationId`, `summary`, `description`, Tag, `security`, `x-ac-id` **und** `x-requirement-ids`; `x-acceptance-coverage` (101) und `x-requirement-coverage` (24) verweisen jeden Punkt auf seinen Ort; `x-contract-rules` bündelt die vertragsweiten Regeln (`:3279-3304`). *Anmerkung:* die **Rollen** stehen nur im Prosa-Text (`:30-36`), nicht maschinenlesbar — unverändert gegenüber dem ersten Lauf. |
+| 2 | **Konsistenz** | 🟢 gut (mit zwei Resten) | Die drei Widersprüche des ersten Laufs sind weg (`next_cursor`, `no_subscriber`, `payload_media_type`). Zwei Reste: der Text nennt den **deutschen** Statuswert `aktiv`/`pausiert` (→ V-24) und der Abdeckungseintrag AC-022-3 nennt den „Connection-Initializer“ (→ V-23). |
+| 3 | **Vollständigkeit** | 🟢 gut | Kein unerreichbarer Fehlercode mehr (alle 12 Codes der Fehlertabelle `:43-56` sind erzeugbar; `tenant_parameter_rejected` hat eine eigene 422-Komponente), `replay_of` vorhanden, 3xx definiert, das Vorgabefenster (7 Tage) und das Gesamtfenster (≈ 2 h) genannt, die Karenzzeit als nullable ausgewiesen. Offen: die **Top-Level-Zähler** der Aufbewahrungsantwort sind nicht ausdrücklich als **Summe** über die Mandanten bezeichnet (das Beispiel zeigt es: 128 + 12 = 140) — *optional*. |
+| 4 | **Fehlerbehandlung** | 🟢 strukturiert | Ein Schema (`Problem`), 400/422-Grenze ausgeschrieben (`:58-63`), `violations` je Feld, 409 für alle drei Replay-Fälle (`:1358-1359`), 429 an allen 15 authentifizierten Operationen, 503 über die Komponente. Die Antwort auf den pausierten Endpunkt ist festgelegt (409). Einzige Lücke: ein **ungültiger Cursor** wird mit 422 abgelehnt (`:1664`, `:3301`), für die Fehlertabelle ist das aber die **validation_failed`-Variante** — unscharf, aber vertretbar. |
+| 5 | **Sicherheit & Mandantentrennung** | 🟢 solide, mit einer offenen Grenze | JWT-only, Mandant ausschließlich aus dem Token, Fremdes ⇒ 404, Secret nie in der Antwort, `writeOnly`, `additionalProperties: false`, RLS fail-closed (erneut gemessen), **kein** `BYPASSRLS`, drei schmale Eigentümerfunktionen mit `search_path` verdrahtet, `REVOKE`/`GRANT` korrekt, Projektionen ohne Nutzlast und ohne Secrets. Offen: die **neue** Grenze (N-18) ist in ADR-002 nicht benannt, und die **Totenlisten-Funktion** ist fail-open (N-14). |
+| 6 | **Performanz & Grenzen** | 🟡 brauchbar | Cursor-Paginierung (kein `total`), `limit` ≤ 200, 33 Indizes auf die tenant-skalierten Zugriffspfade, asynchrone Annahme, Metriken on demand, Body-Obergrenze 2 MiB genannt, Zustellfenster ≈ 2 h zugesagt. **Neu:** die mandantenübergreifenden Listen laufen ohne stützenden Index (N-17). |
+| 7 | **Idempotenz & Wiederholbarkeit** | 🟢 gut | Idempotenz je (Mandant, Schlüssel) mit gezieltem HMAC-Vergleich, 202 mit der **ersten** ID, 409 bei abweichender Nutzlast, at-least-once mit drei Kennungen, Replay als **neuer** Lauf und **einmal** (409). Offen: der Verlierer eines gleichzeitigen Replays wartet (N-20) — sachlich korrekt, aber mit Wartezeit. |
+| 8 | **Testbarkeit** | 🟡 gut (Layer fehlt) | Die früher unentscheidbaren AKs sind entscheidbar; der Zustandsautomat, `ClockPort`, `IdGenerator` und die Ports machen Backoff, Signatur und Replay unit-testbar; RLS, Cross-Tenant-Funktionen, Replay-Constraint und Aufbewahrung sind **gegen echtes PostgreSQL 16** belegt (§ 1.3). Offen (Schritt 5, nicht Vertragsbefund): 32 AKs ohne Gherkin-Szenario, Lasttest (NFR-002), Parallelbetriebstest (AC-023-3/4), und die drei neuen Testfälle aus N-13/N-14/N-15. |
+| 9 | **Verständlichkeit & Dokumentation** | 🟢 gut | Eine Erzählung, ein Glossar, ADRs mit Begründung und Alternativen, Beispiele je Operation, ein Abschnitt „Pagination“ und „Vorgabewerte“ in `info.description`. Die Beispiele widersprechen sich **nicht** mehr (maschinell gegen ihre Schemas geprüft: keine Pflichtfeld- oder Enumverstöße). Zwei Textkorrekturen stehen aus (V-23, V-24) — und die Diagramme sind jetzt nachgezogen (N-21). |
 
 ---
 
-## 5. Vertragsdefekte in `docs/api/openapi.yaml`
+## 6. Vertragsdefekte in `docs/api/openapi.yaml`
 
 **Der Vertrag wurde nicht verändert.** Grund: ein Eigentümer, eine Wahrheit
-(ADR-016); der Vertrag wird nach diesem Schritt eingefroren. Jeder Defekt
-hier ist **Dokumentation**, kein Fix.
+(ADR-016); er wird nach diesem Schritt eingefroren. Jeder Defekt hier ist
+**Dokumentation**, kein Fix.
 
-| ID | Pfad:Zeile | erwartet | tatsächlich | Auswirkung | Korrektur | Priorität |
+Die **22** Defekte des ersten Laufs sind behoben (§ 1.1). Neu gefunden:
+
+| ID | Pfad:Zeile | erwartet | tatsächlich | Auswirkung | konkrete Korrektur | Priorität |
 |---|---|---|---|---|---|---|
-| **V-01** | `docs/api/openapi.yaml:59-60` | `page.next_cursor` / `page.has_more` | `page.nextCursor` / `page.hasMore` (das Schema `:2586-2594` nutzt snake_case) | alle 3 Listenoperationen, generierte Client-Typen, Vertragstests | die zwei Feldnamen in `info.description` auf snake_case korrigieren | **muss** |
-| **V-02** | `:1296-1306`, `:2508-2521`, `:2522-2533` | Anker je Datensatz (`last_attempt_at`), Markieren **und** Purge, Karenzzeit, Kaskade, Geltungsbereich (alle Mandanten) | globale Stichtage; nur `deleted_*`; keine Karenzzeit; je ein Fristenpaar | AC-016-5, FR-031, F-02, US-016 | Anker, Stufen, Karenzzeit, Kaskade und Geltungsbereich je Datenart benennen; Zähler umbenennen oder der Stufe zuordnen | **muss** |
-| **V-03** | `:2442-2449`, `:1273` (Beispiel), `:373` | `limit` = wirksamer Grenzwert (Vorgabe **60**); „abgeschaltet“ **eigenständig** ausgewiesen | `null` heißt „abgeschaltet“ **und** „kein Override“ (⇒ 60); das Beispiel zeigt `limit: null` | AC-018-4, FR-033, F-01 | `limit` auf den wirksamen Wert festlegen, „abgeschaltet“ als eigenes Feld (`limited: false` bzw. `limit: 0`), Beispiel auf `limit: 60` | **muss** |
-| **V-04** | `:220-224` vs. `:1962-1965` | „zugestellte Bytes = **Nutzlastbytes des Ereignisses**“ (bei `payload`: kanonisch materialisiert) | „byteidentisch mit den **eingelieferten** Klartextbytes“ | AC-007-3, FR-013, US-007/US-010 | Formulierung auf die kanonischen Bytes bzw. die exakt gelieferten Bytes umstellen; Hinweis in `EventIntakeRequest.payload` | **muss** |
-| **V-05** | `:2103-2181` | `replay_of` (nullable) in `DeliveryRun` | Feld fehlt (Domain-Modell `:103` nennt es „vertragsrelevant“) | AC-013-2, US-013 | Feld aufnehmen und beschreiben | sollte |
-| **V-06** | `:1203` (Beispiel) vs. `schema.sql:190` | neuer Lauf = `pending` | Beispiel `status: scheduled` bei `attempt_count: 0` | AC-013-1, AC-012-2, der Worker wartet auf `pending` | Beispiel auf `pending` umstellen, `DeliveryStatus` schärfen | sollte |
-| **V-07** | `:883-885`, `:2162-2165` | endgültig: `sent`, `abandoned`, `rejected`, `cancelled`, **`no_subscriber`** | `no_subscriber` fehlt (DB-Constraint `schema.sql:217-219` kennt ihn) | AC-015-2, D-04 | in beiden Stellen ergänzen | sollte |
-| **V-08** | `:2077-2079` vs. `schema.sql:148` | `payload_media_type` erforderlich, nicht null | nullable, nicht in `required` | DTO-/Mapper-Logik, `GET /events/{id}` | `required` ergänzen, `nullable` entfernen | sollte |
-| **V-09** | `:1619-1634`, `:1648-1660` (ungenutzt), `:1401-1413` | 429/503 dort referenzieren, wo sie entstehen können | **keine** Operation kann 429 liefern; 503 inline; 2 tote Komponenten | ADR-015 §5, Client-Retry | 429 an den schreibenden Operationen referenzieren **oder** Codes streichen + Komponenten löschen; 503 auf die Komponente umstellen | sollte |
-| **V-10** | `:1698` (Enum), `:2760` (Regel) vs. `:1599-1618` | eine 422-Antwort mit `code: tenant_parameter_rejected` | nur `ValidationFailed` mit `validation_failed` | AC-001-5, AC-004-4, D-01 | Komponente `TenantParameterRejected` anlegen und referenzieren **oder** Code streichen | sollte |
-| **V-11** | `:1793`, `:1835`, `:1956`, `:2344`, `:2470` vs. `:45`/`:51`/`:1830-1831` | Verstoß gegen das Request-Schema = **422** `validation_failed`; Mandantenparameter = **422** `tenant_parameter_rejected` | 400 = „kein gültiges JSON“, 422 = „semantisch ungültig“ — der Vertrag legt den Fall **nicht** fest | AC-001-5, D-01, NFR-003 (stille Akzeptanz eines unbekannten Feldes) | die 400/422-Grenze im Vertrag ausschreiben; `organisation_id` in `x-validation-rules` benennen | sollte |
-| **V-12** | `:261-311` | Ergebnismatrix ohne Lücke (1xx/3xx) | 3xx ist **nicht** definiert | AC-010-3, AC-014-3/4, eingefrorener Fremdvertrag | eine Zeile für 3xx + die Regel, ob der Client Redirects folgt | sollte |
-| **V-13** | `:1769-1779` vs. `:303-311` | Trennlinie `timeout` vs. `network_error` | ein Verbindungs-Timeout passt in beide | AC-011-3, FR-030 | „`timeout` = Connect-/Lese-Timeout; `network_error` = DNS/TLS/Verbindung **ohne** Timeout“ | sollte |
-| **V-14** | `:1173-1174` | die Antwort auf einen Replay bei pausiertem Endpunkt | nur „startet kein Versuch“ | AC-013-4, D-03, F-03 | 409 `delivery_state_conflict` (oder 202 mit `status: cancelled`) festlegen | sollte |
-| **V-15** | `:962-963` vs. `:1021-1022`/`:1050`; `:804`; `:438` | widerspruchsfreie Beispiele | `attempt_count` 3 vs. 2; `next_attempt_at` +4:40 statt +2 min; `payload_size_bytes` 34 statt 38; `organisation_id: m-1` in der 201-Antwort eines `receiver_admin` | AC-007-3, AC-011-1/2, AC-012-2, AC-015-1/2, AC-001-4 | Beispiele konsistent rechnen und korrigieren | sollte |
-| **V-16** | `:330-353` (`x-delivery-protocol.retry_policy`) | das erwartete Gesamtfenster (≈ 2 h) | kein Gesamtfenster genannt (ADR-008 nennt fälschlich 4 h) | Zusage gegenüber den Empfängern | ein Feld für das erwartete Fenster aufnehmen; ADR-008 korrigieren (Schritt 2) | sollte |
-| **V-17** | `:1252-1254` (Parameter `From`/`To` in `:1469-1484`) | Vorgabefenster **7 Tage** (ADR-011) | keine Vorgabe genannt | AC-017-1/3, FR-032 | Vorgabe in den Parameterbeschreibungen nennen | sollte |
-| **V-18** | `:1149-1218` | Regel für den Replay eines **bereits** replayten Laufs | keine Regel | AC-013-1/2/5, FR-024 | einmal-Replay-Regel + 409 festlegen (oder die Mehrfachfreigabe bewusst erlauben) | sollte |
-| **V-19** | `:751-754`, `:1993-2000` | Aussage, dass die 1-MB-Grenze die **Nutzlast** betrifft und der Request-Body größer sein darf (base64 ≈ 1,4×) | nur die Nutzlastgrenze; keine Body-Aussage | NFR-001, D-13, AC-005-2/3, AC-008-1 | Body-Obergrenze (2 MiB) und die base64-Folge nennen | sollte |
-| **V-20** | `:148-151` vs. `:2010-2014` | `value: "<payload_media_type>" (Vorgabe: application/json)` | `value: "application/json"`, Beschreibung sagt „entspricht `payload_media_type`“ | FR-013, US-008 | Wert an die Beschreibung angleichen | optional |
-| **V-21** | `:1781-1788` | Enum ohne Nullwert (`nullable: true` genügt) | `enum: [permanent_rejection, client_error, null]` | DTO-Generatoren | `null` streichen | optional |
-| **V-22** | `:1986-1992`, `:2016-2019` | `payload: null` gilt als **nicht** gesetzt | ein typenloses Schema erlaubt `null` | AC-008-2, NFR-001 | `nullable: false` + Regel ergänzen | optional |
+| **V-23** | `docs/api/openapi.yaml:3233` | Der Abdeckungseintrag zu **AC-022-3** nennt den Mechanismus so, wie er **entschieden** ist: der Mandant wird **innerhalb der Transaktion** gesetzt, die auch liest (ADR-002 §3) | „ADR-002: der Mandant wird im **Connection-Initializer** aus dem JWT gesetzt; ein Parameter aus dem Request-Body wird nicht uebernommen.“ — der Klassenname ist historisch (E-05), aber der Satz nennt **nicht** die transaktionsgebundene Semantik | Wer den **Vertrag** als Implementierungsgrundlage nimmt (und nicht ADR-002 §3), implementiert einen **verbindungsgebundenen** Mandantenkontext → unter einem Connection-Pool liefert **jede** Abfrage 0 Zeilen (fail-closed) — der Dienst wäre tot (N-01, AC-022-3) | `realized_in` auf die entschiedene Semantik umstellen, z. B.: „ADR-002 §3: der Mandant wird **innerhalb der Transaktion**, die auch liest, aus dem JWT gesetzt (`app.set_tenant`, transaktionslokal) — **nicht** verbindungsgebunden; ein Parameter aus dem Request-Body wird nicht übernommen.“ | **muss** |
+| **V-24** | `docs/api/openapi.yaml:480` und `:697` | Die **Werte** der Zustände sind `active` / `paused` (Schema `schema.sql:87`, `:92-93`; Vertrag `EndpointStatus` `:2000-2003`) | „Der Endpunkt wird mit dem Status **`aktiv`** angelegt“ (`:480`), „Setzt den Endpunkt auf **`pausiert`**“ (`:697`) — deutsche Wörter in Code-Formatierung, als wären sie die Werte | Ein Client-Entwickler, der dem Text folgt, sendet `"aktiv"`/`"pausiert"` und bekommt 422 `validation_failed` (AC-001-1, AC-002-1) | beide Stellen auf die **Werte** umstellen: „mit dem Status **`active`** angelegt“ bzw. „Setzt den Endpunkt auf **`paused`**“ (die deutsche Übersetzung kann als Klartext ohne Code-Formatierung bleiben) | sollte |
+| **V-25** | `docs/api/openapi.yaml:2446-2449` (Feld) vs. `:1062` (Antwortbeschreibung `listDeliveries`) und `:30-36` (Rollenzeile) | `DeliveryRun.organisation_id` beschreibt **denselben** Mandantenbezug wie die Operation, in der der Lauf steht | „**Nur** für `service_admin` gefüllt“ — das legt eine mandantenübergreifende Protokollliste nahe; die Antwortbeschreibung sagt „Zustellprotokoll (**mandantengefiltert**)“, und eine mandantenübergreifende Sicht auf das Protokoll gibt es **weder** im Vertrag noch im Schema (nur die drei Eigentümerfunktionen) | Ein Client, der `organisation_id` als „Mandant des Laufs“ nutzt, bekommt für `developer` **immer** `null` (nicht den eigenen Mandanten) und erwartet für `service_admin` eine mandantenübergreifende Liste, die es nicht gibt. Zusammen mit der Rollenzeile in ADR-015 §1 (N-19) ist die Aussage **zweideutig** | Die Feldbeschreibung an die tatsächliche Semantik anpassen: entweder „**immer** gefüllt — der Mandant des Laufs“ (dann ist das Feld in `DeliveryList`/`DeliveryRunDetail` immer belegt) oder „in mandantenübergreifenden Antworten gefüllt; die Protokollliste ist mandantengefiltert“. Parallel dazu **N-19** in ADR-015 korrigieren | sollte |
 
-**Maschinell geprüft und in Ordnung** (kein Defekt): 17 Operationen, alle mit
-eindeutigem `operationId`, `summary`, `description`, `security`, `x-ac-id` **und**
-`x-requirement-ids`; alle 157 `$ref` auflösbar; **33 Schemas, alle 33
-referenziert** (die beiden ungenutzten Bestandteile sind **Antwort-Komponenten**,
-keine Schemas — V-09); die Statuscode-Matrix (201×1, 202×2, 200×14, 400×4,
-401×15, 403×15, 404×9, 409×3, 413×1, 422×15, 500×17, 503×1) ist vollständig mit
-definierten Komponenten unterlegt; 202 antworten **nur** `submitEvent` und
-`replayDelivery` (beide asynchron — NFR-002, D-10).
+**Nicht neu, aber weiterhin gültig (aus dem ersten Lauf, ohne Vertragsbezug):**
+die 32 AKs ohne Gherkin-Szenario, die zwei fehlenden Testebenen (Lasttest,
+Parallelbetriebstest) und die Prüfungen des Traceability-Werkzeugs — **Schritt 5**.
 
 ---
 
-## 6. Testbarkeit — was gegen diese Architektur **nicht** prüfbar ist
-
-| AK / NFR | Status | Grund | Erforderliche Teststrategie |
-|---|---|---|---|
-| **AC-016-1, AC-004-2** (Service-Admin sieht alle Mandanten) | 🔴 **nicht prüfbar** | Die RLS lässt genau einen Mandanten zu (S-01) — der Testfall „Mandant A und B, Admin sieht beide“ schlägt fehl, egal wie er implementiert ist | Integration (Testcontainers PG 16), **2 Mandanten + Service-Admin-Rolle**, erst nach E-01 |
-| **AC-016-5** (Aufbewahrung) | 🔴 **nicht prüfbar** | Anker, Stufen, Karenzzeit und Kaskade sind im Vertrag nicht festgelegt (S-03) — „gelöscht“ hat drei mögliche Bedeutungen | Integration: Datensätze mit **unterschiedlichem** `last_attempt_at`; je Stufe ein Testfall; die Frist per Konfiguration gesetzt (30 Tage im Test) |
-| **AC-018-4** (wirksamer Grenzwert) | 🔴 **nicht prüfbar** | `limit: null` vs. `limit: 60` — die Erwartung ist nicht entscheidbar (S-04) | Integration: Endpunkt **ohne** Override ⇒ 60; **mit** Override; **abgeschaltet** |
-| **AC-007-3** (byteidentische Zustellung) | 🔴 **nicht prüfbar** | „eingeliefert“ vs. „kanonisiert“ (S-05) | Unit (Kanonisierung) + E2E gegen einen Stub-Empfänger, der die Bytes prüft — für `payload` (kanonisch) und `payload_base64` (exakt) getrennt |
-| **AC-012-4** (Grenze 1 ⇒ genau ein Versuch ⇒ `abandoned`) | 🟡 prüfbar nach V-06 | braucht die Festlegung des Ausgangszustands | Unit (Zustandsautomat) + Integration |
-| **AC-023-3** (genau eine Instanz führt den Versuch aus) | 🟡 prüfbar, **Layer fehlt** | braucht **zwei** Worker-Instanzen gegen eine Datenbank — in der Zielstruktur nicht vorgesehen (N-12) | Integration, zwei Worker, `SKIP LOCKED` + Lease |
-| **AC-023-4** (Versuchszahl springt nicht) | 🟡 prüfbar, **Layer fehlt** | braucht einen Lease-Ablauf im Test (Zeitmanipulation über `ClockPort`) | Integration mit manipulierter Uhr + Worker-Absturz |
-| **NFR-002** (p95 < 200 ms über 1.000 Einlieferungen) | 🟡 prüfbar, **Layer fehlt** | braucht einen **Lasttest** (1.000 Requests, bis 1 MB) — kein Unit-/Integrationstest (N-12) | `tests/performance/` |
-| **AC-021-1…4** (Barrierefreiheit) | 🟢 prüfbar | axe-Scan + Tastaturtest | E2E (Playwright + axe) — in Schritt 5 vorgesehen |
-| **AC-022-1…3** (RLS) | 🟢 prüfbar | gegen echtes PostgreSQL nachgewiesen (ADR-002 „Verifikation“) | Integration (Testcontainers), fail-closed + je Mandant |
-| **AC-009-1…5** (Signatur) | 🟢 prüfbar | reine HMAC-Rechnung über die exakten Bytes | Unit (Signatur) + Vertragstest (Header-Name/Format) + E2E (Stub-Empfänger prüft) |
-| **AC-011-5** (kein geplanter Zeitpunkt in der Vergangenheit) | 🟢 prüfbar | `ClockPort` | Unit |
-| **AC-006-1…4** (Idempotenz) | 🟢 prüfbar | UNIQUE (Mandant, Schlüssel) + Fingerprint | Integration (202/409, je Mandant) |
-| **32 AK ohne Gherkin-Szenario** | 🟡 Lücke | das Feature-Layer deckt nicht alle AKs ab (N-10) | die Testmatrix in Schritt 5 aus den **Story-JSONs** (101 AKs) bauen, nicht aus den Features (69 Szenarien) |
-
-**Zusatzbefund für Schritt 5:** Der Traceability-Check
-(`.agent/tools/traceability_check.py`) bestätigt die Kette
-Anforderung→Story→Feature→Test→Code, prüft aber **nicht** AK→Szenario und
-**nicht** AK→Test. In Schritt 5 müssen beide Zuordnungen je AK aus der
-Matrix kommen, sonst bleibt die Abdeckung auf dem Level „Story hat ein
-Feature“.
-
----
-
-## 7. Korrekturen in `docs/architecture/` (in diesem Schritt vorgenommen)
-
-Alle Korrekturen betreffen **echte Fehler**; keine bestätigte Entscheidung
-(F-01…F-04, ADR-001…ADR-018) wurde angetastet, kein Vertrag und kein ADR
-wurde geändert.
-
-| # | Datei | Was | Grund (Befund) |
-|---|---|---|---|
-| 1 | `docs/architecture/folder-structure.md:123-124, 189` | `TenantConnectionInitializer`/`TenantFilter`: der Mandant wird **in der Transaktion** gesetzt, die auch liest; `TenantFilter` liest **nur** das JWT. Erläuterung mit dem fail-closed-FolgemFall | N-01 |
-| 2 | `docs/architecture/folder-structure.md` | neue Konvention **„Mandant“** in §4 (transaktionsgebunden, kein Autocommit, kein `REQUIRES_NEW`) | N-01 |
-| 3 | `docs/architecture/folder-structure.md:142` | `PageResponse`: `has_more`, `next_cursor` (wie im Vertrag) | N-04 |
-| 4 | `docs/architecture/folder-structure.md:141` | `GlobalExceptionHandler`: 429 und 503 ergänzt | N-03 |
-| 5 | `docs/architecture/folder-structure.md:87, 111` | Controllerzuordnung: Replay → `delivery/DeliveryController`; Protokoll/Totenliste/Aufbewahrung → `protocol/ProtocolController` (wie die Traceability-Matrix) | N-05 |
-| 6 | `docs/architecture/folder-structure.md:45, 193` | Testbaum: `tests/performance/` ergänzt; Konvention „Tests“ um **Parallelbetrieb** (AC-023-3/4) und **Last** (NFR-002) erweitert | N-12 |
-| 7 | `docs/architecture/diagrams/03-component-api.mmd` | Mandanten-Komponente: „transaktionsgebunden, nicht verbindungsgebunden“; Controller aufgeteilt (Delivery/Protocol/Metrics); Fehlercodes um 503 ergänzt | N-01, N-03, N-05 |
-| 8 | `docs/architecture/diagrams/04-component-worker.mmd` | Komponente **Mandantenermittlung** (`app.tenant_ids_for_worker()`) + die Kette „Mandant → `set_tenant` → Claim“ | N-02 |
-| 9 | `docs/architecture/domain_model.md` | Replay nur noch aus `abandoned` (Tabelle **und** ASCII-Automat); `rejected`/`cancelled` ausdrücklich **nicht** replaybar | N-06 |
-| 10 | `docs/architecture/domain_model.md:39-40` | Zustandswerte `active`/`paused` (statt „aktiv/pausiert“) in der Entitätenübersicht | N-07 |
-| 11 | `docs/architecture/domain_model.md` | Vermerk: der **neue** Zustelllauf entsteht in `pending`; der Widerspruch zum Vertragsbeispiel ist benannt (S-07) | S-07 |
-| 12 | `docs/architecture/GLOSSARY.md:15` | Endpunkt-Status: `active`/`paused` mit dem deutschen Wort als Erläuterung | N-07 |
-| 13 | `docs/architecture/architecture.md` | zwei neue Zeilen in §4: „Mandant und Transaktion“, „Mandant im Worker“ | N-01, N-02 |
-| 14 | `docs/architecture/architecture.md` | Artefaktliste um `.agent/artifacts/stress-test.md` ergänzt | Konsistenz |
-| 15 | `.agent/artifacts/architecture.md` | „4 Controller, 7 Fachservices“ → „5 Controller, 8 Fachservices“; Abschnitt **9a** mit den Schritt-4-Befunden; Artefaktliste ergänzt | N-05, Konsistenz |
-
-**Bewusst nicht geändert** (und warum): `docs/api/openapi.yaml` (Eigentümer
-Schritt 2 — 22 Vertragsdefekte dokumentiert, keiner repariert) ·
-`docs/adr/**` (Schritt 2 — E-03, E-05) · `docs/requirements/**` (Schritt 1 —
-E-06) · `.agent/knowledge/schema.sql` (kanonisch; die Spiegel-Regel verlangt
-**beide** Dateien im selben Schritt, `.agent/knowledge/` liegt außerhalb des
-Commit-Scopes — E-02) · `.agent/tools/traceability_check.py` (N-10 gehört nach
-Schritt 5) · `.agent/artifacts/*.md` außer `architecture.md` (Platzhalter für
-spätere Schritte, N-11).
-
----
-
-## 8. Offene Entscheidungen für den Menschen
+## 7. Offene Entscheidungen — mit Empfehlung
 
 Der Skill verlangt, an dieser Stelle zu **fragen** statt zu entscheiden. Als
-Subagent frage ich nicht nach — ich lege die Entscheidung samt Empfehlung
-vor. **E-01…E-03 blockieren Schritt 5.**
+Subagent frage ich nicht nach — ich lege die Entscheidung samt Empfehlung vor.
+**Keine** dieser Entscheidungen blockiert den **Freeze** des Vertrags.
 
 | ID | Frage | Optionen | **Empfehlung** | Warum | Gate |
 |---|---|---|---|---|---|
-| **E-01** | Wie bekommt der `service_admin` die mandantenübergreifende Sicht, ohne `BYPASSRLS`? (S-01) | (a) eigene Laufzeitrolle `echobox_ops` mit `current_setting('app.organisation_ids')` als Liste; (b) `SECURITY DEFINER`-Funktionen für die drei mandantenübergreifenden Abfragen; (c) zweite Kontextvariable `app.cross_tenant` | **(b)** | Passt zum bestehenden Muster (schmale Eigentümerfunktionen statt Sonderrechten) und hält die Policy einfach: der Normalfall bleibt „ein Mandant“, der Ausnahmefall ist eine eng zugeschnittene Funktion. (a) ist kleiner, gibt aber einer Rolle dauerhaft mehr als einen Mandanten. | vor Schritt 5 |
-| **E-02** | Wie wird der **wirksame** Rate-Limit-Grenzwert modelliert, damit „kein Override“ (60) und „abgeschaltet“ (0) unterscheidbar sind? (S-04, N-08) | (a) `enabled`-Spalte entfernen, `limit_value IS NULL` = kein Override, `0` = aus (ADR-010 wortgetreu); (b) `enabled` behalten, aber als „Override aktiv“ umdeuten | **(a)** | ADR-010 §3 kennt genau zwei Zustände; eine dritte Spalte erzeugt einen dritten, widersprüchlichen. Zusätzlich: die Kommentare im Schema auf den entschiedenen Stand bringen (O-01/O-02 sind zu). Beide Schemadateien byte-identisch ändern. | vor Schritt 5 |
-| **E-03** | Darf ADR-008 nach dem Freeze korrigiert werden, oder wird die falsche „4 Stunden“ als Zusage festgeschrieben? (S-17) | (a) ADR-008 auf „≈ 2 Stunden“ korrigieren + Gesamtfenster in den Vertrag; (b) ADR unverändert lassen, nur den Vertrag ergänzen | **(a)** | Die Zahl ist eine Zusage gegenüber den Empfängern; eine falsche Zusage in einem „angenommenen“ ADR ist teurer als ein zusätzlicher Rücksprung. | vor dem Freeze |
-| **E-04** | Soll die Aufbewahrung **zwei** Fristen behalten, obwohl das Löschen eines Ereignisses seine Läufe und Versuche mitnimmt? (S-03) | (a) zwei Fristen behalten und die Kaskade im Vertrag benennen; (b) auf eine Frist vereinfachen | **(a)** | F-02 ist bestätigt (getrennt, 30 Tage je Datenart). Die Trennung macht Sinn, solange man sagt, dass die Ereignisfrist ihre Läufe mitnimmt — das ist eine Entscheidung, die F-02 nicht berührt. | mit E-01 |
-| **E-05** | Wie wird der **Namenswiderspruch** „Connection-Initializer“ aufgelöst, obwohl die Traceability-Matrix (Schritt 1) die Klasse so nennt? (N-01) | (a) umbenennen (`TenantTransactionInitializer`) und die Matrix in Schritt 1 nachziehen; (b) Namen behalten, Semantik in der Beschreibung festziehen (aktuell so umgesetzt) | **(b) jetzt, (a) später** | Der Matrix-Name ist eine Artefaktgrenze zwischen Schritt 1 und Schritt 5; ein Umbau mitten im Prozess kostet mehr als der klare Kommentar. Die Umbenennung kann mit dem nächsten Schritt-1-Touch nachgezogen werden. | optional |
-| **E-06** | Wer zieht das **PRD** auf den entschiedenen Stand nach (O-01/O-02/O-03/O-06)? (N-09) | (a) Schritt 1 (Requirements-Orchestrator) beim nächsten Touch; (b) eine Korrekturanforderung an Schritt 1 im Rahmen des Rücksprungs | **(a) im Rahmen des Rücksprungs** | Das PRD ist die Anforderungsquelle für Schritt 1; ein Rücksprung bietet den natürlichen Anlass. Die ADRs tragen die Wahrheit, die Dauerwidersprüchlichkeit bleibt aber bestehen. | mit dem Rücksprung |
-| **E-07** | Soll der Stresstest **32 AKs** um Gherkin-Szenarien ergänzen (Schritt 1) oder die Testmatrix in Schritt 5 direkt aus den Story-JSONs bauen? (N-10) | (a) Szenarien in Schritt 1 nachtragen; (b) Testmatrix aus den 101 AKs bauen, Szenarien als Smoke-Layer belassen | **(b)** | Die AKs sind die prüfbare Quelle; die Szenarien sind eine lesbare Auswahl. 32 nachträgliche Szenarien kosten Schritt-1-Aufwand ohne Prüftiefe — der offene Punkt ist aber, dass **genau** die AKs ohne Szenario (Aufbewahrung, Rate-Limit, Parallelbetrieb) die risikoreichsten sind. | Schritt 5 |
-| **E-08** | Wie soll der Dienst mit **3xx**-Antworten umgehen? (S-13) | (a) kein Wiederholen, `rejected` / `client_error`; (b) wie 5xx, mit Wiederholung; (c) Redirects folgen | **(a) + (c) nein** | Der ausgehende Vertrag ist eingefroren: eine Lücke bleibt dauerhaft. Weiterleitungen zu folgen würde die signierte Ziel-URL aufweichen. | vor dem Freeze |
-| **E-09** | Darf ein Replay **mehrfach** auf denselben aufgegebenen Lauf ausgelöst werden? (S-19) | (a) einmal, danach 409; (b) beliebig oft | **(a)** | Der Empfänger soll mehrere Zustellläufe derselben Ereignis-ID nicht unkontrolliert sehen; der Historiegedanke lebt davon, dass jeder Replay eine begründete, einmalige Aktion ist. | vor dem Freeze |
+| **E-10** | Soll das **Zustellprotokoll** des `service_admin` mandantenübergreifend sein? (N-19) | (a) **nein** — die Protokollliste bleibt mandantengefiltert, ADR-015 §1 wird korrigiert; (b) ja — vierte Eigentümerfunktion, Vertrag und Schema wachsen | **(a)** | Kein Akzeptanzkriterium verlangt es (AC-020-1 = Entwickler, AC-020-2 = Totenliste), die PRD-Rollenzeile nennt nur die drei Rechte, und die Totenliste deckt den Betriebsbedarf ab. (b) wäre eine **neue** Funktion mit eigener Projektion, eigenem Cursor und eigener Berechtigung — erheblicher Aufwand ohne Anforderung | vor Schritt 5 (ADR-015) |
+| **E-11** | Soll die **Replay-Historie** den Purge überleben? (N-15) | (a) **ja** — `replay_of` ohne Fremdschlüssel (historischer Verweis); (b) nein — der Vertrag wird um einen Vorbehalt ergänzt | **(a)** | AC-013-2 verlangt die sichtbare Historie, und die Zusage des Vertrags ist richtig. (b) würde eine Vertragsänderung **nach** dem Freeze auslösen — genau das, was vermieden werden soll. Der Aufwand ist eine Constraint, keine neue Funktion | vor Schritt 5 (Schema) |
+| **E-12** | Soll die mandantenübergreifende Sicht **härter** abgesichert werden? (N-18) | (a) **nein** — die Grenze wird in ADR-002 ehrlich benannt, die Applikation bleibt die einzige Rolle; (b) ja — eigene Laufzeitrolle `echobox_ops` für die drei Funktionen | **(a) jetzt, (b) als Risiko vormerken** | (b) ist die konsequenteste Härtung (die Allzweckrolle `echobox_app` bekäme die Freigabe nicht mehr), verlangt aber eine **getrennte** Verbindungsrolle im Betrieb (ADR-013: zwei Rollen, ein Image) — eine echte Architekturentscheidung, die der Mensch treffen muss. Für diesen Schritt reicht die ehrliche Benennung | Gate 2 (Fachbereich/Plattform) |
+| **E-13** | Soll die **Karenzzeit** der Aufbewahrung einen **Vorgabewert** bekommen? (**R-01**, offen seit dem Rücksprung) | (a) **0 Tage** (Purge im nächsten Durchlauf) als Betriebsdefault; (b) ein fachlicher Wert (z. B. 7 oder 30 Tage); (c) **kein** Wert — der Betreiber muss ihn setzen | **(a) als Default, mit (c) als Vertragslage** | Der Vertrag behauptet **keinen** Wert (`purge_delay_days: null`, „Ein Vorgabewert ist nicht festgelegt“ `:1463-1466`, `:2879-2887`) — das bleibt richtig, solange der Wert nicht beschlossen ist. Das **Schema** rechnet heute bereits mit `COALESCE(p_purge_delay_days, 0)` ⇒ Purge im nächsten Durchlauf. (a) macht dieses Verhalten **explizit** statt zufällig; (b) ist eine **fachliche** Zusage (Aufbewahrung vs. Fehleruntersuchung) und gehört zum Fachbereich | Gate 2 (Fachbereich) |
 
-**Bestätigte Entscheidungen, die der Stresstest **nicht** neu aufgerollt hat:**
+**Weiterhin offen (unverändert, nicht von diesem Schritt zu entscheiden):**
+**O-04** (Verschlüsselung im Ruhezustand — fachliche Pflichtfrage),
+**O-05** (AVV bei Fremddaten) — beide Fachbereich/Recht, Gate 2;
+**R-01** (Karenzzeit) → jetzt E-13.
+
+**Bestätigte Entscheidungen, die dieser Stresstest **nicht** neu aufgerollt hat:**
 D-01…D-15, ADR-001…ADR-018, F-01 (60/min, `delay`), F-02 (30 Tage, getrennt, ab
 letztem Versuch), F-03 (Replay nur Empfänger-Admin), F-04 (8 Versuche, 1 min,
 ×2, 60 min, ± 20 %) sowie O-07 (5 s + 10 s). Keiner dieser Werte wurde in
@@ -656,50 +480,61 @@ diesem Schritt verändert.
 
 ---
 
-## 9. Was **nicht** zu beanstanden war
+## 8. Was **nicht** zu beanstanden war
 
 Damit der Bericht auch Bestand hat — geprüft und **in Ordnung**:
 
 | Geprüft | Ergebnis |
 |---|---|
-| Vertragsform | OpenAPI 3.0.3, YAML gültig, 17 Operationen, alle mit eindeutigem `operationId`, `summary`, `description`, `security`, `x-ac-id` **und** `x-requirement-ids` |
-| `$ref` | 157 Verweise, **alle** auflösbar; 33 Schemas, 31 referenziert (die zwei Ausnahmen sind V-09, bewusst dokumentiert) |
-| Abdeckung | 23/23 Stories, 101/101 AKs, 24/24 Anforderungen auffindbar; `x-acceptance-coverage` und `x-requirement-coverage` ohne Dubletten und ohne unbekannte IDs |
-| Zustandswerte ↔ Schema | `EndpointStatus`, `EventStatus`, `DeliveryStatus`, `AttemptOutcome`, `RejectionReason` stimmen **exakt** mit den CHECK-Constraints des Schemas überein (`schema.sql:80-81, 157-158, 205-207, 212-213, 259-261`) |
-| Spaltennamen ↔ Vertragsfelder | 1:1: `attempt_count`, `max_attempts`, `next_attempt_at`, `last_attempt_at`, `last_response_status`, `last_error_code`, `rejection_reason`, `abandoned_at`, `attempt_id`, `attempt_number`, `started_at`, `finished_at`, `duration_ms`, `response_status`, `outcome`, `error_code`, `event_id`, `endpoint_id`, `delivery_run_id`, `secret_version`, `secret_rotated_at`, `paused_at` |
-| Größengrenze | 1.048.576 Byte steht **fünfmal** gleich: NFR-001, Vertrag (`x-validation-rules` + Beschreibung), DB-CHECK (`schema.sql:162-166`), Fehlercode 413, Fehlertabelle — inklusive der korrekten Chiffre-Reserve (1.048.576 + 16 Byte GCM-Tag = 1.048.592) |
+| Vertragsform | OpenAPI 3.0.3, YAML gültig, **17** Operationen, alle mit eindeutigem `operationId`, `summary`, `description`, `security`, `x-ac-id` **und** `x-requirement-ids` |
+| Erreichbarkeit der Fehlercodes | Alle **12** Codes der Fehlertabelle (`:43-56`) sind erzeugbar: `tenant_parameter_rejected` über die 422-`oneOf` (`:1804-1850`), 429 an **15/15** authentifizierten Operationen, 503 über die Komponente (`:1609-1610`) — **kein** toter Bestandteil |
+| `$ref` und ungenutzte Objekte | Alle Verweise auflösbar; **kein** ungenutztes Schema, **keine** ungenutzte Antwort-Komponente, kein ungenutzter Parameter/Header (maschinell geprüft) |
+| Beispiele | Jedes Antwortbeispiel maschinell gegen sein Schema geprüft (Pflichtfelder, Unbekannte-Felder, Enums) — **keine** Abweichung; die beiden Zustelllauf-Beispiele beschreiben denselben Lauf (`attempt_count: 2`, zwei Versuche, `next_attempt_at` = letzter Versuch + 2 min) |
+| Zustandswerte ↔ Schema | `EndpointStatus`, `EventStatus`, `DeliveryStatus`, `DeadDeliveryStatus`, `AttemptOutcome`, `RejectionReason` stimmen **exakt** mit den CHECK-Constraints überein |
+| Spaltennamen ↔ Vertragsfelder | 1:1 — `attempt_count`, `max_attempts`, `next_attempt_at`, `last_attempt_at`, `last_response_status`, `last_error_code`, `rejection_reason`, `abandoned_at`, `attempt_id`, `attempt_number`, `started_at`, `finished_at`, `duration_ms`, `response_status`, `outcome`, `error_code`, `event_id`, `endpoint_id`, `delivery_run_id`, `secret_version`, `secret_rotated_at`, `paused_at`, `replay_of` |
+| Größengrenze | 1.048.576 Byte steht **gleich** in NFR-001, Vertrag (Regel + Beschreibung), DB-CHECK, Fehlercode 413 und der Fehlertabelle — inkl. Chiffre-Reserve (1.048.592) |
 | Idempotenz | (Mandant, Schlüssel) ↔ `UNIQUE (organisation_id, idempotency_key)` ↔ gezielter HMAC-Fingerprint ↔ 202/409 — in Vertrag, Schema, ADR-007, Glossar und Domain-Modell **identisch** |
-| „Kein Abnehmer" | Ereignis-Status, Lauf-Status, `endpoint_id IS NULL`, DB-CHECK, Glossar, Zustandsautomat, Vertrag (`EventStatus`, `DeliveryStatus`) — **konsistent** |
-| Endgültige Zustände | `sent`/`abandoned`/`rejected`/`cancelled`/`no_subscriber` mit `next_attempt_at = NULL` in Schema-Constraint, ADR-006 §6 und Domain-Modell — **konsistent** (nur die *Prosa-Liste* im Vertrag ist unvollständig → V-07) |
-| RLS | fail-closed, `current_setting(…, true)` ⇒ `NULL` ⇒ 0 Zeilen, **keine** Rolle mit `BYPASSRLS`, `FORCE ROW LEVEL SECURITY` bewusst nicht gesetzt, `SECURITY DEFINER` nur für die schmale Mandantenliste — **gegen echtes PostgreSQL 16 nachgewiesen** (ADR-002 „Verifikation“) |
-| p95 < 200 ms (NFR-002) | Der Annahmepfad ist eine begrenzte Folge von Statements (kein Join, kein Roundtrip in den Worker, kein asynchroner Fremdaufruf), die Nutzlast ist auf 1 MB gedeckelt, die Zustellung läuft im Hintergrundprozessor. Der Zielwert ist **plausibel** erreichbar — die Messung selbst fehlt (N-12) |
-| Worker-Kapazität | `Threads × (3600 s / 15 s)` ist korrekt gerechnet; die Lease muss länger sein als die Gesamtgrenze (ADR-008 §6) — konsistent |
-| Backoff | monoton wachsend, nie in der Vergangenheit (`max(now(), geplant)`), deterministisch prüfbar (Seed), Streuung ≥ 1 s, Basisabstand (60 s) > Gesamtgrenze (15 s) — **widerspruchsfrei** |
-| Signatur & Kennungen | Verfahren, Header-Name, Format `v1=<hex>`, Signier-Eingabe `<timestamp>.<payload_bytes>`, zeitkonstanter Vergleich, Zeitfenster 300 s — in Vertrag, ADR-004, ADR-005, ADR-009, Glossar und Sequenzdiagramm **identisch** |
-| Ablehnungssignal | HTTP 410 + `X-EchoBox-Rejection: permanent` + JSON-Body — in Vertrag, ADR-009, Glossar, Domain-Modell und Schema (`rejection_reason`) **identisch** |
-| „Ein Ort pro Wahrheit" | `.agent/knowledge/openapi.yaml` ist ein **reiner Verweis** (keine Pfade, keine Schemas) · das Schema-Spiegel ist **byte-identisch** (`diff` leer) · der ADR-Index deckt alle 18 Dateien ab (17 Entscheidungen + 1 Verweis) |
-| Traceability | `python3 .agent/tools/traceability_check.py` → **grün** (keine Lücke) — mit der in N-10 beschriebenen Einschränkung |
-| Schritt-3-Reduktion | `GET /api/v1/events` ist **wirklich** entfallen (keine Story, kein NFR, kein Akzeptanzpunkt), ADR-014 verweist **wirklich** nur noch, die 5 redundanten Tabellen in `architecture.md` sind **wirklich** weg |
-| Diagramme | 5 Dateien, 4 C4-Ebenen + 1 Sequenz; der Sequenzablauf (Wiederholung, Pause, Replay) steht in keinem anderen Format; nach den Korrekturen dieses Schritts stimmen sie mit dem Text überein |
+| „Kein Abnehmer“ | Ereignis-Status, Lauf-Status, `endpoint_id IS NULL`, DB-CHECK, Glossar, Zustandsautomat, Vertrag — **konsistent** |
+| RLS | fail-closed (erneut gemessen: 0 Zeilen ohne Kontext), **keine** Rolle mit `BYPASSRLS`, `FORCE ROW LEVEL SECURITY` bewusst nicht gesetzt, `SECURITY DEFINER` nur für die schmalen Eigentümerfunktionen, `search_path` verdrahtet, `REVOKE`/`GRANT` korrekt, Worker **nicht** freigegeben |
+| Replay-Kette | `replay_of` (Vorgänger) → neuer Lauf mit **neuer** ID, **gleicher** Ereignis-ID, zurückgesetzter Versuchszahl, `attempt_number` beginnt bei 1, Historie am Lauf sichtbar — in Vertrag, Schema, ADR-006 §6, ADR-015 §6, Domain-Modell und Sequenzdiagramm **identisch** |
+| 3xx-Kette | kein Wiederholen, `rejected`, `rejection_reason = client_error`, `outcome = client_error`, Redirects werden **nicht** befolgt — an **fünf** Stellen gleich (Vertrag-Ergebnismatrix, `AttemptOutcome`, `architecture.md:179`, ADR-008 `:56`, ADR-009 `:88-113`) |
+| Rate-Limit-Zustände | `kein_override` (⇒ 60) und `abgeschaltet` (⇒ 0) — an **sechs** Stellen gleich (Vertrag ×3, `x-contract-rules`, Schema, ADR-010); der entfernte `enabled`-Zustand kommt im Repository **nicht mehr** vor |
+| Reduktion aus Schritt 3 | Die drei Eigentümerfunktionen sind **nicht** zusammengelegt (die Projektionsgrenze wäre verloren gegangen), `GET /api/v1/events` ist weiterhin nicht da, keine Story/AK/Anforderung entfallen, 101/101 und 24/24 Abdeckung |
+| „Ein Ort pro Wahrheit“ | `.agent/knowledge/openapi.yaml` ist ein **reiner Verweis**; das Schema-Spiegel ist **byte-identisch** (`diff` leer); `docs/adr/README.md` deckt alle 18 Dateien ab (17 Entscheidungen + 1 Verweis) |
+| Traceability | `python3 .agent/tools/traceability_check.py` → **grün** (23 Stories / 101 AKs / 24 Anforderungen) |
+| p95 < 200 ms (NFR-002) | Der Annahmepfad ist eine begrenzte Folge von Statements, die Nutzlast ist auf 1 MB gedeckelt, die Zustellung läuft im Hintergrundprozessor — der Zielwert ist **plausibel**; die Messung selbst fehlt (Schritt 5) |
+| Backoff | monoton wachsend, nie in der Vergangenheit, deterministisch prüfbar (Seed), Streuung ≥ 1 s, Basisabstand (60 s) > Gesamtgrenze (15 s) — **widerspruchsfrei**; das Gesamtfenster 123 min ≈ 2 h steht im Vertrag **und** in ADR-008 |
+| 1xx | Die Ergebnismatrix des ausgehenden Vertrags nennt **kein** 1xx. Das ist **kein** Mangel: ein HTTP-Client liefert 1xx nie als Endstatus; 101 (Upgrade) ist für Webhooks nicht vorgesehen. |
 
 ---
 
-## 10. Selbstprüfung
+## 9. Selbstprüfung
 
 | Prüfung | Befehl | Ergebnis |
 |---|---|---|
-| Traceability-Kette | `python3 .agent/tools/traceability_check.py` | **grün** — „Keine Luecken …“ (Exit 0) |
-| Schema-Spiegel | `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (unverändert) |
+| Traceability-Kette | `python3 .agent/tools/traceability_check.py` | **grün** — „Keine Luecken …“ (23 Stories / 101 AKs / 24 Anforderungen) |
+| Schema-Spiegel | `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (byte-identisch) |
 | Vertrag unverändert | `git diff --stat -- docs/api/openapi.yaml` | **leer** |
 | ADRs unverändert | `git diff --stat -- docs/adr/` | **leer** |
+| `.agent/knowledge/` unverändert | `git diff --stat -- .agent/knowledge/` | **leer** |
 | Anforderungen unverändert | `git diff --stat -- docs/requirements/ docs/Anforderung.md` | **leer** |
-| YAML gültig | `python3 -c "import yaml; yaml.safe_load(open('docs/api/openapi.yaml'))"` | **gültig** (unverändert) |
-| YAML gültig (Architektur) | gleiche Prüfung für `docs/architecture/*.md` → keine YAML-Dateien; Mermaid-Dateien syntaktisch geprüft (ausgeglichene Klammern, gültige Bezeichner) | **ok** |
-| Markdown | Struktur/Überschriften der geänderten Dateien | **ok** |
+| Kein Anwendungscode | `git diff --stat -- src/` | **leer** (`src/` existiert nicht) |
+| YAML gültig | `python3 -c "import yaml; yaml.safe_load(open('docs/api/openapi.yaml'))"` | **gültig** |
+| Vertragsform | Skript | 17 Operationen; 15/15 authentifizierte Operationen mit 429; **alle** `$ref` auflösbar; **kein** ungenutztes Schema/Response/Parameter/Header |
+| Abdeckung | Skript | `x-acceptance-coverage` **101/101**, `x-requirement-coverage` **24/24**, keine Dubletten |
+| Beispiele | Skript (Pflichtfelder, Enum, Unbekannte-Felder) | **keine** Abweichung |
+| Mermaid | Klammer-/Anführungszeichen-Balance | 03: 91/91 Klammern, 198 Anführungszeichen (gerade); 05: 35/35 Klammern, 4 Anführungszeichen (gerade) |
+| Markdown | Struktur der geänderten Dateien | **ok** |
+| Schema anwendbar | `psql -f .agent/knowledge/schema.sql` (PostgreSQL 16.15) | **ohne Fehler** |
+| RLS-Verhalten | § 1.3 | **belegt** (fail-closed, Mandantentrennung, Cross-Tenant, Worker-Sperre) |
+| Replay-Regel | § 1.3 | **belegt** (23505 ⇒ 409; NULL-Verhalten; Nebenläufigkeit ⇒ Sperrenwait 4,005 s) |
+| Aufbewahrung | § 1.3 | **belegt** (dry_run ändert nichts; Markieren inkl. Kaskade; Purge) |
 | Commit-Scope | `git add -A -- docs/architecture/ .agent/artifacts/` | **nur** diese beiden Pfade |
 
-**Fazit für den Orchestrator:** Der Vertrag ist **nicht** einfrierreif. 22
-Vertragsdefekte (4 blockierend) und ein Architekturbruch (S-01) verlangen einen
-**Rücksprung zu Schritt 2**. E-01, E-02 und E-03 sind vor Schritt 5 zu
-entscheiden; die 18 weiteren Vertragsdefekte (15 „sollte“, 3 „optional“) sind
-Sammel-Patch-Material und können in derselben Runde mitgehen.
+**Fazit für den Orchestrator:** Der Vertrag ist **einfrierreif**. 26 von 26
+Nachprüfungen sind belegt behoben; die neue Runde findet **8** neue Befunde
+(3 „muss" — alle **Schema**, alle *Korrekturen auf den Vertrag hin*) und
+**3** neue Vertragsdefekte (alle „sollte", je ein Satz). **Kein** offener
+„muss"-Befund gegen den Vertrag. **Freeze ab dem Commit dieses Schritts.**
+Vor Schritt 5 sind N-13, N-14 und N-15 in Schritt 2 nachzuziehen (Schema
+**ohne** Vertragsänderung) und V-23 im selben Rücksprung mitzunehmen.
