@@ -1,6 +1,6 @@
 # Zielstruktur für `src/` — EchoBox
 
-> Schritt 2 (Konzept & Architektur) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > **Noch kein Code.** Diese Datei beschreibt, **wo** der Code in Schritt 6
 > entstehen wird. Die Pfade sind mit den in
 > `docs/requirements/traceability_matrix.json` geplanten Test- und Codepfaden
@@ -70,7 +70,7 @@
 
 | Datei | Verantwortung |
 |---|---|
-| `event/EventController.java` | REST-Adapter: `POST /api/v1/events` (202), `GET /api/v1/events`, `GET /api/v1/events/{id}`. |
+| `event/EventController.java` | REST-Adapter: `POST /api/v1/events` (202), `GET /api/v1/events/{id}`. |
 | `event/EventService.java` | Fachlogik: Idempotenz je (Mandant, Schlüssel) mit 409 bei abweichender Nutzlast (D-05), Größengrenze (NFR-001), Verschlüsselung, Anlegen der Zustellläufe. |
 | `event/Event.java` | Fachmodell: Typ, Schlüssel, Chiffre, Fingerprint, Status. |
 | `event/EventRepository.java` | JDBC-Adapter: `events`. |
@@ -88,10 +88,10 @@
 | `delivery/DeliveryHttpClient.java` | HTTP-Adapter (Port `DeliveryPort`): Timeouts (5 s / 10 s), TLS, Antwortauswertung. |
 | `delivery/DeliveryHeaders.java` | Die Namen und Werte der ausgehenden Header — **eingefroren**. |
 | `delivery/DeliveryOutcome.java` | Ergebnis eines Versuchs (`success`, `retryable_failure`, `permanent_rejection`, `client_error`, `network_error`, `timeout`, `cancelled`). |
-| `delivery/BackoffPolicy.java` | Verdopplung + Streuung; **alle Werte konfigurierbar** (D-09, O-06). |
+| `delivery/BackoffPolicy.java` | Verdopplung + Streuung; **alle Werte konfigurierbar** (D-09). Vorgabe: 8 Versuche, Basis 1 min, ×2, Deckel 60 min, ± 20 % (F-04). |
 | `delivery/RetryScheduler.java` | Setzt `next_attempt_at`; plant nie einen Zeitpunkt in der Vergangenheit (AC-011-5). |
 | `delivery/PayloadSource.java` | Liefert die zu sendenden Bytes: entschlüsselt oder reicht die Chiffre unverändert weiter (FR-013). |
-| `delivery/EndpointRateLimiter.java` | Zähler je Endpunkt und Zeitfenster; `delay`/`block`; **kein** vorbelegter Grenzwert (D-14, O-01). |
+| `delivery/EndpointRateLimiter.java` | Zähler je Endpunkt und Zeitfenster; `delay`/`block`; Vorgabe 60 Versuche je Endpunkt und Minute mit `delay` (D-14, F-01). |
 | `delivery/DeliveryRepository.java` | JDBC-Adapter: `delivery_runs`, `delivery_attempts`. |
 
 ### 2.4 `crypto` — Krypto (US-003, US-007, US-009)
@@ -111,7 +111,7 @@
 | `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin`. |
 | `protocol/EndpointMetricsService.java` | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false` ohne Daten (FR-032). |
 | `protocol/MetricsController.java` | REST-Adapter der Kennzahlen. |
-| `protocol/RetentionService.java` | Durchsetzung der Aufbewahrung; Frist konfigurierbar, ohne Vorbelegung (D-12, O-02). |
+| `protocol/RetentionService.java` | Durchsetzung der Aufbewahrung; zwei Fristen, Vorgabe je 30 Tage ab dem letzten Versuch (D-12, F-02). |
 
 ### 2.6 `tenant` — Mandantentrennung (US-004, US-022)
 

@@ -63,7 +63,7 @@ Diese Entscheidung ist die **Quelle** für `.agent/knowledge/stack.md`.
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
+**Angenommen** — bei Gate 1 am 2026-10-21 bestätigt.
 
 > Hinweis: Die Festlegungen D-01 bis D-15 aus dem PRD sind Vorschläge der
 > Anforderungserhebung, keine Fachbereichs-Festlegungen. Sie werden bei

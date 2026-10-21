@@ -68,7 +68,7 @@ FOR UPDATE SKIP LOCKED;
 |---|---|
 | Worker stirbt **vor** dem Versuch | Lease läuft ab → der Lauf wird wieder fällig; die Versuchszahl bleibt unverändert |
 | Worker stirbt **während** des Versuchs | Die tatsächliche Zustellung ist ungewiss (Timeout beim Empfänger) → der Lauf wird nach Lease-Ablauf erneut versucht. Das ist der Preis von at-least-once: der Empfänger **kann** eine Dublette sehen — erkennbar an gleicher Zustelllauf-ID und anderer Versuchs-ID (ADR-005) |
-| Lease läuft ab, während der Versuch noch läuft (langsamer Empfänger) | Die Lease ist **länger** als das Zeitlimit je Versuch (15 s, ADR-014); die Lease wird erst **nach** Abschluss des Versuchs freigegeben. Eine abgelaufene Lease während eines laufenden Versuchs ist damit ausgeschlossen. |
+| Lease läuft ab, während der Versuch noch läuft (langsamer Empfänger) | Die Lease ist **länger** als das Zeitlimit je Versuch (15 s, ADR-008); die Lease wird erst **nach** Abschluss des Versuchs freigegeben. Eine abgelaufene Lease während eines laufenden Versuchs ist damit ausgeschlossen. |
 
 **Die Versuchsanzahl steigt nicht sprunghaft** (AC-023-4): sie wird nur erhöht,
 wenn ein Versuch **tatsächlich** stattgefunden hat — ein übernommener Lauf
@@ -123,4 +123,4 @@ Vergangenheit oder in der Zukunft angezeigt (AC-015-2).
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
+**Angenommen** — bei Gate 1 am 2026-10-21 bestätigt.

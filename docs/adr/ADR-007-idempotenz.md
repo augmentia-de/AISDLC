@@ -88,13 +88,13 @@ Vertrag ausdrücklich dokumentiert.
   die konsequente Folge „der Dienst hält nur, was er für die Zustellung
   braucht, und das so kurz wie möglich“.
 
-## Vorschlag zur Freigabe bei Gate 1
+## Bestätigung bei Gate 1 (2026-10-21)
 
-> **Vorschlag:** Der Idempotenzschlüssel gilt je **(Mandant, Schlüssel)**. Eine
+> **Bestätigt:** Der Idempotenzschlüssel gilt je **(Mandant, Schlüssel)**. Eine
 > Wiederholung mit gleicher Nutzlast ist erfolgreich und liefert die Kennung des
 > ersten Ereignisses; eine Wiederholung mit abweichender Nutzlast wird mit
 > **HTTP 409** abgelehnt.
-> *Warum das der Fachbereich bestätigen sollte:* D-05 ist eine
+> *Warum das bestätigt wurde:* D-05 ist eine
 > Festlegung der Anforderungserhebung, keine Fachbereichs-Entscheidung. Die
 > 409-Semantik ist die einzige Stelle, an der der Dienst dem Aufrufer sagt
 > „deine neue Nutzlast ist **nicht** gespeichert“ — das Verhalten muss für die
@@ -112,4 +112,4 @@ Vertrag ausdrücklich dokumentiert.
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
+**Angenommen** — bei Gate 1 am 2026-10-21 bestätigt.

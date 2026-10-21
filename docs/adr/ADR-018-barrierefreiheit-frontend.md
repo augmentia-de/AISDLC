@@ -110,12 +110,12 @@ angezeigt wird, kann nicht bedient werden. Interaktive Elemente
   den Kontrast brechen. Der Token-Prüfer im Build ist deshalb Pflicht, nicht
   Kür.
 
-## Vorschlag zur Freigabe bei Gate 1
+## Bestätigung bei Gate 1 (2026-10-21)
 
-> **Vorschlag:** Die Oberfläche erfüllt WCAG 2.1 AA als **Bauregel**, nicht als
+> **Bestätigt:** Die Oberfläche erfüllt WCAG 2.1 AA als **Bauregel**, nicht als
 > Endabnahme. Der axe-Scan über alle drei Seiten ist ein **Pflicht-Gate** in
 > der CI mit der Schwelle 0 Verstöße der Klassen „kritisch“ und „schwer“.
-> *Warum das der Fachbereich bestätigen sollte:* Der Aufwand für die
+> *Warum das eine Produkt- und Personalentscheidung ist:* Der Aufwand für die
 > Barrierefreiheit ist eine **Zusage** gegenüber allen Nutzern des Dienstes;
 > ob und in welcher Tiefe sie geprüft wird (nur Scan oder zusätzlich manuelle
 > Prüfung mit Screenreader-Nutzern) ist eine Produkt- und Personalentscheidung.
@@ -138,4 +138,4 @@ angezeigt wird, kann nicht bedient werden. Interaktive Elemente
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
+**Angenommen** — bei Gate 1 am 2026-10-21 bestätigt (axe-Scan als Pflicht-Gate).

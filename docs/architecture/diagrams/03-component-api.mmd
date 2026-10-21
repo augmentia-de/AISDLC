@@ -17,8 +17,8 @@ C4Component
         Component(crypto, "CryptoService\n(Verschlüsselung, Signatur)", "Fachlogik", "AEAD für die Nutzlast, HMAC-SHA256 für die Signatur, Fingerprint für den Idempotenzvergleich (ADR-003, ADR-004).")
         Component(deliveryController, "DeliveryController\n(REST)", "HTTP-Adapter", "Zustellprotokoll, tote Zustellungen, Replay, Kennzahlen, Aufbewahrung.")
         Component(deliveryQueryService, "ProtocolQueryService\n(Auswertung)", "Domänenlogik", "Zustellprotokoll und Totenliste über Metadaten, Kennzahlen je Endpunkt (Erfolgsquote, p95-Latenz, Rate-Limit-Zähler) (D-11, FR-032).")
-        Component(replayService, "ReplayService\n(Fachlogik)", "Domänenlogik", "Neuer Zustelllauf mit neuer Zustelllauf-ID und zurückgesetzter Versuchszahl, Berechtigung des Empfänger-Admins (FR-024, D-15).")
-        Component(retentionService, "RetentionService\n(Aufräumen)", "Domänenlogik", "Löscht Ereignisse, Zustellläufe und Versuche nach der konfigurierten Frist (D-12, O-02).")
+        Component(replayService, "ReplayService\n(Fachlogik)", "Domänenlogik", "Neuer Zustelllauf mit neuer Zustelllauf-ID und zurückgesetzter Versuchszahl, Berechtigung des Empfänger-Admins (FR-024, D-15, F-03).")
+        Component(retentionService, "RetentionService\n(Aufräumen)", "Domänenlogik", "Löscht Ereignisse, Zustellläufe und Versuche nach der konfigurierten Frist (D-12; Vorgabe je 30 Tage, F-02).")
         Component(errorMapping, "Fehlerabbildung\n(Problem-Responses)", "Cross-Cutting", "Ein einheitliches Fehlerschema für alle Fehlerantworten: 400/401/403/404/409/413/422/429/500.")
     }
 

@@ -96,4 +96,4 @@ fehlen (AC-009-3) — das ist die technische Absicherung gegen R-06.
 ## Status
 
 **Angenommen** — der Vertrag `docs/api/openapi.yaml` (`x-delivery-protocol`)
-ist ab hier **eingefroren**. Bestätigung bei Gate 1 durch den Menschen.
+ist ab hier **eingefroren**. Bei Gate 1 am 2026-10-21 bestätigt.

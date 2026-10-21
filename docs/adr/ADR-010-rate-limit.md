@@ -1,9 +1,13 @@
-# ADR-010: Rate-Limit je Endpunkt (Mechanismus ohne Grenzwert)
+# ADR-010: Rate-Limit je Endpunkt
+
+> **Bestätigt am 2026-10-21 (Gate 1, F-01):** Vorgabewert **60 Zustellversuche
+> je Endpunkt und Minute**, Strategie **`delay`** (verschieben). Der Wert bleibt
+> **konfigurierbar** und je Endpunkt überschreibbar.
 
 ## Kontext
 
 FR-033: *„Ein Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit
-geschützt. Die zulässige Rate steht noch nicht fest."*
+geschützt."* Die zulässige Rate war in der Anforderung ausdrücklich offen.
 
 Abschnitt 13 der Anforderung nennt **zwei** offene Fragen:
 
@@ -11,17 +15,18 @@ Abschnitt 13 der Anforderung nennt **zwei** offene Fragen:
 2. Was passiert bei Überschreitung — **blockieren** oder **verschieben**?
 
 D-14 legt fest: der Begrenzungsmechanismus wird **gebaut und konfigurierbar**
-gehalten; bis O-01 entschieden ist, wird **kein** Grenzwert vorbelegt; erhoben
-werden nur die Zähler je Endpunkt und Zeitfenster als Datenbasis.
+gehalten; erhoben werden nur die Zähler je Endpunkt und Zeitfenster als
+Datenbasis.
 
-**Offener Punkt O-01** (Fachbereich). Diese ADR entscheidet den **Mechanismus**,
-nicht den Wert.
+**O-01 ist entschieden (2026-10-21, F-01).** Diese ADR entscheidet den
+**Mechanismus und den Vorgabewert**.
 
 AC-018-1: bei Überschreitung greift die konfigurierte Strategie, und **kein
 Ereignis geht verloren**. AC-018-2: die Verzögerung ist im Protokoll erkennbar
 (Status und nächster Versuchszeitpunkt). AC-018-3: die Begrenzung wirkt **je
-Endpunkt** — ein anderer Endpunkt wird nicht verzögert. AC-018-4: solange O-01
-offen ist, ist **kein** Grenzwert vorbelegt; der Dienst erhebt nur die Zählung.
+Endpunkt** — ein anderer Endpunkt wird nicht verzögert. AC-018-4: der Dienst
+erhebt die Zählung je Endpunkt und Zeitfenster — unabhängig davon, ob ein
+Grenzwert gesetzt ist.
 
 ## Entscheidung
 
@@ -29,39 +34,49 @@ offen ist, ist **kein** Grenzwert vorbelegt; der Dienst erhebt nur die Zählung.
 
 | Teil | Zweck | Zustand |
 |---|---|---|
-| **Zähler** (`endpoint_rate_limit_counters`) | Zählt die Zustellversuche je Endpunkt und Zeitfenster | **aktiv**, auch ohne Grenzwert |
-| **Begrenzer** (`endpoint_rate_limits`) | Hält Grenzwert, Fensterlänge und Strategie je Endpunkt | Grenzwert `NULL` = **nicht aktiv** |
+| **Zähler** (`endpoint_rate_limit_counters`) | Zählt die Zustellversuche je Endpunkt und Zeitfenster | **immer aktiv** |
+| **Begrenzer** (`endpoint_rate_limits`) | Hält Grenzwert, Fensterlänge und Strategie je Endpunkt | `limit_value` `NULL` = **kein Override** — es gilt der Vorgabewert aus der Konfiguration |
 
-Der Zähler läuft **immer**. Damit ist die Datenbasis für O-01 ab dem ersten
-Tag vorhanden — ohne dass jemand raten muss, welche Rate passt.
+Der Zähler läuft **immer**. Er ist die Datenbasis, mit der der Grenzwert
+belegt — statt geschätzt — eingestellt werden kann.
 
 ### 2. Strategien
 
 | Strategie | Verhalten | Datenverlust? |
 |---|---|---|
-| `delay` (**Vorschlag**) | Der Versuch wird **verschoben**: `next_attempt_at` wird in das nächste freie Fenster gelegt. Der Lauf trägt den Zustand `delayed`. | nein |
-| `block` | Der Versuch wird zurückgestellt, bis das Fenster wieder frei ist. | nein |
+| `delay` (**Vorgabe, bestätigt**) | Der Versuch wird **verschoben**: `next_attempt_at` wird in das nächste freie Fenster gelegt. Der Lauf trägt den Zustand `delayed`. | nein |
+| `block` (Alternative, konfigurierbar) | Der Versuch wird zurückgestellt, bis das Fenster wieder frei ist. | nein |
 
 **Kein Ereignis geht verloren** — das ist AC-018-1 und die zentrale Zusage.
 Ein Limit, das Zustellungen **verwirft**, wäre ein Datenverlust und ist
 ausgeschlossen. Ein Limit, das den Annahme-Request blockiert, wäre ein
 Latenzbruch (NFR-002) und ist ebenfalls ausgeschlossen.
 
-### 3. Kein vorbelegter Grenzwert
+### 3. Vorgabewert: 60 Versuche je Endpunkt und Minute
 
-- `endpoint_rate_limits.limit_value` ist `NULL` und `enabled = false`, bis O-01
-  entschieden ist.
-- Der Zähler läuft trotzdem. `GET /api/v1/endpoints/{endpointId}/metrics`
-  liefert `rate_limit.limit = null` und die beobachteten Zählerstände
+| Wert | Konfiguration | Vorgabe (bestätigt am 2026-10-21) |
+|---|---|---|
+| Grenzwert | `echobox.delivery.rate-limit.limit` | **60** Versuche je Endpunkt und Minute |
+| Fensterlänge | `echobox.delivery.rate-limit.window-seconds` | **60 s** |
+| Strategie | `echobox.delivery.rate-limit.strategy` | **`delay`** |
+
+- Der Vorgabewert gilt **pro Umgebung**; `echobox.delivery.rate-limit.limit`
+  kann je Umgebung abweichen (z. B. in einer Staging-Umgebung).
+- **Je Endpunkt überschreibbar:** eine Zeile in `endpoint_rate_limits` mit
+  `limit_value` überschreibt den Vorgabewert für diesen Endpunkt.
+  `limit_value IS NULL` heißt: **kein Override** — es gilt die Vorgabe.
+  `limit_value = 0` schaltet die Begrenzung für diesen Endpunkt **ab**.
+- Der Wert ist **keine** harte API-Grenze: er steht in der Konfiguration, nicht
+  im Vertrag, und ändert sich ohne Codeänderung.
+- Die Zählung läuft unabhängig vom Grenzwert. `GET /api/v1/endpoints/{endpointId}/metrics`
+  liefert den **wirksamen** Grenzwert und die beobachteten Zählerstände
   (AC-018-4).
-- **Konfigurierbar** über die Anwendungskonfiguration (Default pro
-  Umgebung) **und** überschreibbar je Endpunkt in der Tabelle.
 
 ### 4. Je Endpunkt, nicht global
 
 Die Zählung und die Begrenzung sind **je Endpunkt** (AC-018-3). Ein Endpunkt,
-der sein Limit überschreitet, blockiert **nicht** andere Endpunkte. Das
-Fenster ist konfigurierbar (Vorschlag: 60 s).
+der sein Limit überschreitet, bremst **nicht** andere Endpunkte. Das Fenster
+ist konfigurierbar (Vorgabe 60 s).
 
 ### 5. Sichtbarkeit im Protokoll
 
@@ -84,32 +99,31 @@ arbeitet bekommen. Der Zähler wird nach jedem abgeschickten Versuch erhöht —
 auch bei einem Timeout, denn der Empfänger hat die Anfrage möglicherweise
 bearbeitet.
 
-## Vorschlag zur Freigabe bei Gate 1
+## Festlegung (Gate 1, 2026-10-21)
 
-> **Vorschlag (Werte und Strategie, nicht entschieden):** 60 Zustellversuche je
-> Endpunkt und Minute; bei Überschreitung **verschieben** (`delay`), nicht
-> blockieren, nicht verwerfen.
+> **F-01 (O-01):** 60 Zustellversuche je Endpunkt und Minute; bei
+> Überschreitung **verschieben** (`delay`), nicht blockieren, nicht verwerfen.
 > *Warum das der Fachbereich entscheidet:* Die erlaubte Rate richtet sich
 > danach, was ein abonnierendes System an Last verträgt — das ist eine
 > Vereinbarung über die Betriebslast zwischen zwei Teams und keine technische
-> Grenze. Ohne eine Zahl ist die Schutzfunktion nicht justierbar; deshalb
-> erhebt der Dienst ab sofort die Zähler, damit die Zahl **belegt** entschieden
-> werden kann statt geschätzt.
-> *Was bereits entschieden ist:* Der Mechanismus, die Zählweise, die
+> Grenze. Der Wert ist deshalb eine **Vorgabe in der Konfiguration**, kein
+> im Code verdrahteter Grenzwert: er ist jederzeit je Umgebung und je
+> Endpunkt änderbar.
+> *Zusammen mit entschieden:* der Mechanismus, die Zählweise, die
 > Wirksamkeit **je Endpunkt**, die Sichtbarkeit im Protokoll und die Zusage,
 > dass **kein** Ereignis verloren geht.
 
 ## Konsequenzen
 
-- **Positiv:** Der Schutz ist **wirksam**, sobald ein Wert gesetzt ist — ohne
-  Codeänderung, nur über Konfiguration.
-- **Positiv:** Die Datenbasis für O-01 entsteht automatisch; die Entscheidung
-  wird **belegt** statt geschätzt.
+- **Positiv:** Der Schutz ist **wirksam** — ohne Codeänderung, nur über
+  Konfiguration.
+- **Positiv:** Die Zählung läuft unabhängig vom Grenzwert; der Wert ist
+  **belegt** eingestellt statt geschätzt.
 - **Positiv:** Der Zustand `delayed` macht die Verzögerung sichtbar — der
   Empfänger-Admin sieht, dass der Endpunkt gedrosselt wird.
-- **Negativ:** Der Zähler wächst auch ohne Grenzwert. Er wird durch die
-  Aufbewahrung mit dem Zustellprotokoll bereinigt (ADR-012) — sonst wäre er
-  eine unbegrenzte Wachstumsquelle.
+- **Negativ:** Der Zähler wächst auch dann, wenn kein Grenzwert gesetzt ist.
+  Er wird durch die Aufbewahrung mit dem Zustellprotokoll bereinigt
+  (ADR-012) — sonst wäre er eine unbegrenzte Wachstumsquelle.
 - **Negativ:** Bei `delay` verschiebt sich der Versuch; der Empfänger merkt
   davon nichts (außer an der Zeit). Das ist gewollt — die Alternative
   (Verwerfen) wäre Datenverlust.
@@ -121,14 +135,16 @@ bearbeitet.
 
 | Alternative | Warum nicht |
 |---|---|
-| **Kein Zähler ohne Grenzwert** | Dann gäbe es keine Datenbasis — O-01 wäre eine Vermutung statt einer Entscheidung (AC-018-4). |
+| **Kein Zähler** | Dann gäbe es keine Datenbasis — der Grenzwert wäre eine Vermutung statt einer Entscheidung (AC-018-4). |
 | **Globaler Grenzwert für alle Endpunkte** | Ein langsamer Endpunkt würde alle anderen bremsen (AC-018-3). |
 | **Verwerfen bei Überschreitung** | Datenverlust — widerspricht AC-018-1 und dem Leitsatz des PRD. |
+| **Blockieren statt Verschieben** | Hält den Worker länger; Verschieben ist die schonendere Variante und wurde bestätigt. |
 | **HTTP 429 an den Aufrufer der Annahme** | Der Aufrufer ist nicht der Empfänger; das ist ein API-Limit, nicht das Endpunkt-Limit (FR-033). |
 | **Zählung im Arbeitsspeicher des Workers** | Überlebt keinen Neustart und ist nicht mandantenfest; ein zweiter Worker sähe eine andere Zahl. |
 | **Token-Bucket im Worker** | Verteilte Zähler über mehrere Instanzen sind ohne gemeinsamen Zustand nicht korrekt. Die Datenbank ist der gemeinsame Zustand — und hat sie schon. |
+| **Grenzwert fest im Code verdrahtet** | Widerspricht der Konfigurationsregel des Projekts und der Tatsache, dass die zulässige Last eine Vereinbarung zwischen Teams ist. |
 
 ## Status
 
-**Angenommen** — der Mechanismus ist entschieden; der **Grenzwert** bleibt
-offen (O-01, Gate 1).
+**Angenommen** — der Mechanismus und der Vorgabewert sind am 2026-10-21 am
+Gate 1 bestätigt (F-01, entschieden O-01). Der Wert bleibt konfigurierbar.

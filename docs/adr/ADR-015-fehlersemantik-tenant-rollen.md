@@ -1,5 +1,10 @@
 # ADR-015: Fehlersemantik, Mandantenherkunft und Rollenmatrix
 
+> **Bestätigt am 2026-10-21 (Gate 1, F-03):** Das erneute Auslösen einer
+> toten Zustellung ist **ausschließlich** dem **Empfänger-Admin des
+> betroffenen Endpunkts** gestattet. Entwickler und Plattform-Betrieb
+> (`service_admin`) erhalten **HTTP 403**.
+
 ## Kontext
 
 Drei Festlegungen des PRD hängen zusammen und gehören deshalb in eine ADR:
@@ -10,11 +15,11 @@ Drei Festlegungen des PRD hängen zusammen und gehören deshalb in eine ADR:
 - **D-02:** Fremde Ressourcen werden mit **HTTP 404** beantwortet, nicht mit 403
   — so verrät die Antwort nicht, dass ein fremdes Objekt existiert.
 - **D-15:** Rollenrechte — der Empfänger-Admin des betroffenen Endpunkts darf
-  eine tote Zustellung erneut auslösen; bis zur Entscheidung aus **O-03**
-  erhalten alle anderen Rollen HTTP 403.
+  eine tote Zustellung erneut auslösen; alle anderen Rollen erhalten HTTP 403.
 
 Der Widerspruch aus R-09: FR-024 nennt den Empfänger-Admin, die Rollentabelle
-in Abschnitt 3 nennt auch den Entwickler. Das ist die offene Frage **O-03**.
+in Abschnitt 3 nennt auch den Entwickler. Das war die offene Frage **O-03** —
+**entschieden am 2026-10-21 (F-03)**: es bleibt beim Empfänger-Admin.
 
 Die Rollen selbst: Abschnitt 3 der Anforderung nennt drei Rollen —
 Entwickler, Empfänger-Admin, Service-Admin.
@@ -25,9 +30,9 @@ Entwickler, Empfänger-Admin, Service-Admin.
 
 | Rolle | Endpunkte verwalten | Ereignisse einliefern | Protokoll lesen | Tote Zustellung erneut auslösen | Totenliste mandantenübergreifend | Kennzahlen | Aufbewahrung erzwingen |
 |---|---|---|---|---|---|---|---|
-| `developer` | — | **ja** | **ja** (eigener Mandant) | **nein** (bis O-03) | **nein** | eigener Mandant | **nein** |
+| `developer` | — | **ja** | **ja** (eigener Mandant) | **nein** (F-03) | **nein** | eigener Mandant | **nein** |
 | `receiver_admin` | **ja** (eigener Mandant) | — | **ja** (eigener Mandant) | **ja** (eigener Endpunkt) | **nein** | eigener Mandant | **nein** |
-| `service_admin` | **ja** (alle Mandanten) | — | **ja** (alle Mandanten) | **nein** (bis O-03) | **ja** | **ja** | **ja** |
+| `service_admin` | **ja** (alle Mandanten) | — | **ja** (alle Mandanten) | **nein** (F-03) | **ja** | **ja** | **ja** |
 
 Zusätzliche Rollenprüfungen:
 
@@ -38,7 +43,7 @@ Zusätzliche Rollenprüfungen:
 | Ereignis einliefern | `developer` (und `service_admin` für Migrations-/Testzwecke) | 403 |
 | Endpunkt-/Protokoll-Listen | alle Rollen, aber **mandantengefiltert** | — |
 | Totenliste | nur `service_admin` | 403 (AC-016-2) |
-| Replay | nur `receiver_admin` **des betroffenen Endpunkts** | 403 (AC-013-3) |
+| Replay | nur `receiver_admin` **des betroffenen Endpunkts**; `developer` und `service_admin` ⇒ 403 | 403 (AC-013-3, F-03) |
 | Aufbewahrung erzwingen | nur `service_admin` | 403 |
 
 ### 2. Mandant aus der Identität
@@ -102,18 +107,19 @@ Ad-hoc-Fehlerbodies.
 | 500 | `internal_error` | unerwarteter Fehler, ohne internes Detail |
 | 503 | `service_unavailable` | Dienst nicht bereit |
 
-## Vorschlag zur Freigabe bei Gate 1
+## Festlegung (Gate 1, 2026-10-21)
 
-> **Vorschlag (Berechtigung, nicht entschieden):** Das erneute Auslösen einer
-> toten Zustellung ist der **Empfänger-Admin des betroffenen Endpunkts**
-> (entspricht FR-024). Der Entwickler darf es **nur** für eigene Ereignisse
-> und **nur** mit ausdrücklicher Freigabe des Mandanten. Der Plattform-Betrieb
-> darf es **nicht** — sonst verlöre der Empfänger die Kontrolle über seinen
-> eigenen Endpunkt.
+> **F-03 (O-03):** Das erneute Auslösen einer toten Zustellung ist der
+> **Empfänger-Admin des betroffenen Endpunkts** (entspricht FR-024). Der
+> **Entwickler darf es nicht** — auch nicht für eigene Ereignisse und auch
+> nicht mit Mandantenfreigabe. Der **Plattform-Betrieb** (`service_admin`) darf
+> es ebenfalls **nicht** — sonst verlöre der Empfänger die Kontrolle über
+> seinen eigenen Endpunkt.
 > *Warum das der Fachbereich entscheidet:* Die Rollentabelle (Abschnitt 3)
-> nennt den Entwickler, FR-024 den Empfänger-Admin — das ist ein **echter
-> Widerspruch in der Anforderung**, den nur der Fachbereich auflösen kann.
-> Bis dahin gilt D-15: alle anderen Rollen erhalten HTTP 403.
+> nennt den Entwickler, FR-024 den Empfänger-Admin — das war ein **echter
+> Widerspruch in der Anforderung**. Die Entscheidung fällt zugunsten von
+> FR-024 aus: die Kontrolle über den eigenen Endpunkt bleibt beim Empfänger.
+> D-15 gilt damit **unverändert** — alle anderen Rollen erhalten HTTP 403.
 
 ## Konsequenzen
 
@@ -121,8 +127,10 @@ Ad-hoc-Fehlerbodies.
 - **Positiv:** Die Regel ist eindeutig: 403 = „Rolle“, 404 = „Mandant“.
 - **Positiv:** `service_admin` bekommt alle Mandanten, ohne dass ein
   Mandantenfilter in die Schnittstelle muss.
+- **Positiv:** Der Empfänger behält die Kontrolle über die Wiederaufnahme
+  seiner eigenen Zustellungen — die Zusage aus FR-024 gilt uneingeschränkt.
 - **Negativ:** `developer` darf sein eigenes Ereignis nicht erneut auslösen —
-  das ist eine **Funktionslücke**, bis O-03 entschieden ist. Sie ist bewusst
+  das ist eine **bewusste Funktionslücke**, nicht ein Versehen. Sie ist
   sichtbar (403), nicht stillschweigend.
 - **Negativ:** `service_admin` kann **keine** Zustellung erneut auslösen, auch
   nicht für die Wartung eines Endpunkts. Der Betrieb kann stattdessen den
@@ -146,5 +154,6 @@ Ad-hoc-Fehlerbodies.
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen; die Replay-Berechtigung
-bleibt bis O-03 offen.
+**Angenommen** — die Replay-Berechtigung ist am 2026-10-21 am Gate 1
+entschieden (F-03, entschieden O-03): **nur** der Empfänger-Admin des
+betroffenen Endpunkts.

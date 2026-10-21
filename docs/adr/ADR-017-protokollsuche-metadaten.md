@@ -64,11 +64,17 @@ Vertrags, keine Implementierungsdetails):
 |---|---|
 | `GET /api/v1/deliveries` | `endpoint_id`, `event_id`, `event_type`, `status` (kommasepariert), `from`, `to` |
 | `GET /api/v1/dead-deliveries` | `endpoint_id`, `event_type`, `status`, `from`, `to` |
-| `GET /api/v1/events` | `event_type`, `idempotency_key`, `status`, `from`, `to` |
 
 Die Filter sind **kombinierbar** (AC-015-4, AC-016-4). Sortierung: implizit
 neueste zuerst (`created_at DESC`) — die Reihenfolge, in der ein Betrieb den
 Fehler sucht.
+
+> **Reduziert (Schritt 3):** Eine eigene Liste der Ereignisse
+> (`GET /api/v1/events`) ist entfallen — sie trug keine Story, kein NFR und
+> keinen Akzeptanzpunkt, und keine Oberflächenseite braucht sie. Die Suche
+> über Ereignis-Metadaten läuft über das **Zustellprotokoll**
+> (`GET /api/v1/deliveries`, Filter `event_id` / `event_type`); ein einzelnes
+> Ereignis ist über `GET /api/v1/events/{eventId}` lesbar.
 
 ### 5. Cursor-basierte Paginierung
 
@@ -113,17 +119,19 @@ Die Totenliste enthält **keine** Nutzlast und **keinen** Nutzlastinhalt.
   Seitenzahlen. Die Oberfläche bietet deshalb „weitere laden“ statt
   „Seite 7“.
 
-## Vorschlag zur Freigabe bei Gate 1
+## Offene Produktfrage (O-04, Gate 2)
 
-> **Vorschlag:** Die Protokollsuche bleibt **ausschließlich** über Metadaten
-> (Ereignis-ID, Ereignistyp, Endpunkt, Status, Zeitraum, Idempotenzschlüssel).
-> Eine Volltextsuche über Nutzlasten wird **nicht** gebaut.
-> *Warum das der Fachbereich bestätigen sollte:* Die Frage aus Abschnitt 13
+> **Bleibt offen — nicht technisch:** Die Protokollsuche bleibt
+> **ausschließlich** über Metadaten (Ereignis-ID, Ereignistyp, Endpunkt, Status,
+> Zeitraum, Idempotenzschlüssel). Eine Volltextsuche über Nutzlasten wird
+> **nicht** gebaut.
+> *Warum das beim Fachbereich bleibt:* Die Frage aus Abschnitt 13
 > („können wir dann im Zustellprotokoll noch nach einem Ereignis suchen?“)
 > betrifft die **Produktzusage** gegenüber den Mandanten. Die Architektur hat
 > den Metadatenweg vollständig ausgebaut; ob zusätzlich ein Inhaltsfilter
 > gewünscht wird, ist eine Frage des Nutzens und der Datenschutz-Zusage — sie
-> gehört nicht in die Technik.
+> gehört nicht in die Technik. Die **fachliche** Pflichtfrage aus O-04 („Muss
+> es Verschlüsselung im Ruhezustand geben?“) ist getrennt davon zu beantworten.
 
 ## Alternativen
 
@@ -139,5 +147,6 @@ Die Totenliste enthält **keine** Nutzlast und **keinen** Nutzlastinhalt.
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen; die Frage der
-fachlichen Durchsuchbarkeit bleibt O-04 beim Fachbereich.
+**Angenommen** — der Metadatenweg ist bestätigt. Die **fachliche** Frage der
+Durchsuchbarkeit bleibt als O-04 beim Fachbereich (Gate 2); sie ändert die
+Architektur nicht (der Vertrag gibt die Nutzlast nie aus).

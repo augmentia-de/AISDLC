@@ -116,4 +116,4 @@ Ein 4xx **ohne** das Signal:
 ## Status
 
 **Angenommen** — das Signal ist im Vertrag `docs/api/openapi.yaml`
-**eingefroren**. Bestätigung bei Gate 1 durch den Menschen.
+**eingefroren**. Bei Gate 1 am 2026-10-21 bestätigt.

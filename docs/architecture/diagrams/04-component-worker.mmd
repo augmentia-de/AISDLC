@@ -11,8 +11,8 @@ C4Component
         Component(dispatcher, "Dispatcher\n(Versand)", "Fachlogik", "Baut den HTTP-Request, signiert ihn, versendet ihn und wertet die Antwort aus (2xx / 410 / 4xx / 5xx / Netzwerkfehler).")
         Component(signer, "Signatur\n(HMAC-SHA256)", "Krypto", "Bildet die Signier-Eingabe timestamp.payload und setzt den Header X-EchoBox-Signature (ADR-004).")
         Component(payloadProvider, "Nutzlastquelle\n(Entschlüsselung)", "Krypto", "Entschlüsselt die Nutzlast für den Versand — oder reicht die Chiffre unverändert weiter (FR-013).")
-        Component(backoff, "Backoff-Politik\n(Verdopplung + Streuung)", "Fachlogik", "Berechnet den nächsten Versuchszeitpunkt; konfigurierbar, ohne vorbelegte Werte (D-09, O-06).")
-        Component(rateLimiter, "Endpunkt-Begrenzung\n(je Endpunkt)", "Fachlogik", "Zählt die Versuche je Endpunkt und Zeitfenster und verschiebt oder blockiert nach der konfigurierten Strategie — ohne vorbelegten Grenzwert (D-14, O-01).")
+        Component(backoff, "Backoff-Politik\n(Verdopplung + Streuung)", "Fachlogik", "Berechnet den nächsten Versuchszeitpunkt; konfigurierbar — Vorgabe 8 Versuche, Basis 1 min, ×2, Deckel 60 min, ± 20 % (D-09, F-04).")
+        Component(rateLimiter, "Endpunkt-Begrenzung\n(je Endpunkt)", "Fachlogik", "Zählt die Versuche je Endpunkt und Zeitfenster und verschiebt oder blockiert nach der konfigurierten Strategie — Vorgabe 60 Versuche/Endpunkt/Minute mit delay (D-14, F-01).")
         Component(protocolWriter, "Protokollschreiber\n(Versuche)", "Fachlogik", "Schreibt je Versuch Zustand, Antwortcode, Fehlercode und den nächsten Versuchszeitpunkt (FR-030).")
         Component(leaseRecovery, "Lease-Rettung\n(Absturz)", "Fachlogik", "Gibt Läufe nach Ablauf der Lease wieder frei, ohne die Versuchszahl sprunghaft zu erhöhen (AC-023-4).")
     }

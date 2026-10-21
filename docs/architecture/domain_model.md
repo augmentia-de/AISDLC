@@ -1,6 +1,6 @@
 # Domänenmodell — EchoBox
 
-> Schritt 2 (Konzept & Architektur) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Grundlage: `docs/requirements/PRD.md` (Abschnitt 4 und 6), `docs/Anforderung.md` (Abschnitt 4)
 > Umsetzung: `.agent/knowledge/schema.sql`, `docs/api/openapi.yaml`
 
@@ -8,69 +8,21 @@
 
 ## 1. Fachbegriffe
 
-### Endpunkt
+Die Fachbegriffe (Endpunkt, Ereignis, Zustellung, Zustelllauf, tote
+Zustellung, Replay, Mandant, Rolle …) stehen **an einer Stelle**:
+[`GLOSSARY.md`](GLOSSARY.md). Dieses Dokument wiederholt sie nicht — es
+beschreibt **Entitäten, Beziehungen und den Zustandsautomaten**.
 
-Eine Registrierung: Ziel-URL, Secret, gewünschte Ereignistypen, Zustand.
+Die beiden Entscheidungen, die man beim Lesen des Zustandsautomata kennen
+muss:
 
-- **Ausprägung:** genau eine Ziel-URL (`https`), genau ein Secret (verschlüsselt
-  abgelegt), eine Menge abonnierter Ereignistypen, Zustand `aktiv` oder
-  `pausiert`.
-- **Nicht:** ein Nachrichtenziel, kein Warteschlangen-Abonnement, kein
-  Empfänger-*Nutzer*. Der Endpunkt ist eine technische Registrierung, keine
-  Person.
-- **Quelle:** FR-001…FR-003, `docs/Anforderung.md` Abschnitt 4 und 6.
+| Begriff | Kurz | Wahrheit |
+|---|---|---|
+| **Zustellung** | der **einzelne** Versuch | Glossar, FR-021 |
+| **Zustelllauf** | die Kette **über alle** Versuche eines Ereignisses an einen Endpunkt | Glossar, D-06 |
 
-### Ereignis
-
-Eine eingelieferte Nutzlast mit Typ, Zeitpunkt und Idempotenzschlüssel.
-
-- **Ausprägung:** Typ, Nutzlast (verschlüsselt gespeichert), Idempotenzschlüssel
-  je (Mandant, Schlüssel), Annahmezeitpunkt, Status `accepted` oder
-  `no_subscriber`.
-- **Nicht:** ein dauerhaftes Ereignisarchiv. Der Dienst ist kein Event-Store;
-  die Nutzlast wird nach der Aufbewahrungsfrist gelöscht.
-- **Quelle:** FR-010…FR-013.
-
-### Zustellung (hier: der einzelne Versuch)
-
-Ein Versuch, ein Ereignis an einen Endpunkt zu senden.
-
-- **Ausprägung:** ein HTTP-Versuch mit Start, Ende, Dauer, Antwortcode (oder
-  Fehlercode) und Ergebnis.
-- **Nicht:** die Kette über alle Versuche — das ist der **Zustelllauf**.
-- **Quelle:** `docs/Anforderung.md` Abschnitt 4; die Trennung ist wegen
-  FR-021 nötig (siehe Anmerkung unten).
-
-### Lieferung / Zustelllauf
-
-Das Protokoll einer Zustellung über alle Versuche.
-
-- **Ausprägung:** ein Zustelllauf zu **einem** Ereignis an **einem** Endpunkt.
-  Er trägt Zustand, Versuchsanzahl, letzten Versuch, Antwortcode, nächsten
-  Versuchszeitpunkt und die Liste der Versuche.
-- **Nicht:** ein Ereignis. Ein Ereignis an drei Endpunkte erzeugt **drei**
-  Zustellläufe mit derselben Ereignis-ID und verschiedenen Zustelllauf-IDs.
-- **Quelle:** `docs/Anforderung.md` Abschnitt 4, D-06.
-
-> **Anmerkung zum Glossar-Widerspruch (Befund B-01).** Der Roh-Input nennt den
-> einzelnen Versuch „Zustellung“ und die Kette „Lieferung“. FR-021 verlangt
-> jedoch, dass **jede** Zustellung eine eigene Kennung trägt, „damit der
-> Empfänger doppelte Zustellungen erkennen kann“. Mit nur einer Kennung je
-> Versuch kann der Empfänger eine Dublette nicht erkennen. Deshalb führt der
-> Dienst **drei** Kennungen (D-06) und benennt sie eindeutig:
-> *Ereignis-ID* (fachlicher Schlüssel), *Zustelllauf-ID* (Lauf),
-> *Versuchs-ID* (einzelner HTTP-Versuch).
-
-### Tote Zustellung
-
-Eine Zustellung, die nach erschöpften Versuchen aufgegeben wurde.
-
-- **Ausprägung:** ein Zustelllauf mit Status `abandoned`, gesetztem
-  `abandoned_at` und ohne weiteren Versuch.
-- **Nicht:** ein abgelehnter Lauf (`rejected`) und kein pausiert abgebrochener
-  Lauf (`cancelled`). Beides sind **endgültige** Zustände, aber nur die tote
-  Zustellung steht in der Totenliste und ist replaybar.
-- **Quelle:** FR-023, FR-031.
+Ein Ereignis an drei Endpunkte erzeugt **drei** Zustellläufe mit derselben
+Ereignis-ID und verschiedenen Zustelllauf-IDs.
 
 ---
 

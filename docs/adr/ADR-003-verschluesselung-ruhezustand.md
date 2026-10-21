@@ -101,21 +101,25 @@ Fingerprint.
   Serialisierung der Nutzlast (RFC-8785-artig), damit derselbe fachliche
   Inhalt denselben Fingerprint ergibt.
 
-## Vorschlag zur Freigabe bei Gate 1
+## Offene Produktfrage (O-04, Gate 2)
 
 Der Fachbereich entscheidet die **fachliche** Seite von O-04:
 
-> **Vorschlag:** Die Verschlüsselung im Ruhezustand bleibt **Muss** — FR-012
-> und NFR-004 sind nummerierte Anforderungen, und das Abnahmekriterium 4 der
-> Anforderung verlangt den Nachweis. Die Protokollsuche bleibt auf Metadaten
-> beschränkt; eine Volltextsuche über Nutzlasten wird nicht gebaut.
-> *Warum das der Fachbereich entscheidet:* Die Aussage „ist das ein Muss?"
+> **Vorschlag (bleibt offen):** Die Verschlüsselung im Ruhezustand bleibt
+> **Muss** — FR-012 und NFR-004 sind nummerierte Anforderungen, und das
+> Abnahmekriterium 4 der Anforderung verlangt den Nachweis. Die
+> Protokollsuche bleibt auf Metadaten beschränkt; eine Volltextsuche über
+> Nutzlasten wird nicht gebaut.
+> *Warum das der Fachbereich entscheidet:* Die Aussage „ist das ein Muss?“
 > berührt die Datenschutzzusage gegenüber den Mandanten; die Frage nach der
 > Durchsuchbarkeit ist eine Produktentscheidung mit Kosten (Klartextindex vs.
 > kein Index). Die Architektur hat beides so entworfen, dass **kein** Wert
 > verdrahtet werden musste: Die Frist der Schlüsselrotation, die
 > Aufbewahrung und der Umgang mit vorverschlüsselten Nutzlasten sind
 > konfigurierbar.
+>
+> **Unabhängig von der Antwort bleibt der Vertrag gleich:** die API gibt die
+> Nutzlast nie aus (ADR-003, ADR-017).
 
 ## Alternativen
 
@@ -130,6 +134,6 @@ Der Fachbereich entscheidet die **fachliche** Seite von O-04:
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
-Die fachliche Seite von O-04 bleibt offen und ist bei Gate 1 mit dem
-Fachbereich zu klären.
+**Angenommen** — die Architekturseite ist bei Gate 1 am 2026-10-21 bestätigt.
+Die **fachliche** Seite von O-04 (Muss? Durchsuchbarkeit?) bleibt offen und ist
+mit dem Fachbereich zu klären (Gate 2).

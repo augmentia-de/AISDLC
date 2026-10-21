@@ -114,14 +114,14 @@ damit die Existenz fremder Endpunkte verborgen bleibt.
   Ressource. Das ist gewollt: beide beziehen sich auf denselben Endpunkt und
   dieselbe Zeitachse.
 
-## Vorschlag zur Freigabe bei Gate 1
+## Bestätigung bei Gate 1 (2026-10-21)
 
-> **Vorschlag (Werte, nicht entschieden):** Auswertungsfenster 7 Tage;
-> Erfolgsquote und p95-Latenz je Endpunkt; das Fenster ist je Abfrage
+> **Bestätigt:** Auswertungsfenster 7 Tage (Vorgabewert); Erfolgsquote und
+> p95-Latenz je Endpunkt; das Fenster ist je Abfrage
 > über `from`/`to` **und** per Konfiguration einstellbar.
-> *Warum das der Fachbereich entscheidet:* Das Auswertungsfenster bestimmt,
-> wie stark kurzzeitige Schwankungen geglättet werden — eine Betriebsfrage.
-> Die **Definition** der Kennzahlen (Erfolg = 2xx, Latenz = Annahme bis
+> *Warum das eine Betriebsfrage ist:* Das Auswertungsfenster bestimmt,
+> wie stark kurzzeitige Schwankungen geglättet werden. Die **Definition** der
+> Kennzahlen (Erfolg = 2xx, Latenz = Annahme bis
 > erfolgreiche Antwort) folgt wörtlich aus AC-017-1 und ist damit keine
 > offene Frage.
 
@@ -138,4 +138,5 @@ damit die Existenz fremder Endpunkte verborgen bleibt.
 
 ## Status
 
-**Angenommen** — Definitionen entschieden, Fensterwerte offen (Gate 1).
+**Angenommen** — Definitionen und Fenstervorgabe (7 Tage) sind bei Gate 1 am
+2026-10-21 bestätigt.

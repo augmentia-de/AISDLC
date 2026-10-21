@@ -1,7 +1,9 @@
 # Zielstruktur `src/` — Kurzfassung
 
-> Schritt 2 (Konzept & Architektur) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
-> Volltext: `docs/architecture/folder-structure.md`
+> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> **Wahrheit:** `docs/architecture/folder-structure.md` (dort stehen die
+> Dateien und ihre Zuständigkeiten je Modul, die Konventionen und der
+> Planungsauftrag). Diese Datei ist die Kurzfassung.
 > **Noch kein Code** — die Pfade sind die Zielstruktur für Schritt 6.
 
 ```
@@ -50,14 +52,12 @@ src/
 > Lies `docs/api/openapi.yaml` und erstelle einen Schritt-für-Schritt-Plan für
 > die Implementierung der neuen API-Stubs, DTOs und Typen.
 
-**Abbildung der Auftragspfade auf die Projektstruktur:**
+Die Abbildung der Auftragspfade (`src/types` → DTO-Spiegel des Vertrags,
+`src/controllers` → je `operationId` ein Controller) und die **Reihenfolge**
+des Plans stehen in `docs/architecture/folder-structure.md` §5.
 
-| Auftrag | Projektpfad |
-|---|---|
-| `src/types` (DTOs und Typen) | `src/main/java/com/echobox/<modul>/api/dto/` (Java-Spiegel der Schemas aus `components/schemas`) und `src/main/frontend/src/types/api.ts` (aus demselben Vertrag generiert) |
-| `src/controllers` (Controller) | `src/main/java/com/echobox/<modul>/<Modul>Controller.java` (ein `operationId` je Operation) und `src/main/frontend/src/features/<bereich>/` |
-
-**Reihenfolge:** gemeinsame Schemas → `endpoint` → `crypto` → `event` → `delivery` → `protocol` → `common` → `tenant` → Oberfläche.
+**Reihenfolge (Kurzfassung):** gemeinsame Schemas → `endpoint` → `crypto` →
+`event` → `delivery` → `protocol` → `common` → `tenant` → Oberfläche.
 
 **Regeln:** kein Feld und keine Operation erfinden, die nicht im Vertrag stehen;
 je Operation ein Vertragstest (Statuscode, Pflichtfelder, Fehlerformat); der

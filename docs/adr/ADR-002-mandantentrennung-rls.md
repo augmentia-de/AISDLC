@@ -84,4 +84,4 @@ Gegen PostgreSQL 16 geprüft:
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
+**Angenommen** — bei Gate 1 am 2026-10-21 bestätigt.

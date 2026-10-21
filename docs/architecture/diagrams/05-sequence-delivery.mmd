@@ -56,7 +56,7 @@ sequenceDiagram
         Note over W,EP: Nächster Versuch erst zum geplanten Zeitpunkt
     end
 
-    opt Versuchsgrenze erreicht (O-06)
+    opt Versuchsgrenze erreicht (8 Versuche, F-04)
         W->>DB: Lauf = abandoned, abandoned_at setzen
         Note over DB: Der Lauf erscheint in der Totenliste (FR-031)
     end
@@ -69,7 +69,7 @@ sequenceDiagram
 
     opt Replay durch den Empfänger-Admin (FR-024)
         Dev->>API: POST /api/v1/deliveries/{deliveryRunId}/replay
-        API->>DB: Prüfung: Empfänger-Admin des Endpunkts? (sonst 403, D-15)
+        API->>DB: Prüfung: Empfänger-Admin des Endpunkts? (nur dieser, F-03 — sonst 403, D-15)
         API->>DB: Neuer Zustelllauf: neue delivery_run_id, gleiche event_id,<br/>Versuchszahl startet bei 1, Altdatensatz bleibt erhalten
         API-->>Dev: 202 Accepted, neue delivery_run_id
         Note over W,EP: Der neue Lauf durchläuft denselben Weg

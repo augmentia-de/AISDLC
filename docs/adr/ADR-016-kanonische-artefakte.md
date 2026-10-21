@@ -105,4 +105,4 @@ Platzhalter** aus der Vorlage — sie ist eine Entscheidung, keine Lücke.
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
+**Angenommen** — bei Gate 1 am 2026-10-21 bestätigt.

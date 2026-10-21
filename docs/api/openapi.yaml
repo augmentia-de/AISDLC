@@ -67,6 +67,27 @@ info:
     existiert **nicht** — das wäre mit der Verschlüsselung im Ruhezustand
     unvereinbar (FR-012, D-11).
 
+    ## Vorgabewerte (bestätigt am 2026-10-21, Gate 1)
+
+    Diese Werte sind **Vorgaben der Betriebskonfiguration**, keine harten
+    API-Grenzwerte: der Vertrag nennt sie, damit ein Aufrufer weiß, womit er
+    rechnen muss — geändert wird jeder Wert **über die Konfiguration der
+    Umgebung**, nicht über diesen Vertrag und nicht über Code.
+
+    | ID | Gegenstand | Vorgabewert | Steuerung |
+    |---|---|---|---|
+    | **F-01** | Rate-Limit je Endpunkt | **60 Versuche je Endpunkt und Minute**, Strategie `delay` (verschieben) | `echobox.delivery.rate-limit.*`, je Endpunkt überschreibbar |
+    | **F-02** | Aufbewahrung | **30 Tage** — getrennt für Ereignisse und für Zustellprotokolle, Fristbeginn = **letzter Versuch** | `echobox.retention.*`, je Mandant überschreibbar |
+    | **F-03** | Replay-Berechtigung | **nur** der Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` ⇒ **403** | Rollenprüfung (ADR-015) |
+    | **F-04** | Versuche und Backoff | **8 Versuche**, Basis **1 Minute**, Verdopplung (×2), Deckel **60 Minuten**, Streuung **± 20 %** | `echobox.delivery.backoff.*`, `echobox.delivery.max-attempts` |
+
+    Auswirkung auf die Sichtbarkeit: `EndpointMetrics.rate_limit.limit` weist den
+    **wirksamen** Grenzwert aus, `DeliveryRun.max_attempts` die **wirksame**
+    Versuchsgrenze, `RetentionEnforcementResponse` die **beiden** angewandten
+    Fristen. Diese Felder bleiben nullable — `null` bedeutet „kein Override,
+    die Begrenzung ist für diesen Endpunkt abgeschaltet" bzw. „keine Frist
+    gesetzt".
+
   contact:
     name: Plattform-Team Interne Systeme
     email: platform-eng@example.invalid
@@ -284,7 +305,7 @@ x-delivery-protocol:
           Netzwerkfehler, DNS-Fehler, Verbindungs-Timeout, Lese-Timeout. Wird wie
           ein 5xx behandelt: Wiederholung nach Backoff. Die Summe aus
           Verbindungs- und Lese-Timeout je Versuch bleibt unter 30 s (Abschnitt 11
-          der Anforderung, ADR-014).
+          der Anforderung, ADR-008).
         x-ac-id:
           - US-011/AC-011-3
           - US-014/AC-014-3
@@ -314,14 +335,14 @@ x-delivery-protocol:
       Versuchen wird die Zustellung aufgegeben und landet in der Liste der
       toten Zustellungen (FR-023).
     configuration:
-      max_attempts: "Konfigurierbar. Ohne die Festlegung aus O-06 wird kein Wert vorbelegt; Vorschlag zur Freigabe bei Gate 1: 8."
-      base_delay: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: 1 Minute."
-      multiplier: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: 2 (Verdopplung)."
-      max_delay: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: 60 Minuten."
-      jitter: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: ± 20 %."
+      max_attempts: "Konfigurierbar. Vorgabewert (bestätigt 2026-10-21, F-04): 8 Versuche."
+      base_delay: "Konfigurierbar. Vorgabewert (F-04): 1 Minute."
+      multiplier: "Konfigurierbar. Vorgabewert (F-04): 2 (Verdopplung)."
+      max_delay: "Konfigurierbar. Vorgabewert (F-04): 60 Minuten."
+      jitter: "Konfigurierbar. Vorgabewert (F-04): ± 20 %."
       attempt_timeout:
-        connect_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-014): Default 5 s."
-        read_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-014): Default 10 s."
+        connect_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-008): Default 5 s."
+        read_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-008): Default 10 s."
     x-ac-id:
       - US-011/AC-011-1
       - US-011/AC-011-2
@@ -334,20 +355,28 @@ x-delivery-protocol:
   rate_limit:
     description: >-
       Jeder Endpunkt ist gegen zu viele Zustellversuche in kurzer Zeit
-      geschützt (FR-033). Der Mechanismus ist gebaut und konfigurierbar; der
-      **Grenzwert ist bewusst nicht vorbelegt**, solange O-01 offen ist. Bis zur
-      Festlegung erhebt der Dienst nur die Zählung der Zustellversuche je
-      Endpunkt und Zeitfenster als Datenbasis (D-14).
+      geschützt (FR-033). **Vorgabewert (bestätigt 2026-10-21, F-01): 60
+      Zustellversuche je Endpunkt und Minute, Strategie `delay`** — bei
+      Überschreitung wird der Versuch **verschoben**, nicht verworfen und nicht
+      blockiert. Der Wert steht in der Betriebskonfiguration und ist je
+      Endpunkt überschreibbar; er ist **keine** harte API-Grenze (D-14).
+      Die Zählung der Zustellversuche je Endpunkt und Zeitfenster läuft
+      unabhängig vom Grenzwert und ist über
+      `GET /api/v1/endpoints/{endpointId}/metrics` im Feld `rate_limit`
+      abrufbar.
     strategy_options:
       - name: delay
-        meaning: "Der Versuch wird verschoben (nicht verworfen, nicht blockiert). Der Zustelllauf trägt den Zustand `delayed` und einen nächsten Versuchszeitpunkt."
+        meaning: "Der Versuch wird verschoben (nicht verworfen, nicht blockiert). Der Zustelllauf trägt den Zustand `delayed` und einen nächsten Versuchszeitpunkt. **Vorgabe (F-01).**"
       - name: block
         meaning: "Der Versuch wird zurückgestellt, bis das Zeitfenster wieder frei ist. Das Ereignis geht nicht verloren."
     default_strategy: "delay"
-    default_limit: null
+    default_limit: 60
+    default_window_seconds: 60
     observability: >-
       Die Zählung je Endpunkt und Zeitfenster ist über
-      `GET /api/v1/endpoints/{endpointId}/metrics` im Feld `rate_limit` abrufbar.
+      `GET /api/v1/endpoints/{endpointId}/metrics` im Feld `rate_limit` abrufbar;
+      `rate_limit.limit` weist den **wirksamen** Grenzwert aus (Vorgabe 60,
+      je Endpunkt überschreibbar).
     x-ac-id:
       - US-018/AC-018-1
       - US-018/AC-018-2
@@ -789,61 +818,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-    get:
-      operationId: listEvents
-      tags: [Ereignisse]
-      summary: Ereignisse auflisten (Metadaten)
-      description: >-
-        Listet die Ereignisse des Mandanten **über ihre Metadaten**. Die
-        Nutzlast wird **nie** ausgegeben — sie ist im Ruhezustand verschlüsselt
-        (FR-012). Eine Suche nach Nutzlastinhalt existiert nicht (D-11).
-      x-ac-id:
-        - US-007/AC-007-5
-      x-requirement-ids: [FR-012, FR-030]
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: event_type
-          in: query
-          required: false
-          description: "Filter auf Ereignistyp (Metadatum, kein Inhaltsfilter)."
-          schema:
-            type: string
-            maxLength: 200
-          example: order.changed
-        - name: idempotency_key
-          in: query
-          required: false
-          description: "Filter auf den Idempotenzschlüssel des Ereignisses."
-          schema:
-            type: string
-            maxLength: 200
-        - name: status
-          in: query
-          required: false
-          description: "Filter auf den Ereignisstatus."
-          schema:
-            $ref: "#/components/schemas/EventStatus"
-        - $ref: "#/components/parameters/From"
-        - $ref: "#/components/parameters/To"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Cursor"
-      responses:
-        "200":
-          description: Ereignisliste (mandantengefiltert).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EventList"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "422":
-          $ref: "#/components/responses/ValidationFailed"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
   /api/v1/events/{eventId}:
     parameters:
       - $ref: "#/components/parameters/EventId"
@@ -855,6 +829,10 @@ paths:
         Liefert die Metadaten eines Ereignisses. Die Nutzlast wird nie
         ausgegeben. Ein Ereignis eines **fremden** Mandanten wird mit
         **HTTP 404** beantwortet (D-02).
+
+        Ereignisse werden über das **Zustellprotokoll** gefunden, über den
+        Filter `event_id` bzw. `event_type` in `GET /api/v1/deliveries`.
+        Eine eigene Ereignisliste ist nicht Teil des Vertrags.
       x-ac-id:
         - US-015/AC-015-3
         - US-007/AC-007-5
@@ -912,13 +890,20 @@ paths:
 
         Ein Ereignis ohne Abnehmer erscheint mit dem Zustand `no_subscriber` —
         nichts verschwindet still (D-04).
+
+        **Dies ist die Suche über Metadaten (AC-007-5):** Ereignis-ID,
+        Ereignistyp, Endpunkt, Status und Zeitraum sind filterbar; eine Suche
+        nach Nutzlastinhalt existiert nicht (D-11, FR-012). Jedes Ereignis ist
+        über seinen Zustelllauf im Protokoll auffindbar — auch ein Ereignis
+        ohne Abnehmer (Status `no_subscriber`).
       x-ac-id:
         - US-015/AC-015-1
         - US-015/AC-015-2
         - US-015/AC-015-4
+        - US-007/AC-007-5
         - US-020/AC-020-1
         - US-020/AC-020-3
-      x-requirement-ids: [FR-030]
+      x-requirement-ids: [FR-030, FR-012]
       security:
         - bearerAuth: []
       parameters:
@@ -1181,9 +1166,9 @@ paths:
         ursprüngliche Datensatz bleibt im Protokoll **unverändert** erhalten
         (Historie).
 
-        **Berechtigung:** Bis zur Entscheidung aus O-03 ist ausschließlich der
-        **Empfänger-Admin des betroffenen Endpunkts** berechtigt (D-15). Alle
-        anderen Rollen erhalten HTTP 403.
+        **Berechtigung:** Ausschließlich der **Empfänger-Admin des betroffenen
+        Endpunkts** ist berechtigt (D-15, bestätigt am 2026-10-21 mit F-03).
+        `developer` und `service_admin` erhalten HTTP 403.
 
         **Pause:** Ist der Endpunkt pausiert, startet **kein** Versuch; die
         Zustellung endet erneut ohne Zustellung (D-03).
@@ -1248,8 +1233,10 @@ paths:
         false` ausgewiesen — **nicht** 0 % und **nicht** 100 %.
 
         Der Abschnitt `rate_limit` liefert die Zählung der Zustellversuche je
-        Endpunkt und Zeitfenster als Datenbasis für die noch offene Festlegung
-        O-01. Der Grenzwert ist `null`, solange er nicht festgelegt ist (D-14).
+        Endpunkt und Zeitfenster und den **wirksamen** Grenzwert. Vorgabewert
+        ist **60 Versuche je Endpunkt und Minute** mit Strategie `delay`
+        (bestätigt am 2026-10-21 mit F-01); der Wert ist je Endpunkt
+        überschreibbar (D-14).
 
         Ein Endpunkt eines **fremden** Mandanten wird mit **HTTP 404**
         beantwortet (D-02).
@@ -1309,10 +1296,12 @@ paths:
         Protokolleinträge, die älter als die konfigurierte Frist sind, werden
         gelöscht; jüngere bleiben erhalten (FR-031, D-12).
 
-        Die Frist ist ein **konfigurierbarer Parameter** und wird erst mit der
-        Festlegung aus O-02 belegt. Im Betrieb ohne gesetzte Frist ist dieser
-        Aufruf ein **No-Op** und meldet `deleted_* = 0` — es wird **kein**
-        Fristwert vorbelegt.
+        Die Fristen sind **konfigurierbare Parameter**. Vorgabewert ist
+        **30 Tage**, getrennt für Ereignisse und für Zustellprotokolle, jeweils
+        ab dem **letzten Zustellversuch** (bestätigt am 2026-10-21 mit F-02).
+        Je Mandant sind beide Fristen überschreibbar. Ist für einen Mandanten
+        keine Frist gesetzt, bleibt der Aufruf für diesen Datenart ein
+        **No-Op** und meldet `deleted_* = 0`.
 
         **Nur `service_admin`**. Ein `receiver_admin` erhält HTTP 403.
       x-ac-id:
@@ -1337,8 +1326,10 @@ paths:
                 $ref: "#/components/schemas/RetentionEnforcementResponse"
               example:
                 dry_run: true
-                retention_days: 30
-                cutoff: "2026-09-21T00:00:00.000Z"
+                event_retention_days: 30
+                delivery_retention_days: 30
+                event_cutoff: "2026-09-21T00:00:00.000Z"
+                delivery_cutoff: "2026-09-21T00:00:00.000Z"
                 deleted_events: 128
                 deleted_delivery_runs: 640
                 deleted_attempts: 3120
@@ -2108,17 +2099,6 @@ components:
           nullable: true
           description: "Gesetzt, wenn das Ereignis durch die Aufbewahrung gelöscht wurde."
 
-    EventList:
-      type: object
-      required: [items, page]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/Event"
-        page:
-          $ref: "#/components/schemas/Page"
-
     # ------------------------------------------------------------------ Zustellung
     DeliveryRun:
       type: object
@@ -2165,7 +2145,10 @@ components:
           format: int32
           minimum: 1
           nullable: true
-          description: "Konfigurierte Versuchsgrenze. `null`, solange O-06 offen ist."
+          description: >-
+            Konfigurierte Versuchsgrenze dieses Laufs. Vorgabewert **8**
+            (bestätigt am 2026-10-21, F-04); beim Anlegen des Laufs
+            festgeschrieben. `null`, wenn keine Grenze gesetzt ist.
         last_attempt_at:
           type: string
           format: date-time
@@ -2450,8 +2433,10 @@ components:
     RateLimitObservation:
       type: object
       description: >-
-        Zählung der Zustellversuche je Endpunkt und Zeitfenster als Datenbasis
-        für die noch offene Festlegung O-01 (D-14).
+        Zählung der Zustellversuche je Endpunkt und Zeitfenster und der
+        **wirksame** Grenzwert. Vorgabewert ist **60 Versuche je Endpunkt und
+        Minute** mit Strategie `delay` (bestätigt am 2026-10-21, F-01);
+        je Endpunkt überschreibbar (D-14).
       required: [limit, window_seconds, strategy, observed_attempts, delayed_attempts]
       properties:
         limit:
@@ -2459,12 +2444,13 @@ components:
           minimum: 0
           nullable: true
           description: >-
-            Der Grenzwert. **Bleibt `null`, solange O-01 offen ist** — es wird kein
-            Wert vorbelegt (AC-018-4).
+            Der wirksame Grenzwert je Endpunkt und Zeitfenster. Vorgabewert
+            **60** (F-01). `null` bedeutet: die Begrenzung ist für diesen
+            Endpunkt **abgeschaltet** (kein Override, `limit_value = 0`).
         window_seconds:
           type: integer
           minimum: 1
-          description: "Länge des Zählfensters in Sekunden."
+          description: "Länge des Zählfensters in Sekunden. Vorgabewert 60."
         strategy:
           type: string
           enum: [delay, block]
@@ -2494,20 +2480,45 @@ components:
 
     RetentionEnforcementResponse:
       type: object
-      required: [dry_run, retention_days, executed_at]
+      description: >-
+        Ergebnis der Aufbewahrungsdurchsetzung. Die beiden Fristen sind
+        **getrennt** für Ereignisse und für Zustellprotokolle (F-02) und
+        haben deshalb **getrennte** Stichtage.
+      required: [dry_run, event_retention_days, delivery_retention_days, executed_at]
       properties:
         dry_run:
           type: boolean
-        retention_days:
+        event_retention_days:
           type: integer
           format: int32
           nullable: true
-          description: "Die angewandte Frist in Tagen. `null`, solange keine Frist konfiguriert ist (O-02)."
-        cutoff:
+          minimum: 1
+          description: >-
+            Angewandte Frist für Ereignisse in Tagen. Vorgabewert **30**
+            (bestätigt am 2026-10-21, F-02). `null`, wenn für diesen Mandanten
+            keine Frist gesetzt ist — dann wird nichts gelöscht.
+        delivery_retention_days:
+          type: integer
+          format: int32
+          nullable: true
+          minimum: 1
+          description: >-
+            Angewandte Frist für Zustellläufe, Versuche und Zähler in Tagen.
+            Vorgabewert **30** (F-02). `null`, wenn keine Frist gesetzt ist.
+        event_cutoff:
           type: string
           format: date-time
           nullable: true
-          description: "Stichtag: Datensätze **vor** diesem Zeitpunkt werden gelöscht."
+          description: >-
+            Stichtag für Ereignisse: Datensätze **vor** diesem Zeitpunkt
+            werden gelöscht. `null`, wenn keine Frist gesetzt ist.
+        delivery_cutoff:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Stichtag für Zustellläufe und Versuche: Datensätze **vor** diesem
+            Zeitpunkt werden gelöscht. `null`, wenn keine Frist gesetzt ist.
         deleted_events:
           type: integer
           format: int64
@@ -2629,7 +2640,7 @@ x-acceptance-coverage:
     - {ac_id: AC-007-2, story: US-007, realized_in: "Betrieb (ADR-003): Nutzlastklartext wird nie protokolliert; Fehler- und Logformat ohne Nutzlastinhalt."}
     - {ac_id: AC-007-3, story: US-007, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.request.body`"}
     - {ac_id: AC-007-4, story: US-007, realized_in: "ADR-003: der Schluessel kommt aus dem Secret-Store; weder Schema, Container-Image noch Konfiguration enthalten ihn."}
-    - {ac_id: AC-007-5, story: US-007, realized_in: "Operation `listEvents` (GET /api/v1/events); Operation `getEvent` (GET /api/v1/events/{eventId})"}
+    - {ac_id: AC-007-5, story: US-007, realized_in: "Operation `listDeliveries` (GET /api/v1/deliveries) — Suche über Metadaten im Zustellprotokoll; Operation `getEvent` (GET /api/v1/events/{eventId})"}
     - {ac_id: AC-008-1, story: US-008, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
     - {ac_id: AC-008-2, story: US-008, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
     - {ac_id: AC-008-3, story: US-008, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
@@ -2642,12 +2653,12 @@ x-acceptance-coverage:
     - {ac_id: AC-010-2, story: US-010, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.duplicate_handling`"}
     - {ac_id: AC-010-3, story: US-010, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.response.outcomes`"}
     - {ac_id: AC-010-4, story: US-010, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.request.headers`"}
-    - {ac_id: AC-011-1, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
-    - {ac_id: AC-011-2, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-011-1, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy` — Verdopplung, Vorgabewert Basis 1 Minute (F-04)"}
+    - {ac_id: AC-011-2, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy` — volle Streuung, Vorgabewert ± 20 % (F-04)"}
     - {ac_id: AC-011-3, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
     - {ac_id: AC-011-4, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
     - {ac_id: AC-011-5, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
-    - {ac_id: AC-012-1, story: US-012, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-012-1, story: US-012, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy` — Versuchsgrenze, Vorgabewert 8 Versuche (F-04)"}
     - {ac_id: AC-012-2, story: US-012, realized_in: "Operation `getDeliveryRun` (GET /api/v1/deliveries/{deliveryRunId})"}
     - {ac_id: AC-012-3, story: US-012, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
     - {ac_id: AC-012-4, story: US-012, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
@@ -2668,7 +2679,7 @@ x-acceptance-coverage:
     - {ac_id: AC-016-2, story: US-016, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
     - {ac_id: AC-016-3, story: US-016, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
     - {ac_id: AC-016-4, story: US-016, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
-    - {ac_id: AC-016-5, story: US-016, realized_in: "Operation `enforceRetention` (POST /api/v1/retention/enforcement)"}
+    - {ac_id: AC-016-5, story: US-016, realized_in: "Operation `enforceRetention` (POST /api/v1/retention/enforcement) — zwei Fristen, Vorgabewert je 30 Tage ab dem letzten Versuch (F-02), je Mandant überschreibbar"}
     - {ac_id: AC-017-1, story: US-017, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
     - {ac_id: AC-017-2, story: US-017, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
     - {ac_id: AC-017-3, story: US-017, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
@@ -2676,7 +2687,7 @@ x-acceptance-coverage:
     - {ac_id: AC-018-1, story: US-018, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.rate_limit`"}
     - {ac_id: AC-018-2, story: US-018, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.rate_limit` + `components.schemas.DeliveryRun.status`"}
     - {ac_id: AC-018-3, story: US-018, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.rate_limit`"}
-    - {ac_id: AC-018-4, story: US-018, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
+    - {ac_id: AC-018-4, story: US-018, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics) — `rate_limit` weist den wirksamen Grenzwert (Vorgabewert 60, F-01) und die beobachteten Zählerstände aus; die Zählung läuft unabhängig vom Grenzwert."}
     - {ac_id: AC-019-1, story: US-019, realized_in: "Operation `getEndpoint` (GET /api/v1/endpoints/{endpointId}); Oberflaeche (ADR-018): Endpunktseite mit Status, Ziel-URL ohne Secret und Ereignistypen — Datenquelle `GET /api/v1/endpoints`."}
     - {ac_id: AC-019-2, story: US-019, realized_in: "Operation `updateEndpoint` (PATCH /api/v1/endpoints/{endpointId}); Oberflaeche (ADR-018): Formularvalidierung mit denselben Fehlercodes und Feldverweisen wie `Problem.violations`."}
     - {ac_id: AC-019-3, story: US-019, realized_in: "Oberflaeche (ADR-018): sofortiger Statuswechsel — Datenquelle `POST /pause` bzw. `POST /resume`."}
@@ -2715,18 +2726,18 @@ x-requirement-coverage:
     - {requirement_id: FR-004, stories: [US-004], contract: "`getEndpoint` (GET /api/v1/endpoints/{endpointId}); `listEndpoints` (GET /api/v1/endpoints)"}
     - {requirement_id: FR-010, stories: [US-005], contract: "`submitEvent` (POST /api/v1/events)"}
     - {requirement_id: FR-011, stories: [US-006], contract: "`submitEvent` (POST /api/v1/events)"}
-    - {requirement_id: FR-012, stories: [US-007], contract: "`getEvent` (GET /api/v1/events/{eventId}); `listEvents` (GET /api/v1/events); `submitEvent` (POST /api/v1/events)"}
+    - {requirement_id: FR-012, stories: [US-007], contract: "`getEvent` (GET /api/v1/events/{eventId}); `listDeliveries` (GET /api/v1/deliveries) — Metadatensuche ohne Nutzlastinhalt; `submitEvent` (POST /api/v1/events)"}
     - {requirement_id: FR-013, stories: [US-008], contract: "`submitEvent` (POST /api/v1/events)"}
     - {requirement_id: FR-020, stories: [US-009], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
     - {requirement_id: FR-021, stories: [US-010], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
-    - {requirement_id: FR-022, stories: [US-011], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
-    - {requirement_id: FR-023, stories: [US-012], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
-    - {requirement_id: FR-024, stories: [US-013], contract: "`replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay)"}
+    - {requirement_id: FR-022, stories: [US-011], contract: "ausgehender Zustellvertrag `x-delivery-protocol` — Backoff mit Verdopplung und voller Streuung; Vorgabewerte Basis 1 Minute, ×2, Deckel 60 Minuten, ± 20 % (F-04), weiterhin konfigurierbar"}
+    - {requirement_id: FR-023, stories: [US-012], contract: "ausgehender Zustellvertrag `x-delivery-protocol` — feste Versuchsgrenze, Vorgabewert 8 Versuche (F-04), je Lauf eingefroren"}
+    - {requirement_id: FR-024, stories: [US-013], contract: "`replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay) — Berechtigung: nur der Empänger-Admin des Endpunkts (F-03)"}
     - {requirement_id: FR-025, stories: [US-014], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
-    - {requirement_id: FR-030, stories: [US-015, US-020], contract: "`getDeliveryRun` (GET /api/v1/deliveries/{deliveryRunId}); `getEvent` (GET /api/v1/events/{eventId}); `listDeliveries` (GET /api/v1/deliveries); `listEvents` (GET /api/v1/events)"}
-    - {requirement_id: FR-031, stories: [US-016, US-020], contract: "`enforceRetention` (POST /api/v1/retention/enforcement); `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {requirement_id: FR-030, stories: [US-015, US-020], contract: "`getDeliveryRun` (GET /api/v1/deliveries/{deliveryRunId}); `getEvent` (GET /api/v1/events/{eventId}); `listDeliveries` (GET /api/v1/deliveries) — die Metadatensuche des Zustellprotokolls (AC-007-5)"}
+    - {requirement_id: FR-031, stories: [US-016, US-020], contract: "`enforceRetention` (POST /api/v1/retention/enforcement) — zwei Fristen, Vorgabewert je 30 Tage ab dem letzten Versuch (F-02); `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
     - {requirement_id: FR-032, stories: [US-017], contract: "`getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics) — Kennzahlen je Endpunkt (Erfolgsquote, p95-Latenz, Rate-Limit-Zaehlung)."}
-    - {requirement_id: FR-033, stories: [US-018], contract: "`getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics) — Rate-Limit-Mechanismus mit konfigurierbarer Strategie; Grenzwert bleibt `null`, solange O-01 offen ist."}
+    - {requirement_id: FR-033, stories: [US-018], contract: "`getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics) — Rate-Limit-Mechanismus mit konfigurierbarer Strategie; Vorgabewert 60 Versuche je Endpunkt und Minute, Strategie `delay` (F-01), je Endpunkt überschreibbar."}
     - {requirement_id: NFR-001, stories: [US-005], contract: "`submitEvent` (POST /api/v1/events) — 1-MB-Grenze: `EventIntakeRequest.x-validation-rules.payload_size_limit`, Antwort 413 `payload_too_large`."}
     - {requirement_id: NFR-002, stories: [US-005], contract: "`submitEvent` (POST /api/v1/events) — Asynchronitaet: `POST /api/v1/events` antwortet 202; die Zustellung laeuft im Hintergrundprozess."}
     - {requirement_id: NFR-003, stories: [US-022], contract: "ausserhalb der HTTP-Schnittstelle — Durchsetzung auf Datenbankebene (Row-Level-Security, ADR-002) — nicht Teil der HTTP-Schnittstelle, aber im Vertrag als Mandantenregel festgeschrieben (`x-contract-rules.tenant`)."}
@@ -2738,6 +2749,12 @@ x-requirement-coverage:
 # Vertragsweite Regeln
 # =============================================================================
 x-contract-rules:
+  defaults:
+    - "Die Werte F-01 bis F-04 (siehe Abschnitt „Vorgabewerte“ in `info.description`) sind **Vorgaben der Betriebskonfiguration**, keine harten API-Grenzwerte."
+    - "F-01: 60 Zustellversuche je Endpunkt und Minute, Strategie `delay`; je Endpunkt überschreibbar."
+    - "F-02: 30 Tage, getrennt für Ereignisse und Zustellprotokolle, Fristbeginn = letzter Versuch; je Mandant überschreibbar."
+    - "F-03: Replay nur für den Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` erhalten HTTP 403."
+    - "F-04: 8 Versuche, Basis 1 Minute, Verdopplung, Deckel 60 Minuten, Streuung ± 20 %."
   tenant:
     - "Der Mandant stammt ausschließlich aus dem JWT-Claim `organisation_id` (D-01)."
     - "Ein Mandantenparameter im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."

@@ -201,9 +201,11 @@ Das Löschen von Ereignissen, Zustellläufen und Versuchen nach einer Frist.
 
 - **Ausprägung:** `deleted_at` markiert die betroffenen Zeilen (sie sind
   sofort unsichtbar); ein Purge-Vorgang entfernt sie endgültig. Die Frist ist
-  je Mandant und getrennt für Ereignisse und Zustellprotokolle konfigurierbar.
-- **Nicht:** ein fest verdrahteter Wert. Solange O-02 offen ist, ist keine
-  Frist gesetzt und der Mechanismus läuft als No-Op.
+  je Mandant und **getrennt** für Ereignisse und Zustellprotokolle
+  konfigurierbar; Vorgabewert **je 30 Tage**, Fristbeginn ist der **letzte
+  Zustellversuch** (bestätigt am 2026-10-21, F-02).
+- **Nicht:** ein fest verdrahteter Wert. Der Vorgabewert steht in der
+  Konfiguration und ist je Mandant überschreibbar.
 - **Quelle:** FR-031, D-12, ADR-012
 
 ## Endpunkt-Begrenzung
@@ -211,7 +213,9 @@ Das Löschen von Ereignissen, Zustellläufen und Versuchen nach einer Frist.
 Der Schutz eines Endpunkts gegen zu viele Zustellversuche in kurzer Zeit.
 
 - **Ausprägung:** Zähler je Endpunkt und Zeitfenster; die Strategie ist
-  `delay` (verschieben) oder `block`; der Grenzwert ist konfigurierbar.
+  `delay` (verschieben) oder `block`; der Grenzwert ist konfigurierbar —
+  Vorgabewert **60 Versuche je Endpunkt und Minute** mit Strategie `delay`
+  (bestätigt am 2026-10-21, F-01).
 - **Nicht:** ein API-Anfragelimit und **nicht** eine Blockade, die Ereignisse
   verwirft. Nichts geht verloren (FR-033).
 - **Quelle:** FR-033, D-14, ADR-010

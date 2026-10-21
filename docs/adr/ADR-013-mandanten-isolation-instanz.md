@@ -96,12 +96,12 @@ Cron“ und keine konkurrierenden Purge-Läufe.
 - **Negativ:** Zwei Betriebsarten (geteilt vs. Sharding) bedeuten zwei
   Betriebsweisen. Deshalb ist der Default der geteilte Betrieb.
 
-## Vorschlag zur Freigabe bei Gate 1
+## Bestätigung bei Gate 1 (2026-10-21)
 
-> **Vorschlag (nicht entschieden):** Im Regelbetrieb **geteilter** Betrieb
+> **Bestätigt:** Im Regelbetrieb **geteilter** Betrieb
 > (eine Instanz für alle Mandanten); eine Instanz je Mandant bleibt als
 > **vorbereitete** Betriebsweise möglich, aber nicht Standard.
-> *Warum das der Fachbereich entscheidet:* Der geteilte Betrieb ist
+> *Warum das eine Mandantenbeziehung ist:* Der geteilte Betrieb ist
 > wirtschaftlicher und einfacher; die Mandanteninstanz ist die Antwort auf
 > Mandanten mit besonderen Anforderungen (Volumen, Datenschutz, Exit-Strategie).
 > Ob und wann ein Mandant eine eigene Instanz braucht, ist eine
@@ -122,4 +122,4 @@ Cron“ und keine konkurrierenden Purge-Läufe.
 
 ## Status
 
-**Angenommen** — Bestätigung bei Gate 1 durch den Menschen.
+**Angenommen** — bei Gate 1 am 2026-10-21 bestätigt.

@@ -86,5 +86,5 @@ und in der Empfänger-Dokumentation.
 ## Status
 
 **Angenommen** — der Header-Set ist im Vertrag `docs/api/openapi.yaml`
-(`x-delivery-protocol.request.headers`) **eingefroren**. Bestätigung bei
-Gate 1 durch den Menschen.
+(`x-delivery-protocol.request.headers`) **eingefroren**. Bei Gate 1 am
+2026-10-21 bestätigt.

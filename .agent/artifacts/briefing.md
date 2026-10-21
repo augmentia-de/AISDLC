@@ -1,93 +1,78 @@
-# Steckbrief — Schritt 2 (Konzept & Architektur)
+# Steckbrief — Schritt 4 (Grill-Me-Stresstest)
 
-> Einstiegspunkt für den Rollen-Agenten. Ein **Zeiger**: Status, Commit, offene Punkte.
-> Keine Auszüge, keine Herleitungen. **Die Dateien sind die Wahrheit, nicht dieser
-> Steckbrief.** Bei Widerspruch gewinnen die Dateien; der Steckbrief wird im nächsten
-> Commit korrigiert.
+> Einstiegspunkt für den Rollen-Agenten. Ein **Zeiger**: Status, Commit, Festlegungen,
+> offene Punkte. Keine Auszüge, keine Herleitungen. **Die Dateien sind die Wahrheit,
+> nicht dieser Steckbrief.** Bei Widerspruch gewinnen die Dateien; der Steckbrief wird
+> im nächsten Commit korrigiert.
 
 | Feld | Wert |
 |---|---|
-| Stand | Schritt 1 abgeschlossen — Commit `6538d9e` `docs(sdlc-1): PRD, User Stories und Traceability-Matrix` |
-| Nächster Schritt | 2 (Konzept & Architektur), Agent `aisdlc-architecture` |
-| Gate | **GATE 1** nach Schritt 2 — kein Anwendungscode vor menschlicher Freigabe |
-| Vertrag | `docs/api/openapi.yaml` — existiert noch nicht; wird in Schritt 2 erstellt und **erst nach Schritt 4 eingefroren** |
-| Schema | `.agent/knowledge/schema.sql` (kanonisch) — noch Template |
-| Stack | `.agent/knowledge/stack.md` — noch Template; laut Anforderung Abschnitt 11: Java 21, Spring Boot, PostgreSQL, React/TypeScript |
+| Stand | Schritt 3 abgeschlossen — Simplify & Reduktion, Agent `aisdlc-architecture` |
+| Nächster Schritt | 4 (Grill-Me-Stresstest), Agent `aisdlc-architecture` |
+| Gate | **GATE 1 ist freigegeben** (2026-10-21) — F-01…F-04 binden |
+| Vertrag | `docs/api/openapi.yaml` — Entwurf, **Einfrierpunkt ist erst nach Schritt 4** |
+| Schema | `.agent/knowledge/schema.sql` (kanonisch) + Spiegel `docs/architecture/schema.sql` (byte-identisch) |
+| Stack | `.agent/knowledge/stack.md` — entschieden (ADR-001) |
 | Codebasis | `src/` existiert nicht — Neuaufbau, keine Altlast |
+| Reduktion | `.agent/artifacts/simplify-report.md` — was entfernt, zusammengefasst und berührt wurde |
 
 ## Was du lesen musst — und sonst nichts
 
 | # | Datei | Warum |
 |---|---|---|
-| 1 | `AGENTS.md` | Regeln, Gates, Folder Ownership |
+| 1 | `AGENTS.md` | Regeln, Gates, Folder Ownership, Commit Convention |
 | 2 | `.agent/PHASES.md` | Schritt → Instanz → Agent → Skill → Gate; Commit pro Schritt |
-| 3 | `.agent/workflows/02-architecture.md` | dieser Schritt, mit Agent-&-Skill-Tabelle und Commit-Befehl |
+| 3 | `.agent/workflows/04-grill-me-stress.md` | dieser Schritt, Output-Liste, Commit-Befehl |
 | 4 | `.agent/prompts/orchestrator/02_orchestrator_architecture.md` | dein Systemprompt |
-| 5 | `docs/Anforderung.md` | der Roh-Input (18 FR + 6 NFR, unverändert) |
-| 6 | `docs/requirements/PRD.md` | Vision, Rollen, Scope, MoSCoW, Festlegungen D-01…D-15, offene Punkte |
-| 7 | `docs/requirements/traceability_matrix.json` | Anforderung → Story → Test → Code; offene Punkte O-01…O-07 |
-| 8 | `.agent/artifacts/risk-register.md` | Risiken und Gegenmaßnahmen |
-| 9 | `.agent/artifacts/requirements.md` | kompakter Artefaktkatalog |
+| 5 | `.agent/artifacts/architecture.md` | kompakter Architektur-Katalog (Stand Schritt 3) |
+| 6 | `.agent/artifacts/simplify-report.md` | **Reduktionsbericht** — was entfernt wurde und was intakt geblieben ist |
+| 7 | `.agent/artifacts/api-review.md` | Vertragsreview inkl. offener Fragen für den Stresstest |
+| 8 | `docs/api/openapi.yaml` | der Vertrag (Entwurf) |
+| 9 | `docs/architecture/architecture.md`, `docs/architecture/domain_model.md` | Volltext |
+| 10 | `docs/adr/README.md` | ADR-Index mit den bestätigten Festlegungen |
 
-Bei Bedarf, nicht zwingend: `docs/requirements/stories/US-0xx.json` (23),
-`docs/requirements/features/US-0xx.feature` (23), `.agent/artifacts/user-stories.md`.
+Bei Bedarf: `docs/adr/ADR-*.md`, `docs/architecture/diagrams/*.mmd`, `docs/requirements/PRD.md`.
 
 ## Entscheidungen, die gelten
 
 | ID | Entscheidung | Bindet |
 |---|---|---|
-| D-01 | Mandant stammt ausschließlich aus der Identität; ein Mandantenparameter wird mit HTTP 422 abgelehnt | Vertrag, Datenmodell |
-| D-02 | Fremde Ressourcen werden mit HTTP 404 beantwortet (Existenz bleibt verborgen) | Vertrag, Fehlersemantik |
-| D-03 | Pause: keine Zustellung, kein Zwischenspeichern, kein Nachliefern; offene Wiederholung wird abgebrochen | Zustellzustandsmodell |
-| D-04 | Ereignis ohne Abnehmer wird angenommen und sichtbar als „kein Abnehmer“ protokolliert | Zustellzustandsmodell, Protokoll |
-| D-05 | Idempotenz je (Mandant, Idempotenzschlüssel); abweichende Nutzlast unter gleichem Schlüssel → HTTP 409 | Datenmodell, Vertrag |
-| D-06 | Drei Kennungen: Ereignis-ID, Zustelllauf-ID, Versuchs-ID | Vertrag, Zustellmodell |
-| D-07 | Signatur über Zeitstempel (UTC) + Nutzlastbytes; Verfahren und Header-Name werden im Vertrag eingefroren | Vertrag, Krypto |
-| D-08 | Wiederholung bei 5xx, Netzwerkfehler, 408, 429; kein Wiederholen bei 2xx; Ablehnungssignal + übrige 4xx → sofort aufgeben | Zustellzustandsmodell |
-| D-09 | Backoff konfigurierbar, Verdopplung, mit Streuung | Worker-Konfiguration |
-| D-10 | Annahme und Zustellung getrennt; Zustellung im Hintergrundprozess | Architektur, NFR-002 |
-| D-11 | Protokollsuche nur über Metadaten, keine Suche nach Nutzlastinhalt | Protokoll, Suchindex |
-| D-12 | Aufbewahrungsfrist konfigurierbar; ohne O-02 kein Wert vorbelegt | Betrieb |
-| D-13 | Die 1-MB-Grenze gilt für die eingelieferten Bytes (bei vorverschlüsselter Einlieferung für die Chiffre) | Vertrag |
-| D-14 | Rate-Limit-Mechanismus gebaut und konfigurierbar; ohne O-01 kein Grenzwert vorbelegt, nur Zähler erhoben | Betrieb |
-| D-15 | Replay bis zur Entscheidung nur durch den Empfänger-Admin des Endpunkts | Rollenmatrix, Vertrag |
+| D-01…D-15 | Festlegungen der Anforderungserhebung — **bei Gate 1 bestätigt** | Vertrag, Datenmodell, Zustellmodell |
+| ADR-001…ADR-013, ADR-015…ADR-018 | Architekturentscheidungen — **bei Gate 1 bestätigt** (17 Entscheidungen; ADR-014 ist in ADR-008 aufgegangen und bleibt als Verweisdatei) | alles |
+| **F-01** | **O-01 Rate-Limit: 60 Versuche je Endpunkt und Minute, Strategie `delay` (verschieben)** — als Vorgabewert in der Konfiguration (ADR-010) | Betrieb, Worker, Konfiguration |
+| **F-02** | **O-02 Aufbewahrung: 30 Tage, getrennt konfigurierbar für Ereignisse und Zustellprotokolle, Fristbeginn = letzter Versuch** — als Vorgabewert (ADR-012) | Betrieb, Purge-Job, Konfiguration |
+| **F-03** | **O-03 Replay-Berechtigung: nur der Empfänger-Admin des Endpunkts** (Entwickler und Betrieb: 403) — bestätigt D-15 (ADR-015) | Rollenmatrix, Vertrag |
+| **F-04** | **O-06 Wiederholung: 8 Versuche, Basis 1 Minute, ×2, Deckel 60 Minuten, Streuung ± 20 %** — als Vorgabewert (ADR-008) | Worker-Konfiguration |
 
-Alle 15 Festlegungen sind **Vorschläge der Anforderungserhebung**, keine Fachbereichs-Festlegungen.
-Bei Gate 1 brauchen sie die Bestätigung des Menschen.
+F-01…F-04 sind **verbindlich**: als Default in der Architektur und im Vertrag
+geführt, weiterhin **konfigurierbar** (ADR-008, ADR-010, ADR-012).
 
 ## Offene Punkte
 
 | ID | Thema | Owner | Gate |
 |---|---|---|---|
-| O-01 | Rate-Limit je Endpunkt: welche Rate, blockieren oder verschieben? | Fachbereich | Gate 1 |
-| O-02 | Aufbewahrung: welche Daten, welche Frist, ab welchem Zeitpunkt? | Fachbereich + Datenschutz | Gate 1 |
-| O-03 | Wer darf ein totes Ereignis erneut auslösen? (Widerspruch FR-024 vs. Rollentabelle) | Fachbereich | Gate 1 |
-| O-04 | Verschlüsselung im Ruhezustand: Verfahren und Durchsuchbarkeit des Protokolls | Fachbereich + Datenschutz (Verfahren: Architektur) | Gate 1 |
+| O-04 | Verschlüsselung im Ruhezustand — **fachliche Seite**: Ist sie Pflicht? (NFR-004 sagt ja; Abschnitt 13 fragt) | Fachbereich + Datenschutz | Gate 2 |
 | O-05 | Vertrag über die Auftragsverarbeitung (AVV bei Fremddaten) | Fachbereich + Recht | Gate 2 |
-| O-06 | Anzahl der Zustellversuche und Backoff-Parameter (Zahlenlücke in FR-022/FR-023) | Fachbereich | Gate 1 |
-| O-07 | Zeitlimit je Zustellversuch | Architektur | Gate 1 |
 
-**ARCHITECTURAL_BLOCKER-Kandidaten für diesen Schritt** (hier zu entscheiden, blockieren
-Schritt 2 nicht): Verschlüsselungsverfahren und Schlüsselverwaltung (O-04), Durchsetzung
-der Mandantentrennung auf Datenbankebene (NFR-003), Zeitlimit je Zustellversuch (O-07),
-Zustandsmodell der Zustellung, Übernahme des Zustellprozesses nach Absturz.
+Architekturseite von O-04 ist entschieden (ADR-003: AES-256-GCM; ADR-017: Suche nur über
+Metadaten). O-07 ist entschieden (ADR-008: 5 s + 10 s = 15 s).
 
 ## Was du in diesem Schritt **nicht** tust
 
-- **Keine Festlegung der offenen Punkte O-01…O-07.** Sie gehören dem Fachbereich. Trage sie
-  als Vorschlag in die Architekturentscheidungen ein, entscheide sie nicht.
 - **Keine Anwendungscode-Dateien.** `src/` bleibt unberührt; Code entsteht in Schritt 6.
-- **Keine Änderung am Roh-Input** `docs/Anforderung.md`.
-- **Noch kein Vertrags-Freeze.** Der Vertrag wird in Schritt 2 erstellt und erst nach
-  Schritt 4 eingefroren.
-- **Keine Änderung an `.agent/knowledge/schema.sql` oder `docs/architecture/schema.sql`**
-  ohne den jeweils anderen Pfad im selben Schritt (Spiegel-Regel, ADR-019).
-- **Keine Änderung an `docs/requirements/`** — das ist der eingefrorene Ergebnisbereich
-  von Schritt 1.
+- **Noch kein Vertrags-Freeze.** Der Freeze passiert **nach** Schritt 4. Der Vertrag ist in
+  diesem Schritt noch frei — ändere ihn, wenn der Stresstest es verlangt, aber friere ihn
+  nicht.
+- **Keine Änderung an `docs/requirements/`** und **keine an `docs/Anforderung.md`**.
+- **Keine Aufweichung der bestätigten Entscheidungen** D-01…D-15, ADR-001…ADR-018, F-01…F-04.
+- **Schema-Spiegel:** jede Änderung an `.agent/knowledge/schema.sql` braucht die
+  byte-identische Änderung an `docs/architecture/schema.sql` **im selben Schritt**.
+- **Keine Streichung einer Anforderung.** 23 Stories, 101 AKs, 24 Anforderungen — der
+  Vertrag muss alle drei weiterhin tragen (`x-acceptance-coverage`, `x-requirement-coverage`).
 
 ## Werkzeuge
 
 | Zweck | Kommando |
 |---|---|
 | Konsistenz der Traceability-Kette | `python3 .agent/tools/traceability_check.py` |
-| Story-Übersicht (menschlich lesbar) | `.agent/artifacts/user-stories.md` |
+| Schema-Spiegel prüfen | `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` |
