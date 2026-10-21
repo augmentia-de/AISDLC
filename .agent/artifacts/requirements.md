@@ -3,6 +3,9 @@
 > Kompakter Katalog des Schritts 1 (Anforderungserhebung).
 > Quelle: `docs/Anforderung.md` (Roh-Input). Volltext: `docs/requirements/PRD.md`.
 > Agent: `aisdlc-requirements` · Stand: 2026-10-21
+> **Nachpflege (Rücksprung aus Schritt 4, Befund N-09 / Entscheidung E-06):** 2026-10-21
+> auf den am Gate 1 entschiedenen Stand nachgezogen — F-01…F-04 (O-01, O-02, O-03, O-06)
+> sowie E-01, E-08, E-09. **Offen bleiben O-04 und O-05** (Gate 2).
 
 ## Vision
 
@@ -12,7 +15,7 @@ Ein zentraler Dienst nimmt Ereignisse entgegen und liefert sie an registrierte E
 
 | Rolle | Darf | Stories |
 |---|---|---|
-| Entwickler | Ereignisse einliefern, Zustellprotokoll einsehen | US-005, US-006, US-007, US-008, US-015, US-020 |
+| Entwickler | Ereignisse einliefern, Zustellprotokoll einsehen — **kein** erneutes Auslösen (F-03: HTTP 403) | US-005, US-006, US-007, US-008, US-015, US-020 |
 | Empfänger-Admin | Endpunkte registrieren, pausieren, reaktivieren, Secret rotieren, tote Zustellung erneut auslösen | US-001, US-002, US-003, US-004, US-013, US-019 |
 | Service-Admin | Endpunkte aller Mandanten sehen, Tote-Zustellungen abholen, Aufbewahrung erzwingen | US-004, US-016, US-017, US-018, US-022, US-023 |
 
@@ -30,14 +33,14 @@ Ein zentraler Dienst nimmt Ereignisse entgegen und liefert sie an registrierte E
 | FR-013 | Ereignisse können bereits verschlüsselt eingeliefert werden | 7 | US-008 | Must-have | — |
 | FR-020 | Signatur über Zeitstempel und Nutzlast; Verfahren und Header-Name sind Teil des Vertrags | 8 | US-009 | Must-have | — |
 | FR-021 | Zustellung ist at-least-once; jede Zustellung trägt eine eigene Zustell-Kennung | 8 | US-010 | Must-have | — |
-| FR-022 | Fehlgeschlagene Zustellung wird mit wachsendem Abstand erneut versucht, mit Streuung | 8 | US-011 | Must-have | O-06, O-07 |
-| FR-023 | Nach fester Anzahl erfolgloser Versuche wird die Zustellung aufgegeben (tote Zustellung) | 8 | US-012 | Must-have | O-06 |
-| FR-024 | Empfänger-Admin kann aufgegebenes Ereignis erneut auslösen; Versuchszahl beginnt neu | 8 | US-013 | Must-have | O-03 |
+| FR-022 | Fehlgeschlagene Zustellung wird mit wachsendem Abstand erneut versucht, mit Streuung (8 Versuche, Basis 1 min, ×2, Deckel 60 min, ± 20 % — F-04) | 8 | US-011 | Must-have | — |
+| FR-023 | Nach fester Anzahl erfolgloser Versuche wird die Zustellung aufgegeben (tote Zustellung) — 8 Versuche (F-04) | 8 | US-012 | Must-have | — |
+| FR-024 | Empfänger-Admin kann aufgegebenes Ereignis erneut auslösen; Versuchszahl beginnt neu — nur Empfänger-Admin des Endpunkts (F-03) | 8 | US-013 | Must-have | — |
 | FR-025 | Empfänger kann dauerhafte Ablehnung angeben; Zustellung sofort aufgeben | 8 | US-014 | Must-have | — |
 | FR-030 | Zustellprotokoll zeigt Zustand, Versuche, letzter Versuch, Antwortcode, nächster Versuch | 9 | US-015, US-020 | Must-have | — |
-| FR-031 | Service-Admin kann tote Zustellungen als Liste abholen | 9 | US-016, US-020 | Must-have | O-02 |
+| FR-031 | Service-Admin kann tote Zustellungen als Liste abholen | 9 | US-016, US-020 | Must-have | — (Aufbewahrung: F-02) |
 | FR-032 | Je Endpunkt werden Erfolgsquote und Zustelllatenz ausgewiesen | 9 | US-017 | Must-have | — |
-| FR-033 | Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (Rate steht aus) | 9 | US-018 | Must-have | O-01 |
+| FR-033 | Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (60 Versuche je Endpunkt und Minute, Strategie `delay` — F-01) | 9 | US-018 | Must-have | — |
 | NFR-001 | Nutzlast eines Ereignisses ist auf 1 MB begrenzt | 10 | US-005 | Must-have | — |
 | NFR-002 | Einliefern antwortet in unter 200 ms (p95); Zustellung ist asynchron | 10 | US-005 | Must-have | — |
 | NFR-003 | Mandantentrennung wird auf Datenbankebene erzwiesen | 10 | US-022 | Must-have | — |
@@ -67,26 +70,41 @@ Ein zentraler Dienst nimmt Ereignisse entgegen und liefert sie an registrierte E
 | D-05 | Idempotenz je (Mandant, Schlüssel); Wiederholung liefert die erste Kennung; abweichende Nutzlast → HTTP 409 | Gate 1 |
 | D-06 | Drei Kennungen: Ereignis-ID, Zustelllauf-ID, Versuchs-ID (löst den Glossar-Widerspruch aus Abschnitt 4 vs. FR-021) | Gate 1 |
 | D-07 | Signatur über Zeitstempel (UTC) und Nutzlastbytes; Verfahren und Header-Name werden im Vertrag eingefroren | Gate 1 |
-| D-08 | Wiederholung bei 5xx, Netzwerkfehler, 408, 429; kein Wiederholen bei 2xx; Ablehnungssignal und übrige 4xx → sofort aufgeben | Gate 1 |
-| D-09 | Backoff konfigurierbar, Verdopplung, mit Streuung; konkrete Werte aus O-06 | Gate 1 |
+| D-08 | Wiederholung bei 5xx, Netzwerkfehler, 408, 429; kein Wiederholen bei 2xx; Ablehnungssignal und übrige 4xx → sofort aufgeben; 3xx → kein Wiederholen, `client_error`, keine Redirects (E-08) | Gate 1 |
+| D-09 | Backoff konfigurierbar, Verdopplung, mit Streuung; Werte entschieden (F-04): 8 Versuche, Basis 1 min, ×2, Deckel 60 min, ± 20 % | entschieden (F-04, 2026-10-21) |
 | D-10 | Annahme und Zustellung getrennt; Zustellung im Hintergrundprozess | Gate 1 |
-| D-11 | Protokollsuche nur über Metadaten, keine Suche nach Nutzlastinhalt | Gate 1 |
-| D-12 | Aufbewahrungsfrist ist konfigurierbar; ohne O-02 wird kein Wert vorbelegt | Gate 1 |
+| D-11 | Protokollsuche nur über Metadaten, keine Suche nach Nutzlastinhalt | Gate 1 (Zusammenhang mit O-04) |
+| D-12 | Aufbewahrungsfrist ist konfigurierbar; mit F-02 festgelegt: 30 Tage, getrennt für Ereignisse und Protokolle, ab letztem Versuch | entschieden (F-02, 2026-10-21) |
 | D-13 | Die 1-MB-Grenze gilt für die eingelieferten Bytes (bei vorverschlüsselter Einlieferung für die Chiffre) | Gate 1 |
-| D-14 | Rate-Limit-Mechanismus wird gebaut und konfiguriert; ohne O-01 kein Grenzwert vorbelegt, nur Zähler erhoben | Gate 1 |
-| D-15 | Replay: bis zur Entscheidung nur der Empfänger-Admin des Endpunkts (Auflösung des Widerspruchs FR-024 vs. Rollentabelle) | Gate 1 |
+| D-14 | Rate-Limit-Mechanismus wird gebaut und konfiguriert; mit F-01 festgelegt: 60 Versuche je Endpunkt und Minute, Strategie `delay` | entschieden (F-01, 2026-10-21) |
+| D-15 | Replay: nur der Empfänger-Admin des Endpunkts; Entwickler und Service-Admin erhalten HTTP 403 (F-03) | entschieden (F-03, 2026-10-21) |
 
-## Offene Punkte (bewusst offen — vom Fachbereich so gewollt)
+## Offene Punkte (Gate 2)
+
+Offen sind nach dem Gate 1 vom 2026-10-21 **genau zwei** Punkte:
 
 | ID | Thema | Owner | Empfehlung | Blocker-Kandidat Schritt 2 |
 |---|---|---|---|---|
-| O-01 | Rate-Limit je Endpunkt: welche Rate, und bei Überschreitung blockieren oder verschieben? | Fachbereich / Gate 1 | Startwert 60 Zustellversuche je Endpunkt und Minute; bei Überschreitung verschieben (nicht blockieren, nicht verwerfen). | nein |
-| O-02 | Aufbewahrung: für welche Daten, welche Frist, ab welchem Zeitpunkt? | Fachbereich + Datenschutz / Gate 1 | 30 Tage ab dem letzten Zustellversuch, getrennt konfigurierbar für Ereignisse und Zustellprotokolle. | nein |
-| O-03 | Wer darf ein totes Ereignis erneut auslösen: Empfänger-Admin, Entwickler oder Plattform-Betrieb? | Fachbereich / Gate 1 | Empfänger-Admin des betroffenen Endpunkts (entspricht FR-024); Entwickler nur mit Mandantenfreigabe; Plattform-Betrieb nicht. | nein |
-| O-04 | Verschlüsselung im Ruhezustand: Muss? Und ist das Zustellprotokoll dann noch durchsuchbar? | Fachbereich + Datenschutz (Verfahren: Architektur) / Gate 1 | Verschlüsselung bleibt Muss (FR-012, NFR-004); Verfahren = anerkanntes AEAD mit Schlüssel aus einem Secret-Store; Protokollsuche nur über Metadaten, keine Volltextsuche über Nutzlasten. | ja |
+| O-04 | Verschlüsselung im Ruhezustand: Muss? Und ist das Zustellprotokoll dann noch durchsuchbar? | Fachbereich + Datenschutz (Verfahren: Architektur) / Gate 2 | Verschlüsselung bleibt Muss (FR-012, NFR-004); Verfahren = anerkanntes AEAD mit Schlüssel aus einem Secret-Store; Protokollsuche nur über Metadaten, keine Volltextsuche über Nutzlasten. | ja |
 | O-05 | Vertrag über die Auftragsverarbeitung: Vertragspartner, Verantwortlicher, AVV vor Livegang? | Fachbereich + Recht/Datenschutz / Gate 2 | Kein Software-Blocker, aber Livegang-Bedingung: AVV vor dem produktiven Betrieb klären; technisch Datenminimierung, Mandantentrennung, konfigurierbare Löschfristen. | nein |
-| O-06 | Wie viele Zustellversuche und welcher Backoff? FR-023 nennt keine Zahl. | Fachbereich / Gate 1 | 8 Versuche, Basisabstand 1 Minute, Verdopplung, Deckel 60 Minuten, Streuung 20 Prozent (Vorschlag - im Code konfigurierbar). | nein |
-| O-07 | Zeitlimit je Zustellversuch: wie lange wartet der Dienst auf einen Empfänger? | Architektur / Gate 1 | Verbindungs-Timeout 5 s, Lese-Timeout 10 s (Summe unter 30 s wie in Abschnitt 11 gefordert). | ja |
+
+## Am Gate 1 entschiedene Punkte (2026-10-21)
+
+| ID | Thema | Entscheidung | Quelle |
+|---|---|---|---|
+| O-01 | Rate-Limit je Endpunkt: welche Rate, und bei Überschreitung blockieren oder verschieben? | 60 Zustellversuche je Endpunkt und Minute; bei Überschreitung verschieben (`delay`), nicht blockieren, nicht verwerfen; konfigurierbar und je Endpunkt überschreibbar. | F-01 (ADR-010) |
+| O-02 | Aufbewahrung: für welche Daten, welche Frist, ab welchem Zeitpunkt? | 30 Tage, getrennt konfigurierbar für Ereignisse und Zustellprotokolle, Fristbeginn = letzter Versuch; das Löschen eines Ereignisses nimmt seine Läufe und Versuche mit. | F-02 (ADR-012) |
+| O-03 | Wer darf ein totes Ereignis erneut auslösen: Empfänger-Admin, Entwickler oder Plattform-Betrieb? | Nur der Empfänger-Admin des betroffenen Endpunkts; Entwickler und Service-Admin erhalten HTTP 403. | F-03 (ADR-015) |
+| O-06 | Wie viele Zustellversuche und welcher Backoff? FR-023 nennt keine Zahl. | 8 Versuche, Basisabstand 1 Minute, Verdopplung (×2), Deckel 60 Minuten, Streuung ± 20 %; Gesamtfenster ≈ 2 Stunden. | F-04 (ADR-008) |
+| O-07 | Zeitlimit je Zustellversuch: wie lange wartet der Dienst auf einen Empfänger? | Verbindungs-Timeout 5 s, Lese-Timeout 10 s, Gesamtgrenze 15 s (unter 30 s); ein Timeout ist ein Fehlversuch. | ADR-008 (Architektur) |
+
+## Entscheidungen aus der Nachfrage am Gate 1
+
+| ID | Entscheidung | Wirkung |
+|---|---|---|
+| E-01 | Mandantenübergreifende Sicht des Service-Admins über SECURITY DEFINER-Funktionen | FR-004, US-004, US-016 |
+| E-08 | 3xx: kein Wiederholen, Status `client_error`; Redirects werden nicht gefolgt | D-08, US-010, US-011, US-014 |
+| E-09 | Replay auf denselben aufgegebenen Lauf: einmal möglich, danach HTTP 409 | FR-024, US-013 |
 
 ## Won't have (ausdrücklich ausgeschlossen)
 

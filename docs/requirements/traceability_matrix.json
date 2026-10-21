@@ -236,8 +236,8 @@
         "FR-022"
       ],
       "open_points": [
-        "O-06",
-        "O-07"
+        "F-04",
+        "O-07 (entschieden 2026-10-21, ADR-008)"
       ],
       "priority": "must-have",
       "acceptance_criteria": [
@@ -258,7 +258,7 @@
         "FR-023"
       ],
       "open_points": [
-        "O-06"
+        "F-04"
       ],
       "priority": "must-have",
       "acceptance_criteria": [
@@ -278,7 +278,7 @@
         "FR-024"
       ],
       "open_points": [
-        "O-03"
+        "F-03"
       ],
       "priority": "must-have",
       "acceptance_criteria": [
@@ -335,7 +335,7 @@
         "FR-031"
       ],
       "open_points": [
-        "O-02"
+        "F-02"
       ],
       "priority": "must-have",
       "acceptance_criteria": [
@@ -374,7 +374,7 @@
         "FR-033"
       ],
       "open_points": [
-        "O-01"
+        "F-01"
       ],
       "priority": "must-have",
       "acceptance_criteria": [
@@ -642,7 +642,7 @@
     },
     {
       "id": "FR-033",
-      "title": "Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (Rate steht aus)",
+      "title": "Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (60 Versuche je Endpunkt und Minute, Strategie delay — F-01)",
       "source_section": "Anforderung Abschnitt 9",
       "priority": "Must-have",
       "story_ids": [
@@ -1617,7 +1617,7 @@
     },
     {
       "requirement_id": "FR-033",
-      "title": "Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (Rate steht aus)",
+      "title": "Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (60 Versuche je Endpunkt und Minute, Strategie delay — F-01)",
       "source_section": "Anforderung Abschnitt 9",
       "priority": "Must-have",
       "story_ids": [
@@ -1961,14 +1961,17 @@
       "id": "O-01",
       "topic": "Rate-Limit je Endpunkt: welche Rate, und bei Überschreitung blockieren oder verschieben?",
       "owner": "Fachbereich / Gate 1",
-      "recommendation": "Startwert 60 Zustellversuche je Endpunkt und Minute; bei Überschreitung verschieben (nicht blockieren, nicht verwerfen).",
+      "recommendation": "60 Zustellversuche je Endpunkt und Minute; bei Überschreitung verschieben (nicht blockieren, nicht verwerfen).",
       "affected_requirements": [
         "FR-033"
       ],
       "affected_stories": [
         "US-018"
       ],
-      "decision_status": "offen",
+      "decision_status": "entschieden",
+      "decision": "60 Zustellversuche je Endpunkt und Minute; bei Ueberschreitung verschieben (delay) - nicht blockieren, nicht verwerfen. Der Wert bleibt konfigurierbar und je Endpunkt ueberschreibbar.",
+      "decision_ref": "F-01 (ADR-010)",
+      "decision_date": "2026-10-21",
       "blocks_step": false,
       "architectural_blocker_candidate": false,
       "source": "Anforderung Abschnitt 13"
@@ -1984,7 +1987,10 @@
       "affected_stories": [
         "US-016"
       ],
-      "decision_status": "offen",
+      "decision_status": "entschieden",
+      "decision": "30 Tage, getrennt konfigurierbar fuer Ereignisse und Zustellprotokolle, Fristbeginn ist der letzte Zustellversuch; das Loeschen eines Ereignisses nimmt seine Zustelllaeufe und Versuche mit.",
+      "decision_ref": "F-02 (ADR-012)",
+      "decision_date": "2026-10-21",
       "blocks_step": false,
       "architectural_blocker_candidate": false,
       "source": "Anforderung Abschnitt 13"
@@ -2000,7 +2006,10 @@
       "affected_stories": [
         "US-013"
       ],
-      "decision_status": "offen",
+      "decision_status": "entschieden",
+      "decision": "Nur der Empfaenger-Admin des betroffenen Endpunkts darf eine tote Zustellung erneut ausloesen; Entwickler und Service-Admin erhalten HTTP 403.",
+      "decision_ref": "F-03 (ADR-015)",
+      "decision_date": "2026-10-21",
       "blocks_step": false,
       "architectural_blocker_candidate": false,
       "source": "Anforderung Abschnitt 13 (im Widerspruch zur Rollentabelle in Abschnitt 3)"
@@ -2008,7 +2017,7 @@
     {
       "id": "O-04",
       "topic": "Verschlüsselung im Ruhezustand: Muss? Und ist das Zustellprotokoll dann noch durchsuchbar?",
-      "owner": "Fachbereich + Datenschutz (Verfahren: Architektur) / Gate 1",
+      "owner": "Fachbereich + Datenschutz (Verfahren: Architektur) / Gate 2",
       "recommendation": "Verschlüsselung bleibt Muss (FR-012, NFR-004); Verfahren = anerkanntes AEAD mit Schlüssel aus einem Secret-Store; Protokollsuche nur über Metadaten, keine Volltextsuche über Nutzlasten.",
       "affected_requirements": [
         "FR-012",
@@ -2048,7 +2057,10 @@
         "US-011",
         "US-012"
       ],
-      "decision_status": "offen",
+      "decision_status": "entschieden",
+      "decision": "8 Versuche, Basisabstand 1 Minute, Verdopplung (x2), Deckel 60 Minuten, Streuung plus/minus 20 Prozent; Gesamtfenster rund 2 Stunden. Konfigurierbar, kein verdrahteter Wert.",
+      "decision_ref": "F-04 (ADR-008)",
+      "decision_date": "2026-10-21",
       "blocks_step": false,
       "architectural_blocker_candidate": false,
       "source": "Anforderung Abschnitt 8 (FR-022, FR-023) - Zahlenlücke"
@@ -2065,9 +2077,12 @@
         "US-011",
         "US-023"
       ],
-      "decision_status": "offen",
+      "decision_status": "entschieden",
+      "decision": "Verbindungs-Timeout 5 s, Lese-Timeout 10 s, Gesamtgrenze 15 s (unter 30 s wie in Abschnitt 11 gefordert); ein Timeout ist ein Fehlversuch.",
+      "decision_ref": "ADR-008 (Architektur)",
+      "decision_date": "2026-10-21",
       "blocks_step": false,
-      "architectural_blocker_candidate": true,
+      "architectural_blocker_candidate": false,
       "source": "Anforderung Abschnitt 11 - technische Größe"
     }
   ],

@@ -10,8 +10,8 @@
   ],
   "related_requirements": [],
   "open_points": [
-    "O-06",
-    "O-07"
+    "F-04",
+    "O-07 (entschieden 2026-10-21, ADR-008)"
   ],
   "acceptance_criteria": [
     {

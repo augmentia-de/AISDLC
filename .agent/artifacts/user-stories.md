@@ -4,7 +4,7 @@
 > Je Story: Rolle, Nutzen, abgedeckte Anforderungen, Akzeptanzkriterien und die drei BDD-Szenarien.
 > **Eiserne Regel:** Keine Story ohne beobachtbares Akzeptanzkriterium.
 
-**Kurzstatistik:** 6 Epics · 23 Stories · 101 Akzeptanzkriterien · 69 BDD-Szenarien · 24 Anforderungen (18 FR + 6 NFR) · 7 offene Punkte
+**Kurzstatistik:** 6 Epics · 23 Stories · 101 Akzeptanzkriterien · 69 BDD-Szenarien · 24 Anforderungen (18 FR + 6 NFR) · 2 offene Punkte (O-04, O-05) · 5 entschiedene (F-01…F-04, O-07)
 
 ## Epic E1 — Endpunkte verwalten
 
@@ -329,7 +329,7 @@ Szenarien:
 
 **Rolle:** Service-Admin  
 **Story:** Als Service-Admin möchte ich, dass fehlgeschlagene Zustellungen mit wachsendem Abstand erneut versucht werden und die Versuche über die Endpunkte gestreut sind, damit ein Ausfall nicht zu einem Laststurm wird.  
-**Anforderungen:** FR-022 · offene Punkte: O-06, O-07  
+**Anforderungen:** FR-022 · Festlegungen: F-04, O-07 (entschieden 2026-10-21)  
 **Priorität:** must-have · **Quelle:** Abschnitt 8 (FR-022) · **Feature:** `docs/requirements/features/US-011.feature`
 
 | AC | Given | When | Then |
@@ -360,7 +360,7 @@ Szenarien:
 
 **Rolle:** Entwickler / Service-Admin  
 **Story:** Als Service-Admin möchte ich, dass eine Zustellung nach einer festen Anzahl erfolgloser Versuche aufgegeben wird und sichtbar in der Liste der toten Zustellungen landet, damit kein Ereignis still verschwindet.  
-**Anforderungen:** FR-023 · offene Punkte: O-06  
+**Anforderungen:** FR-023 · Festlegungen: F-04  
 **Priorität:** must-have · **Quelle:** Abschnitt 8 (FR-023) · **Feature:** `docs/requirements/features/US-012.feature`
 
 | AC | Given | When | Then |
@@ -390,7 +390,7 @@ Szenarien:
 
 **Rolle:** Empfänger-Admin  
 **Story:** Als Empfänger-Admin möchte ich eine aufgegebene Zustellung erneut auslösen können, damit ich ein nach einem Ausfall verpasstes Ereignis doch noch verarbeiten kann.  
-**Anforderungen:** FR-024 · offene Punkte: O-03  
+**Anforderungen:** FR-024 · Festlegungen: F-03  
 **Priorität:** must-have · **Quelle:** Abschnitt 8 (FR-024), Abschnitt 13 (Replay-Berechtigung) · **Feature:** `docs/requirements/features/US-013.feature`
 
 | AC | Given | When | Then |
@@ -482,7 +482,7 @@ Szenarien:
 
 **Rolle:** Service-Admin  
 **Story:** Als Service-Admin möchte ich die toten Zustellungen aller Mandanten abholen und die Aufbewahrung der Daten durchsetzen, damit ich den Betrieb überblicke und die Daten nicht unbegrenzt wachsen.  
-**Anforderungen:** FR-031 · offene Punkte: O-02  
+**Anforderungen:** FR-031 · Festlegungen: F-02  
 **Priorität:** must-have · **Quelle:** Abschnitt 9 (FR-031), Abschnitt 3 (Rollen), Abschnitt 13 (Aufbewahrung) · **Feature:** `docs/requirements/features/US-016.feature`
 
 | AC | Given | When | Then |
@@ -541,7 +541,7 @@ Szenarien:
 
 **Rolle:** Service-Admin  
 **Story:** Als Service-Admin möchte ich, dass ein Endpunkt gegen zu viele Zustellungen in kurzer Zeit geschützt ist, damit ein schwacher Empfänger nicht die Zustellung für alle anderen blockiert.  
-**Anforderungen:** FR-033 · offene Punkte: O-01  
+**Anforderungen:** FR-033 · Festlegungen: F-01  
 **Priorität:** must-have · **Quelle:** Abschnitt 9 (FR-033), Abschnitt 13 (Rate-Limit) · **Feature:** `docs/requirements/features/US-018.feature`
 
 | AC | Given | When | Then |
