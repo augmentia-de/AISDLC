@@ -18,7 +18,7 @@ description: Phase 9 — Deployment and operations
 |---|---|
 | Agent | `aisdlc-qa` |
 | Instanz (Multi-Instanz-Modus) | `phase4` |
-| Skill | `aisdlc-deploy` |
+| Skill | `aisdlc-ci-pipeline`, `aisdlc-containerize`, `aisdlc-deploy` |
 
 ## Steps
 

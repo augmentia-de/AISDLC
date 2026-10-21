@@ -17,7 +17,7 @@ description: Phase 5 — Test-Driven Setup (TDD)
 |---|---|
 | Agent | `aisdlc-execution` |
 | Instanz (Multi-Instanz-Modus) | `phase3` |
-| Skill | `aisdlc-tdd` |
+| Skill | `aisdlc-tdd`, `aisdlc-test-matrix`, `aisdlc-traceability-check` |
 
 ## Steps
 

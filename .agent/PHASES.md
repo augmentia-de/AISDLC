@@ -21,18 +21,21 @@ Agenten sind Rollen, die unabhängig vom Betriebsmodus existieren.
 | Schritt | Workflow-Datei | Instanz | Agent | Skill (Optional) | Gate |
 |---|---|---|---|---|---|
 | 0 Legacy-Analyse | — | `phase0` | — | — | optional |
-| 1 Anforderungserhebung | `01-requirements.md` | `phase1` | `aisdlc-requirements` | — | — |
+| 1 Anforderungserhebung | `01-requirements.md` | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check` | — |
 | 1a Anforderungs-Grill-Me | (in 01) | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress` | — |
-| 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | `aisdlc-openapi-first` | **GATE 1** danach |
+| 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | `aisdlc-openapi-first`, `aisdlc-glossary-adr`, `aisdlc-migration-plan` | **GATE 1** danach |
 | 3 Simplify & Reduktion | `03-simplify.md` | `phase2` | `aisdlc-architecture` | `aisdlc-simplify` | — |
 | 4 Grill-Me-Stresstest | `04-grill-me-stress.md` | `phase2` | `aisdlc-architecture` | `aisdlc-grill-stress` | — |
-| 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd`, `aisdlc-traceability-check` | — |
-| 6 KI-Code-Generation | `06-implementation.md` | `phase3` | `aisdlc-execution` | — | — |
+| 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd`, `aisdlc-test-matrix`, `aisdlc-traceability-check` | — |
+| 6 KI-Code-Generation | `06-implementation.md` | `phase3` | `aisdlc-execution` | `aisdlc-feature-scaffold`, `aisdlc-containerize` | — |
 | 7 Refactoring & Clean-up | `07-refactoring.md` | `phase3` | `aisdlc-execution` | `aisdlc-simplify` | — |
 | 8 Sicherheit & Compliance | `08-security.md` | `phase4` | `aisdlc-qa` | `aisdlc-security-scan` | **GATE 2** danach |
-| 9 Deployment & Betrieb | `09-deploy.md` | `phase4` | `aisdlc-qa` | `aisdlc-deploy` | — |
+| 9 Deployment & Betrieb | `09-deploy.md` | `phase4` | `aisdlc-qa` | `aisdlc-ci-pipeline`, `aisdlc-containerize`, `aisdlc-deploy` | — |
 
-**Die Skills sind Verfahrens-Schritte, keine Rollen.** Sie werden vom zuständigen Agent
+**Die Skills sind Verfahrens-Schritte, keine Rollen.** Die `aisdlc-*`-Skills liefern
+das **Verfahren** (wann, welche Artefakte, welche Prüfungen); das **Handwerk** kommt
+aus den Stack-Skills (`skills/`, vendoriert). Beide Schichten ergänzen sich, sie
+ersetzen sich nicht. Sie werden vom zuständigen Agent
 geladen, wenn der Schritt ansteht — dadurch entstehen keine zusätzlichen Agents und die
 Kontextkosten bleiben bei 0, bis der Schritt wirklich gebraucht wird.
 

@@ -46,7 +46,7 @@ description: Phase 6 — Implementation and coding (parallel build streams)
 |---|---|
 | Agent | `aisdlc-execution` |
 | Instanz (Multi-Instanz-Modus) | `phase3` |
-| Skill | — (kein Skill nötig) |
+| Skill | `aisdlc-feature-scaffold`, `aisdlc-containerize` |
 
 ## Output
 Working application code in `src/`, `tests/`, `infra/`.

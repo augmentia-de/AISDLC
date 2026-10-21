@@ -16,7 +16,7 @@ description: Phase 1 — Requirements gathering for AI SDLC
 |---|---|
 | Agent | `aisdlc-requirements` |
 | Instanz (Multi-Instanz-Modus) | `phase1` |
-| Skill | `aisdlc-grill-stress` |
+| Skill | `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check` |
 
 ## Steps
 
