@@ -477,9 +477,9 @@ paths:
       summary: Endpunkt registrieren
       description: >-
         Registriert eine Empfänger-URL mit Secret und den gewünschten
-        Ereignistypen (FR-001). Der Endpunkt wird mit dem Status `aktiv`
-        angelegt und dem Mandanten der Identität zugewiesen. Das Secret wird
-        verschlüsselt abgelegt und **nie** im Klartext ausgegeben.
+        Ereignistypen (FR-001). Der Endpunkt wird mit dem Status `active`
+        (aktiv) angelegt und dem Mandanten der Identität zugewiesen. Das Secret
+        wird verschlüsselt abgelegt und **nie** im Klartext ausgegeben.
       x-ac-id:
         - US-001/AC-001-1
         - US-001/AC-001-2
@@ -694,7 +694,7 @@ paths:
       tags: [Endpunkte]
       summary: Endpunkt pausieren
       description: >-
-        Setzt den Endpunkt auf `pausiert`. Ein pausierter Endpunkt erhält
+        Setzt den Endpunkt auf `paused` (pausiert). Ein pausierter Endpunkt erhält
         **keine** Zustellung: für Ereignisse, die während der Pause eintreffen,
         entsteht kein Zustellvorgang und **keine** Warteschlangeneintragung; ein
         bereits geplanter Wiederholungsvorgang wird abgebrochen (Zustelllauf
@@ -2446,7 +2446,15 @@ components:
         organisation_id:
           type: string
           nullable: true
-          description: "Nur für `service_admin` gefüllt."
+          description: >-
+            Mandant des Zustelllaufs. Das Feld ist **nur** in
+            mandantenübergreifenden Antworten gefüllt. Für das
+            **Zustellprotokoll** gibt es keine solche Antwort: die
+            Protokollliste ist **mandantengefiltert** und zeigt auch dem
+            `service_admin` nur die Läufe des Mandanten aus der Identität
+            (E-10). Die mandantenübergreifende Sicht gilt nur für Endpunktliste,
+            Totenliste und Aufbewahrung (ADR-002 §7). Im Zustellprotokoll bleibt
+            das Feld deshalb `null`; es ist **kein** Filter (D-01).
         event_type:
           type: string
         status:
@@ -3230,7 +3238,7 @@ x-acceptance-coverage:
     - {ac_id: AC-021-4, story: US-021, realized_in: "Oberflaeche (ADR-018): semantische Struktur mit Rolle und Inhalt fuer Liste, Zeilen und Statusmeldungen."}
     - {ac_id: AC-022-1, story: US-022, realized_in: "Schema (ADR-002): jede mandantenfuehrende Tabelle mit `ENABLE ROW LEVEL SECURITY` und Policy."}
     - {ac_id: AC-022-2, story: US-022, realized_in: "Schema (ADR-002): die Policy filtert auf `current_setting('app.organisation_id')`."}
-    - {ac_id: AC-022-3, story: US-022, realized_in: "ADR-002: der Mandant wird im Connection-Initializer aus dem JWT gesetzt; ein Parameter aus dem Request-Body wird nicht uebernommen."}
+    - {ac_id: AC-022-3, story: US-022, realized_in: "ADR-002 §3: der Mandant wird innerhalb der Transaktion, die auch liest, aus dem JWT gesetzt (`app.set_tenant`, transaktionslokal) — nicht verbindungsgebunden; ein Parameter aus dem Request-Body wird nicht uebernommen."}
     - {ac_id: AC-022-4, story: US-022, realized_in: "D-02 und `responses.NotFound`: fremde Ressourcen werden mit HTTP 404 beantwortet."}
     - {ac_id: AC-023-1, story: US-023, realized_in: "Operation `getHealth` (GET /health); Operation `getReadiness` (GET /health/ready)"}
     - {ac_id: AC-023-2, story: US-023, realized_in: "ADR-013: Mandanten-Sharding ueber Konfiguration (`echobox.tenant.id`); geteilter Betrieb bleibt Standard."}

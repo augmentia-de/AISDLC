@@ -85,6 +85,22 @@ korrigiert — sie trugen die **alte** Semantik:
 neu aufgerollt. Der vollständige Nachweis je Defekt steht in
 `.agent/artifacts/ruecksprung-bilanz.md`.
 
+## Korrekturen aus dem zweiten Rücksprung (Schritt 4 → Schritt 2, 2026-10-21)
+
+Der **zweite** Stresstest (Commit `c9c8038`) hat drei Vertragssätze, drei
+Schema-Befunde und sechs „sollte“-Befunde gefunden. Der Rücksprung in Schritt 2
+hat die betroffenen ADRs nachgezogen:
+
+| ADR | Korrektur | Befund |
+|---|---|---|
+| ADR-002 | **Grenze (ehrlich benannt)**: die Applikationsrolle kann `app.cross_tenant` setzen und damit die mandantenübergreifende Sicht öffnen — die einzige verbleibende Lücke zwischen RLS und Anwendung; Härtung als **offene Entscheidung** (E-12, Gate 2) · §7: Totenlisten-Funktion ohne Statusparameter (`abandoned` **fest verdrahtet**) · §7: logische Löschung ist der Applikationsrolle **nicht** möglich | N-18, N-14, N-16 |
+| ADR-006 | §6: `replay_of` ist ein **historischer Verweis**, kein Fremdschlüssel · §6: **23505 ⇒ 409** und `lock_timeout`/`statement_timeout` **kürzer** als das HTTP-Timeout (Vorgabe für Schritt 6) | N-15, N-20 |
+| ADR-012 | §3: die **Versuche** verlieren die Sichtbarkeit **mit ihrem Lauf** · §6: ohne gesetzten Wert Purge im **nächsten** Durchlauf — **kein** erfundener Vorgabewert | N-13, E-13 |
+| ADR-015 | Rollenmatrix korrigiert: die mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung — das **Zustellprotokoll bleibt mandantengefiltert** · §6: 23505 ⇒ `delivery_state_conflict`, Sperrenwartezeit kürzer als das HTTP-Timeout | N-19, N-20, E-10 |
+
+Der vollständige Nachweis je Befund steht in
+`.agent/artifacts/ruecksprung-bilanz.md`.
+
 ## Hinweis zur Nummerierung
 
 `AGENTS.md` verweist auf „ADR-019 §6" für die Spiegel-Regel. Das ist die

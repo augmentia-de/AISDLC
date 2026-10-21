@@ -51,7 +51,7 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
      │ Event-Typ         │   │      │ status             │
      │ (endpoint_id,      │   │      │ attempt_count      │
      │  event_type) PK    │   │      │ next_attempt_at    │
-     └────────────────────┘   │      │ replay_of      FK  │
+     └────────────────────┘   │      │ replay_of (Verweis)│
                               │      └─────────┬──────────┘
                               │                │ 1:n
                               │                ▼
@@ -84,7 +84,7 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | Endpunkt → Ereignistyp | Viele-zu-viele, normalisiert in `endpoint_event_types`. Ein Endpunkt abonniert mindestens einen Ereignistyp. |
 | Ereignis → Endpunkt | Viele-zu-viele, aufgelöst in **Zustellläufe**. Ein Ereignis ohne passenden Endpunkt erzeugt **einen** Zustelllauf mit Status `no_subscriber` und `endpoint_id = null` (D-04). |
 | Zustelllauf → Versuch | Eins-zu-viele. Die Versuchsnummer ist je Lauf eindeutig und 1-basiert. |
-| Zustelllauf → Zustelllauf | Selbstbezug über `replay_of` — die Historie bleibt erhalten (AC-013-2). **UNIQUE**: ein Vorgängerlauf hat höchstens **einen** Replay (I-9). |
+| Zustelllauf → Zustelllauf | Selbstbezug über `replay_of` — die Historie bleibt erhalten (AC-013-2). **Historischer Verweis, kein Fremdschlüssel** (E-11): er überlebt die Aufbewahrung des Vorgängerlaufs. **UNIQUE**: ein Vorgängerlauf hat höchstens **einen** Replay (I-9). |
 | Ereignis → Zustelllauf | Ein Ereignis kann viele Zustellläufe haben (ein je Endpunkt, plus Replays). |
 
 ### 2.2 Attribute, die den Vertrag tragen
@@ -199,12 +199,13 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | I-2 | Ein `abandoned`-Lauf hat `abandoned_at` gesetzt | DB-Check `delivery_runs_abandoned_at_ck` |
 | I-3 | `no_subscriber` ⇒ `endpoint_id IS NULL`; alle anderen Zustände ⇒ `endpoint_id IS NOT NULL` | DB-Check `delivery_runs_no_subscriber_ck` |
 | I-4 | Die Versuchsnummer ist je Lauf eindeutig und beginnt bei 1 | DB-Constraint `delivery_attempts_run_number_uq` + `attempt_number_ck` |
-| I-5 | Ein Replay erzeugt einen **neuen** Zustelllauf; der alte bleibt unverändert | `replay_of` zeigt auf den Vorgänger; keine Änderung am alten Datensatz (AC-013-2) |
+| I-5 | Ein Replay erzeugt einen **neuen** Zustelllauf; der alte bleibt unverändert | `replay_of` zeigt auf den Vorgänger; keine Änderung am alten Datensatz (AC-013-2). Der Verweis ist **historisch**, kein Fremdschlüssel — er überlebt die Aufbewahrung des Vorgängers (E-11) |
 | I-6 | `attempt_count` steigt nie sprunghaft; ein abgestürzter Worker erhöht sie **nicht** | Lease-Rettung gibt den Lauf frei, ohne einen Versuch zu zählen (AC-023-4) |
 | I-7 | Genau **eine** Instanz führt einen Versuch aus | `FOR UPDATE SKIP LOCKED` + Lease (AC-023-3) |
 | I-8 | Ein gepausierter Endpunkt erzeugt **keinen** Zustellvorgang und **keine** Nachlieferung | `pending`/`scheduled`-Läufe werden bei Pause auf `cancelled` gesetzt; bei der Einlieferung wird für pausierte Endpunkte **kein** Lauf angelegt (D-03) |
-| I-9 | Ein aufgegebener Zustelllauf kann **einmal** replayed werden | `UNIQUE (replay_of)` in `delivery_runs`; ein weiterer Replay ⇒ HTTP 409 `delivery_state_conflict` (AC-013-1…5, ADR-006 §6) |
+| I-9 | Ein aufgegebener Zustelllauf kann **einmal** replayed werden | `UNIQUE (replay_of)` in `delivery_runs`; ein weiterer Replay ⇒ SQLSTATE 23505 ⇒ HTTP 409 `delivery_state_conflict` (AC-013-1…5, ADR-006 §6, ADR-015 §6) |
 | I-10 | Ein 3xx beendet den Lauf endgültig, ohne Wiederholung; Redirects werden nicht gefolgt | `rejected` mit `rejection_reason = client_error`; `outcome = client_error` (ADR-009) |
+| I-11 | Ein markierter Zustelllauf macht seine Versuche unsichtbar — und sie zählen nicht mehr in den Kennzahlen | Die Policy auf `delivery_attempts` bezieht `delivery_runs.deleted_at IS NULL` ein (N-13, ADR-012 §3) |
 
 ### 3.5 Ergebnis eines einzelnen Versuchs
 

@@ -32,7 +32,17 @@ Entwickler, Empfänger-Admin, Service-Admin.
 |---|---|---|---|---|---|---|---|
 | `developer` | — | **ja** | **ja** (eigener Mandant) | **nein** (F-03) | **nein** | eigener Mandant | **nein** |
 | `receiver_admin` | **ja** (eigener Mandant) | — | **ja** (eigener Mandant) | **ja** (eigener Endpunkt) | **nein** | eigener Mandant | **nein** |
-| `service_admin` | **ja** (alle Mandanten) | — | **ja** (alle Mandanten) | **nein** (F-03) | **ja** | **ja** | **ja** |
+| `service_admin` | **ja** (alle Mandanten) | — | **ja** (eigener Mandant) | **nein** (F-03) | **ja** | **ja** (eigener Mandant) | **ja** |
+
+> **Korrektur der Rollenmatrix (N-19):** die mandantenübergreifende Sicht des
+> `service_admin` gilt **nur** für die **drei** Operationen der
+> Eigentümerfunktionen — Endpunktliste, Totenliste und Aufbewahrung. Das
+> **Zustellprotokoll bleibt mandantengefiltert**: `GET /api/v1/deliveries`
+> zeigt auch dem `service_admin` nur die Läufe des Mandanten aus der
+> Identität. Es gibt **kein** mandantenübergreifendes Protokoll — weder im
+> Vertrag noch im Schema (nur die drei Eigentümerfunktionen, E-10). Die
+> Kennzahlen (`getEndpointMetrics`) gelten ebenfalls **je Endpunkt** und
+> damit je Mandant.
 
 Die mandantenübergreifende Sicht des `service_admin` wird über die **drei
 schmalen Eigentümerfunktionen** des Schemas hergestellt
@@ -48,7 +58,7 @@ Zusätzliche Rollenprüfungen:
 | Secret-Rotation | nur `receiver_admin` | 403 (AC-003-3) |
 | Endpunkt anlegen / ändern / pausieren | nur `receiver_admin` und `service_admin` | 403 |
 | Ereignis einliefern | `developer` (und `service_admin` für Migrations-/Testzwecke) | 403 |
-| Endpunkt-/Protokoll-Listen | alle Rollen, aber **mandantengefiltert** | — |
+| Endpunkt-/Protokoll-Listen | alle Rollen, aber **mandantengefiltert** — auch der `service_admin` sieht im Protokoll nur den eigenen Mandanten (E-10) | — |
 | Totenliste | nur `service_admin` | 403 (AC-016-2) |
 | Replay | nur `receiver_admin` **des betroffenen Endpunkts**; `developer` und `service_admin` ⇒ 403 | 403 (AC-013-3, F-03) |
 | Aufbewahrung erzwingen | nur `service_admin` | 403 |
@@ -61,12 +71,14 @@ Zusätzliche Rollenprüfungen:
   mit **HTTP 422** und `code: tenant_parameter_rejected` abgelehnt (D-01,
   AC-001-5, AC-004-4). Er wird **nicht** stillschweigend ignoriert — ein
   Ignorieren würde den Aufrufer im Glauben lassen, er hätte gefiltert.
-- Für `service_admin` gibt es **auch** keinen Mandantenfilter: der
-  Service-Admin sieht alle Mandanten. Ein Filterparameter wäre dort zwar
-  sinnvoll, er würde aber die Regel „Mandant ist ein Filterparameter“ etablieren
-  und damit den Boden für einen Leck legen. Der Service-Admin filtert
-  **in der Oberfläche** nach `organisation_id`, das Feld ist Teil jeder
-  Antwort.
+- Für `service_admin` gibt es **auch** keinen Mandantenfilter: in den drei
+  mandantenübergreifenden Operationen sieht der Service-Admin alle Mandanten.
+  Ein Filterparameter wäre dort zwar sinnvoll, er würde aber die Regel
+  „Mandant ist ein Filterparameter“ etablieren und damit den Boden für einen
+  Leck legen. Der Service-Admin filtert **in der Oberfläche** nach
+  `organisation_id`, das Feld ist Teil jeder mandantenübergreifenden Antwort.
+  **Im Zustellprotokoll** (`GET /api/v1/deliveries`) gibt es keine
+  mandantenübergreifende Sicht — dort ist das Feld `null` (E-10).
 - Die drei mandantenübergreifenden Operationen (`listEndpoints`,
   `listDeadDeliveries`, `enforceRetention`) holen ihre Daten aus den
   Eigentümerfunktionen des Schemas (ADR-002 §7). Sie sind **fail-closed**:
@@ -129,6 +141,26 @@ nicht nur im Vertrag behauptet. Ein Replay auf einen **pausierten** Endpunkt
 antwortet ebenfalls mit **409**: es entsteht **kein** neuer Lauf, und der
 Vorgängerlauf behält seinen Zustand — sonst verlöre die tote Zustellung ihre
 Sichtbarkeit (AC-013-1…AC-013-5, F-03, E-09).
+
+**Abbildung der Datenbankfehler (N-20).** Die Einmal-Regel äußert sich in der
+Datenbank als **SQLSTATE 23505** (`unique_violation`) auf
+`delivery_runs_replay_of_uq`. Diese Fehlernummer wird **ausschließlich** auf
+`delivery_state_conflict` (HTTP 409) abgebildet — nicht auf 500. Es gibt
+**keine** andere Quelle für 409 `delivery_state_conflict`: nicht aufgegeben,
+Endpunkt pausiert, bereits replayed.
+
+**Sperrenwartezeit (N-20).** Zwei gleichzeitige Replays desselben Laufs
+gewinnen genau **einer**: der Verlierer wartet auf dem UNIQUE-Index, bis die
+gewinnende Transaktion endet, und erhält dann 23505 ⇒ 409. Damit die Wartezeit
+das HTTP-Timeout nicht übersteigt, setzt die Transaktion des Replays **ein
+`lock_timeout` und ein `statement_timeout`, die beide kürzer sind als das
+HTTP-Timeout der Operation**. Der verlierende Replay antwortet dann mit
+**409** statt mit einem Timeout.
+*Vorgabe für Schritt 6 (Implementierung):* beide Zeitlimits werden **vor**
+dem `INSERT` in derselben Transaktion gesetzt (`SET LOCAL lock_timeout …` /
+`SET LOCAL statement_timeout …`), die Werte kommen aus der **Konfiguration**
+(`DeliveryProperties`) — kein Wert ist im Code verdrahtet — und sind
+**kleiner** als das HTTP-Timeout der Replay-Operation.
 
 ## Festlegung (Gate 1, 2026-10-21)
 

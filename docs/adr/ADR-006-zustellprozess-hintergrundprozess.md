@@ -111,6 +111,24 @@ Ereignis-ID unkontrolliert sehen — der Historiegedanke lebt davon, dass jeder
 Replay eine begründete, einmalige Aktion ist. Der Vorgängerlauf bleibt
 unverändert erhalten (AC-013-2).
 
+**Der Verweis auf den Vorgänger ist historisch, kein Live-Bezug (E-11).**
+`replay_of` ist **kein Fremdschlüssel**: die UUID bleibt stehen, auch wenn der
+Vorgängerlauf später aufbewahrt (purged) wird. Mit einem Fremdschlüssel
+(`ON DELETE SET NULL`) verschwände der Verweis beim Purge — der überlebende
+Replay wäre nicht mehr als Replay erkennbar (AC-013-2 verletzt). Die
+Einmal-Regel `UNIQUE (replay_of)` bleibt davon unberührt.
+
+**Konkurrenz und Sperrenwartezeit (N-20).** Zwei gleichzeitige Replays
+desselben Laufs gewinnen genau **einer**; der Verlierer wartet auf dem
+UNIQUE-Index und erhält dann **SQLSTATE 23505** (`unique_violation`), das
+**ausschließlich** auf HTTP 409 `delivery_state_conflict` abgebildet wird
+(ADR-015 §6). Damit die Wartezeit nicht das HTTP-Timeout übersteigt, setzt
+die Replay-Transaktion **ein `lock_timeout` und ein `statement_timeout`, die
+kürzer sind als das HTTP-Timeout** — der verlierende Replay antwortet dann mit
+409 statt mit einem Timeout. *Vorgabe für Schritt 6:* beide Zeitlimits werden
+**vor** dem `INSERT` in derselben Transaktion gesetzt und kommen aus der
+Konfiguration; kein Wert ist im Code verdrahtet.
+
 ### 7. Endegültige Zustände
 
 `sent`, `abandoned`, `rejected`, `cancelled`, `no_subscriber` sind endgültig:

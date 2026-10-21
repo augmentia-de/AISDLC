@@ -41,6 +41,12 @@
 --   * Der Worker arbeitet **mandantenweise**: Scheduler -> Mandantenermittlung
 --     (app.tenant_ids_for_worker()) -> je Mandant app.set_tenant(...) ->
 --     Beanspruchung. Ohne diesen Schritt liefert die Beanspruchung 0 Zeilen.
+--   * Logische Loeschung (`deleted_at`) ist der Applikationsrolle **nicht**
+--     moeglich: PostgreSQL prueft den `USING`-Ausdruck einer Policy auch gegen
+--     die **neue** Zeile — ein `UPDATE … SET deleted_at = now()` durch
+--     `echobox_app` endet mit "new row violates row-level security policy".
+--     Markiert wird ausschliesslich ueber die Eigentuemerfunktion
+--     `app.enforce_retention_cross_tenant` (SECURITY DEFINER, N-16).
 -- ============================================================================
 
 BEGIN;
@@ -235,8 +241,6 @@ CREATE TABLE IF NOT EXISTS app.delivery_runs (
         FOREIGN KEY (event_id) REFERENCES app.events (event_id) ON DELETE CASCADE,
     CONSTRAINT delivery_runs_endpoint_fk
         FOREIGN KEY (endpoint_id) REFERENCES app.endpoints (endpoint_id) ON DELETE CASCADE,
-    CONSTRAINT delivery_runs_replay_of_fk
-        FOREIGN KEY (replay_of) REFERENCES app.delivery_runs (delivery_run_id) ON DELETE SET NULL,
     CONSTRAINT delivery_runs_replay_of_uq
         UNIQUE (replay_of)
 );
@@ -247,6 +251,10 @@ COMMENT ON COLUMN app.delivery_runs.lease_owner IS 'Worker-Instanz, die den Lauf
 COMMENT ON COLUMN app.delivery_runs.lease_expires_at IS 'Ablauf der Beanspruchung. Nach Ablauf darf ein anderer Worker den Lauf uebernehmen (AC-023-4).';
 COMMENT ON COLUMN app.delivery_runs.replay_of IS
     'Vorgängerlauf bei einem Replay — die Historie bleibt erhalten (AC-013-2). '
+    '**Historischer Verweis, kein Fremdschlüssel** (E-11): der Verweis überlebt die '
+    'Aufbewahrung (Purge) des Vorgängerlaufs — mit einem Fremdschlüssel '
+    '(ON DELETE SET NULL) verschwande er und der überlebende Replay wäre nicht mehr '
+    'als Replay erkennbar. '
     'UNIQUE (replay_of): ein aufgegebener Zustelllauf kann **einmal** replayed werden; '
     'ein weiterer Replay verstoesst gegen die Constraint (HTTP 409, ADR-006).';
 COMMENT ON COLUMN app.delivery_runs.next_attempt_at IS 'Naechster Versuchszeitpunkt; NULL bei endgueltigen Zustaenden (AC-015-2).';
@@ -565,10 +573,25 @@ COMMENT ON FUNCTION app.list_endpoints_cross_tenant(TEXT, INTEGER, TIMESTAMPTZ, 
 
 -- Totenliste mandantenuebergreifend. Liefert **nur** die Projektion des
 -- Vertrags `DeadDelivery` — kein Secret, keine Chiffre, kein Nutzlastinhalt.
+--
+-- Der Status ist **fest verdrahtet**: die Funktion liefert ausschliesslich
+-- aufgegebene Zustaende (`abandoned`). Es gibt **keinen** Parameter, der die
+-- Menge weiten koennte (N-14) — mit einem optionalen Statusfilter lieferte
+-- die Funktion ohne Wert das vollstaendige Zustellprotokoll aller Mandanten
+-- (`sent`, `cancelled`, …) statt der Totenliste: ein Datenabfluss aus einer
+-- Funktion, die die RLS umgeht, kein Formfehler. Die Projektion ist damit
+-- **per Konstruktion** die des Vertrags: `status` ist immer `abandoned` und
+-- `abandoned_at` ist immer gefuellt (DB-Constraint
+-- `delivery_runs_abandoned_at_ck`).
+--
+-- Die alte Signatur (mit `p_status`) wird vor der Neudefinition entfernt —
+-- sonst bliebe in einer bestehenden Datenbank die fail-open Variante
+-- ausfuehrbar.
+DROP FUNCTION IF EXISTS app.list_dead_deliveries_cross_tenant(UUID, TEXT, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID);
+
 CREATE OR REPLACE FUNCTION app.list_dead_deliveries_cross_tenant(
     p_endpoint_id           UUID        DEFAULT NULL,
     p_event_type            TEXT        DEFAULT NULL,
-    p_status                TEXT        DEFAULT NULL,
     p_limit                 INTEGER     DEFAULT 50,
     p_from                  TIMESTAMPTZ DEFAULT NULL,
     p_to                    TIMESTAMPTZ DEFAULT NULL,
@@ -616,11 +639,11 @@ BEGIN
     FROM app.delivery_runs d
     LEFT JOIN app.endpoints ep ON ep.endpoint_id = d.endpoint_id
     WHERE d.deleted_at IS NULL
-      AND (p_status IS NULL OR d.status = p_status)
+      AND d.status = 'abandoned'
       AND (p_endpoint_id IS NULL OR d.endpoint_id = p_endpoint_id)
       AND (p_event_type IS NULL OR d.event_type = p_event_type)
-      AND (p_from IS NULL OR COALESCE(d.abandoned_at, d.created_at) >= p_from)
-      AND (p_to IS NULL OR COALESCE(d.abandoned_at, d.created_at) < p_to)
+      AND (p_from IS NULL OR d.abandoned_at >= p_from)
+      AND (p_to IS NULL OR d.abandoned_at < p_to)
       AND (p_after_created_at IS NULL
            OR (d.created_at, d.delivery_run_id) < (p_after_created_at, p_after_delivery_run_id))
     ORDER BY d.created_at DESC, d.delivery_run_id DESC
@@ -628,9 +651,11 @@ BEGIN
 END
 $$;
 
-COMMENT ON FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) IS
+COMMENT ON FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) IS
     'Totenliste mandantenuebergreifend fuer `service_admin` (FR-031, AC-016-1). '
     'Liefert nur die Vertragsprojektion `DeadDelivery` — kein Secret, kein Nutzlastinhalt. '
+    'Der Status ist **fest verdrahtet** auf `abandoned`: es gibt keinen Parameter, '
+    'der die Menge weiten koennte (N-14). '
     'Fail-closed ohne `app.cross_tenant = ''service_admin''';
 
 -- Aufbewahrungsdurchsetzung mandantenuebergreifend.
@@ -676,6 +701,11 @@ VOLATILE
 SET search_path = app, pg_temp
 AS $$
 DECLARE
+    -- Karenzzeit: **kein Vorgabewert** im Vertrag (R-01 / E-13, Gate 2).
+    -- Ohne gesetzten Wert (NULL) wird mit 0 Tagen gerechnet — der Purge
+    -- erfolgt dann im **naechsten** Durchlauf. Das ist das dokumentierte
+    -- Verhalten **ohne** Wert, **kein** beschlossener Vorgabewert: der Wert
+    -- kommt aus der Konfiguration (`echobox.retention.purge-delay`).
     v_purge_delay_days    INTEGER := COALESCE(p_purge_delay_days, 0);
     v_purge_before        TIMESTAMPTZ;
     v_org                 TEXT;
@@ -753,12 +783,18 @@ BEGIN
         v_marked_runs := COALESCE(array_length(v_mark_run_ids, 1), 0);
 
         -- (3) Versuche zaehlen: sie verlieren mit ihrem Lauf die Sichtbarkeit.
+        --     Die Policy auf `delivery_attempts` bezieht den Zustand des Vaters
+        --     ein (`delivery_runs.deleted_at IS NULL`) — der markierte Lauf
+        --     macht seine Versuche unsichtbar, ohne eigene `deleted_at`
+        --     Spalte und ohne zweite Wahrheit (N-13).
         SELECT count(*) INTO v_marked_attempts
         FROM app.delivery_attempts a
         WHERE a.delivery_run_id = ANY(v_mark_run_ids);
 
         -- (4) Purge: physisch loeschen, was laenger als die Karenzzeit markiert
-        --     ist. Versuche zuerst, dann Laeufe, dann Ereignisse.
+        --     ist. Versuche zuerst, dann Laeufe, dann Ereignisse. Die Versuche
+        --     werden **mit** ihrem Lauf geloescht (die Policy macht sie vorher
+        --     unsichtbar) — beide Stufen bleiben konsistent (N-13).
         SELECT array_agg(a.attempt_id) INTO v_purge_attempt_ids
         FROM app.delivery_attempts a
         JOIN app.delivery_runs d ON d.delivery_run_id = a.delivery_run_id
@@ -829,6 +865,25 @@ COMMENT ON FUNCTION app.enforce_retention_cross_tenant(BOOLEAN, INTEGER, INTEGER
     'Fail-closed ohne `app.cross_tenant = ''service_admin''';
 
 -- ---------------------------------------------------------------- RLS
+--
+-- Die Policies sind **fail-closed**: ohne gesetzten Mandanten liefert
+-- `current_setting('app.organisation_id', true)` NULL und damit **keine**
+-- Zeile.
+--
+-- **Logische Loeschung (N-16):** weil PostgreSQL den `USING`-Ausdruck auch
+-- gegen die **neue** Zeile prueft, kann die Applikationsrolle
+-- (`echobox_app`) keine Zeile logisch loeschen — `UPDATE … SET deleted_at =
+-- now()` endet mit "new row violates row-level security policy". Markiert wird
+-- ausschliesslich ueber die Eigentuemerfunktion
+-- `app.enforce_retention_cross_tenant` (SECURITY DEFINER, Eigentuemer
+-- `echobox_owner`). Das ist **Absicht**: die logische Loeschung ist ein
+-- mandantenuebergreifender Vorgang (ADR-012) und gehoert damit in die
+-- schmale Eigentuemerfunktion, nicht in eine Allzweckrolle.
+--
+-- **Sichtbarkeit der Versuche (N-13):** `delivery_attempts` hat **keine**
+-- eigene `deleted_at`-Spalte. Die Sichtbarkeit folgt dem Zustelllauf: die
+-- Policy bezieht `delivery_runs.deleted_at IS NULL` ein. Ein markierter Lauf
+-- macht seine Versuche sofort unsichtbar — eine Wahrheit, keine zwei.
 
 ALTER TABLE app.endpoints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.endpoint_event_types ENABLE ROW LEVEL SECURITY;
@@ -869,9 +924,20 @@ CREATE POLICY delivery_runs_tenant_isolation ON app.delivery_runs
            AND deleted_at IS NULL)
     WITH CHECK (organisation_id = current_setting('app.organisation_id', true));
 
+-- Die Versuche erben die Sichtbarkeit ihres Zustelllaufs: die Policy bezieht
+-- den Zustand des Vaters ein (`delivery_runs.deleted_at IS NULL`). Ein
+-- markierter Lauf macht damit **sofort** seine Versuche unsichtbar — ohne
+-- eigene `deleted_at`-Spalte und ohne zweite Wahrheit (N-13). Die Teilabfrage
+-- laeuft mit den Rechten des Aufrufers; die RLS-Policy auf `delivery_runs`
+-- gilt fuer sie mit, sodass ein Versuch eines fremden Mandanten nie sichtbar
+-- wird.
 DROP POLICY IF EXISTS delivery_attempts_tenant_isolation ON app.delivery_attempts;
 CREATE POLICY delivery_attempts_tenant_isolation ON app.delivery_attempts
-    USING (organisation_id = current_setting('app.organisation_id', true))
+    USING (organisation_id = current_setting('app.organisation_id', true)
+           AND EXISTS (SELECT 1
+                       FROM app.delivery_runs dr
+                       WHERE dr.delivery_run_id = delivery_attempts.delivery_run_id
+                         AND dr.deleted_at IS NULL))
     WITH CHECK (organisation_id = current_setting('app.organisation_id', true));
 
 DROP POLICY IF EXISTS endpoint_rate_limits_tenant_isolation ON app.endpoint_rate_limits;
@@ -961,6 +1027,21 @@ CREATE INDEX IF NOT EXISTS audit_log_tenant_occurred_idx
 CREATE INDEX IF NOT EXISTS audit_log_resource_idx
     ON app.audit_log (resource_type, resource_id);
 
+-- Mandantenuebergreifende Listen (ADR-002 §7): die Sortierung laeuft ueber
+-- **alle** Mandanten, nicht ueber `organisation_id`. Die tenant-skalierten
+-- Indizes oben beginnen alle mit `organisation_id` und stuetzen diese
+-- Sortierung nicht — ohne eigene Indizes war jede Seite ein Vollscan mit
+-- Sortierung (N-17). Die Indizes tragen die Sortierschluessel der
+-- Funktionen:
+--   * Endpunktliste:   ORDER BY e.updated_at DESC, e.endpoint_id DESC
+--   * Totenliste:      ORDER BY d.created_at DESC, d.delivery_run_id DESC
+CREATE INDEX IF NOT EXISTS endpoints_cross_tenant_updated_idx
+    ON app.endpoints (updated_at DESC, endpoint_id DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS delivery_runs_cross_tenant_created_idx
+    ON app.delivery_runs (created_at DESC, delivery_run_id DESC)
+    WHERE deleted_at IS NULL;
+
 -- ---------------------------------------------------------------- Eigentuemer
 -- Die Migration laeuft unter einer Rolle, die Mitglied von echobox_owner ist
 -- (z. B. ein Migrationskonto mit CREATEROLE). Die Objekte werden dem Eigner
@@ -984,7 +1065,7 @@ ALTER FUNCTION app.touch_updated_at() OWNER TO echobox_owner;
 ALTER FUNCTION app.set_tenant(TEXT) OWNER TO echobox_owner;
 ALTER FUNCTION app.tenant_ids_for_worker() OWNER TO echobox_owner;
 ALTER FUNCTION app.list_endpoints_cross_tenant(TEXT, INTEGER, TIMESTAMPTZ, UUID) OWNER TO echobox_owner;
-ALTER FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) OWNER TO echobox_owner;
+ALTER FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) OWNER TO echobox_owner;
 ALTER FUNCTION app.enforce_retention_cross_tenant(BOOLEAN, INTEGER, INTEGER, INTEGER) OWNER TO echobox_owner;
 
 -- ---------------------------------------------------------------- Rechte
@@ -1022,7 +1103,7 @@ REVOKE ALL ON FUNCTION app.touch_updated_at() FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.set_tenant(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.tenant_ids_for_worker() FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.list_endpoints_cross_tenant(TEXT, INTEGER, TIMESTAMPTZ, UUID) FROM PUBLIC;
-REVOKE ALL ON FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.enforce_retention_cross_tenant(BOOLEAN, INTEGER, INTEGER, INTEGER) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION app.set_tenant(TEXT) TO echobox_app, echobox_worker;
@@ -1035,7 +1116,7 @@ GRANT EXECUTE ON FUNCTION app.tenant_ids_for_worker() TO echobox_worker;
 -- Ohne `app.cross_tenant = 'service_admin'` liefern die Funktionen keine
 -- Zeile (fail-closed).
 GRANT EXECUTE ON FUNCTION app.list_endpoints_cross_tenant(TEXT, INTEGER, TIMESTAMPTZ, UUID) TO echobox_app;
-GRANT EXECUTE ON FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) TO echobox_app;
+GRANT EXECUTE ON FUNCTION app.list_dead_deliveries_cross_tenant(UUID, TEXT, INTEGER, TIMESTAMPTZ, TIMESTAMPTZ, TIMESTAMPTZ, UUID) TO echobox_app;
 GRANT EXECUTE ON FUNCTION app.enforce_retention_cross_tenant(BOOLEAN, INTEGER, INTEGER, INTEGER) TO echobox_app;
 
 COMMIT;

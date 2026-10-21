@@ -1,13 +1,13 @@
 # API-Review — EchoBox
 
-> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung aus Schritt 4)** ·
+> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung 2 aus Schritt 4)** ·
 > Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Geprüfter Vertrag: `docs/api/openapi.yaml` (OpenAPI 3.0.3, `info.version` 1.0.0)
 > Vertrag ist ein **Entwurf** — er wird **nach Schritt 4** eingefroren.
-> Die 22 Vertragsdefekte des Stresstests sind im Rücksprung **alle**
-> behoben; die Bilanz steht in `.agent/artifacts/ruecksprung-bilanz.md`.
-> Die fünf beim Beheben gefundenen Restbefunde **R-01…R-05** sind in
-> Schritt 3 behandelt (§4b).
+> Die 22 Vertragsdefekte des **ersten** Stresstests sind im ersten Rücksprung
+> **alle** behoben; die drei Vertragssätze des **zweiten** Stresstests
+> (**V-23, V-24, V-25**) sind im **Rücksprung 2** behoben. Die Bilanz steht in
+> `.agent/artifacts/ruecksprung-bilanz.md`.
 > Die früheren Befund-IDs dieses Reviews heißen jetzt **A-01…A-10**, damit sie
 > nicht mit den Defekt-IDs **V-01…V-22** des Stresstests verwechselt werden.
 
@@ -148,8 +148,26 @@ Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 | **R-03** | `DeadDelivery.abandoned_at` nicht nullable, der Statusfilter der Totenliste ließ `rejected` zu | **behoben**: die Totenliste enthält **ausschließlich aufgegebene** Zustellungen (`abandoned`) — GLOSSARY „Tote Zustellung“, Domain-Modell §3.1, DB-Check `delivery_runs_abandoned_at_ck`. Neues Schema `DeadDeliveryStatus`; `abandoned_at` bleibt Pflicht |
 | **R-04** | Cursor-Semantik der mandantenübergreifenden Listen nicht beschrieben | **behoben**: Abschnitt „Pagination“ im Vertrag — Cursor **über die Mandantgrenzen hinweg**, globale Reihenfolge, Sortierschlüssel + UUID als Tie-Breaker, Keyset statt Offset; `enforceRetention` ist **nicht** paginiert |
 | **R-05** | `tenants[]` unterschied „eigene Frist“ nicht von „Vorgabe“ | **behoben**: `event_retention_source` / `delivery_retention_source` (`tenant` \| `default`); die Beschreibung „`null` = kein Override“ war falsch und ist korrigiert (der Wert ist die **angewandte** Frist) |
-| **R-01** | Karenzzeit ohne beschlossenen Wert; das Beispiel nannte **7 Tage** | **ohne Festlegung**: Beispielwert entfernt, Feld nullable, „kein Vorgabewert“ ausgesprochen. **Bleibt offen** (Fachbereich, Gate 2) |
+| **R-01** | Karenzzeit ohne beschlossenen Wert; das Beispiel nannte **7 Tage** | **ohne Festlegung**: Beispielwert entfernt, Feld nullable, „kein Vorgabewert“ ausgesprochen. **Bleibt offen** (Fachbereich, Gate 2). Das **Schema-Verhalten** ist jetzt **explizit** (E-13): ohne gesetzten Wert Purge im nächsten Durchlauf — im Vertrag **kein** Wert erfunden |
 | **R-02** | `payload_size_bytes` misst die kanonisch materialisierten Bytes (**35**, nicht 38) | kein Befund — folgt zwingend aus V-04 |
+
+## 4c. Stand nach dem **Rücksprung 2** (2026-10-21) — die drei Vertragssätze
+
+| ID | Befund | Stand |
+|---|---|---|
+| **V-23** | Der Abdeckungseintrag **AC-022-3** nannte den „**Connection-Initializer**“ — wer den Vertrag als Implementierungsgrundlage nimmt, baut einen **verbindungsgebundenen** Mandantenkontext; unter einem Connection-Pool liefert **jede** Abfrage 0 Zeilen | **behoben** (`openapi.yaml:3241`): der Eintrag nennt jetzt die entschiedene Semantik — der Mandant wird **innerhalb der Transaktion**, die auch liest, aus dem JWT gesetzt (`app.set_tenant`, transaktionslokal), **nicht** verbindungsgebunden |
+| **V-24** | „mit dem Status **`aktiv`** angelegt“ / „Setzt den Endpunkt auf **`pausiert`**“ — deutsche Wörter in Code-Formatierung; ein Client, der dem Text folgt, sendet `"aktiv"` und bekommt 422 | **behoben** (`:480`, `:697`): die **Werte** `active` / `paused` stehen in Code-Formatierung, die deutsche Übersetzung als Klartext |
+| **V-25** | `DeliveryRun.organisation_id`: „**Nur** für `service_admin` gefüllt“ legt eine mandantenübergreifende Protokollliste nahe, die es nicht gibt | **behoben** (`:2446-2456`): Variante „**nur** in mandantenübergreifenden Antworten gefüllt; die Protokollliste ist **mandantengefiltert**“ (E-10). Sie folgt derselben Regel wie `Endpoint.organisation_id` und ist widerspruchsfrei zur Rollenzeile, zur Antwortbeschreibung von `listDeliveries` und zur `x-contract-rules`-Regel |
+
+**Nicht geändert** wurde am Vertrag: die Zahl der Operationen (**17**), die
+Schemas (**37**), die Antwort-Komponenten (**11**), die Parameter (**7**), die
+`$ref` (**176**), `x-acceptance-coverage` (**101/101**),
+`x-requirement-coverage` (**24/24**), die `x-ac-id`- und
+`x-requirement-ids`-Zuordnungen und **alle** Beispielwerte.
+
+**Parallel im Schema behoben** (ohne Vertragsänderung, E-10/E-11): die drei
+„muss“-Befunde **N-13**, **N-14**, **N-15** und die „sollte“-Befunde **N-16**,
+**N-17** — Nachweis in `.agent/artifacts/ruecksprung-bilanz.md` § 5.
 
 ---
 
@@ -170,20 +188,32 @@ Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 | `python3 .agent/tools/traceability_check.py` | **grün** (23 Stories, 101 AKs, 24 Anforderungen) |
 | Statuscode-Matrix: **429** von **keiner** Operation erreichbar | **behoben** — 429 wird von allen 15 authentifizierten Operationen referenziert; die 503 von `/health/ready` benutzt die Komponente `ServiceUnavailable`; **keine** tote Komponente mehr |
 | `tenant_parameter_rejected` im Enum, aber nicht erzeugbar | **behoben** — die 422 trägt zwei Beispiele und ein `oneOf` über `ValidationFailedProblem` und `TenantParameterRejected` |
+| **Rücksprung 2** (2026-10-21): `$ref` aufgelöst (176), ungenutzte Objekte (37 Schemas, 11 Antwort-Komponenten, 7 Parameter), Beispiele gegen ihr Schema (Pflichtfelder, Enum, unbekannte Felder) | **ok** — keine Abweichung, kein ungenutztes Objekt |
+| **Rücksprung 2**: `grep "Connection-Initializer"` im Vertrag | **kein Treffer** (V-23) |
+| **Rücksprung 2**: `grep "\`(aktiv\|pausiert)\`"` im Vertrag | **kein Treffer** (V-24) |
 
 ---
 
-## 6. Stand für Schritt 4 (Stresstest)
+## 6. Stand für Schritt 4 (Delta-Prüfung)
 
-> Der Stresstest **ist** gelaufen (`.agent/artifacts/stress-test.md`, Commit
-> `bdb03d3`). Seine 22 Vertragsdefekte und der Architekturbruch S-01 sind im
-> Rücksprung **alle** behoben; die fünf beim Beheben gefundenen Punkte
-> **R-01…R-05** sind in Schritt 3 behandelt (Bilanz §5, §4b hier).
-
-**Offen für den zweiten Stresstest** ist damit nur noch **ein** Punkt:
-**R-01** — die Karenzzeit der Aufbewahrung hat keinen beschlossenen
-Vorgabewert. Der Vertrag behauptet seit Schritt 3 **keinen** Wert; die
-Entscheidung liegt beim **Fachbereich** (Gate 2).
+> Der **zweite** Stresstest **ist** gelaufen (`.agent/artifacts/stress-test.md`,
+> Commit `c9c8038`). Seine drei Vertragssätze (**V-23, V-24, V-25**) sind im
+> **Rücksprung 2** behoben; die drei „muss“-Schema-Befunde (**N-13, N-14,
+> N-15**) und die „sollte“-Befunde (**N-16…N-20**) sind im **Rücksprung 2**
+> behoben — **ohne** Vertragsänderung (Bilanz § 2, § 3, § 5).
+>
+> **Offen für die Delta-Prüfung (Schritt 4)** ist damit:
+>
+> - **V-26** (neu, in diesem Schritt gefunden): `Endpoint.organisation_id` —
+>   die Beschreibung („**nur** für `service_admin` gefüllt“) und zwei Beispiele
+>   (`pauseEndpoint`, `listEndpoints` mit `organisation_id: m-1`) widersprechen
+>   sich. **Dokumentiert, nicht entschieden** (Bilanz § 6). Die gewählte
+>   Variante für `DeliveryRun.organisation_id` (V-25) folgt der Beschreibung
+>   und muss mit dieser Entscheidung zusammen geprüft werden.
+> - **E-12** (Härtung der mandantenübergreifenden Sicht) — offen, Gate 2.
+> - **R-01** (= E-13) — die Karenzzeit der Aufbewahrung hat keinen
+>   beschlossenen Vorgabewert; der Vertrag behauptet **keinen**; die
+>   Entscheidung liegt beim **Fachbereich** (Gate 2).
 
 Die frühere Prüfliste des ersten Stresstests (Grenzfälle des
 Idempotenzvergleichs, 1-MB-Grenze bei `payload_base64`, `delayed` als
@@ -201,4 +231,6 @@ zugehörigen Befunde V-01…V-22 und die Entscheidungen E-01…E-09 sind in
 |---|---|---|---|
 | O-04 | Verschlüsselung: fachliche Pflicht und Durchsuchbarkeit | Fachbereich + Datenschutz (Verfahren: Architektur, entschieden) | Gate 2 |
 | O-05 | Auftragsverarbeitung / AVV | Fachbereich + Recht | Gate 2 |
-| **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) — kein beschlossener Vorgabewert; der Vertrag behauptet **keinen** | Fachbereich | Gate 2 |
+| **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) — kein beschlossener Vorgabewert; der Vertrag behauptet **keinen** (das Schema-Verhalten ist explizit: Purge im nächsten Durchlauf, E-13) | Fachbereich | Gate 2 |
+| **E-12** | **Härtung** der mandantenübergreifenden Sicht — eigene Laufzeitrolle `echobox_ops` statt der Allzweckrolle? Die Grenze ist in ADR-002 ehrlich benannt; die Entscheidung ist **offen** | Fachbereich + Plattform | Gate 2 |
+| **V-26** | `Endpoint.organisation_id` — Beschreibung und Beispiele widersprechen sich; **nicht** entschieden (Bilanz § 6) | Architektur (Delta-Prüfung) | **vor dem Freeze** |

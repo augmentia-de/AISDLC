@@ -1,7 +1,8 @@
 # Architektur — EchoBox (kompakter Katalog)
 
 > Schritt 3 (**Simplify & Reduktion** nach dem Rücksprung aus Schritt 4) ·
-> Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> **Schritt 2 — Rücksprung 2** (letzte Vertrags- und Schemakorrekturen vor dem
+> Einfrieren) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Erzählung: `docs/architecture/architecture.md` · Vertrag: `docs/api/openapi.yaml`
 > Schema: `.agent/knowledge/schema.sql` (kanonisch) · **Entscheidungen: `docs/adr/`**
 > Reduktionsbericht: `.agent/artifacts/simplify-report.md`
@@ -24,20 +25,20 @@ nachvollziehbares Protokoll über jeden Versuch — bewusst **kein** Broker und
 | ADR | Entscheidung | Status |
 |---|---|---|
 | ADR-001 | **Java 21 / Spring Boot 3 / PostgreSQL 16 / Next.js 15 (React 19, TS strict)**; Persistenz über JdbcTemplate, kein JPA; kein LLM | Angenommen |
-| ADR-002 | **Mandantentrennung per Row-Level-Security** auf jeder fachlichen Tabelle; `app.set_tenant()` **transaktionsgebunden** (in der Transaktion, die auch liest); **fail-closed**; keine Rolle mit `BYPASSRLS`; **§7:** die mandantenübergreifende Sicht des Service-Admins über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** (kein `BYPASSRLS`, keine Mandantenliste) | Angenommen (im Rücksprung aus Schritt 4 nachgezogen) |
+| ADR-002 | **Mandantentrennung per Row-Level-Security** auf jeder fachlichen Tabelle; `app.set_tenant()` **transaktionsgebunden** (in der Transaktion, die auch liest); **fail-closed**; keine Rolle mit `BYPASSRLS`; **§7:** die mandantenübergreifende Sicht des Service-Admins über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** (kein `BYPASSRLS`, keine Mandantenliste) — Totenliste mit **fest verdrahtetem** Status `abandoned`, **keine** logische Löschung durch die Applikationsrolle; **Grenze:** die Applikationsrolle kann `app.cross_tenant` setzen (E-12, Gate 2) | Angenommen (im Rücksprung und im **Rücksprung 2** nachgezogen) |
 | ADR-003 | **AES-256-GCM (AEAD)** für Nutzlast und Endpunkt-Secret; Schlüssel aus dem Secret-Store, **außerhalb** der DB; entschlüsselt **nur** zur Zustellung; Suche nur über Metadaten | Angenommen (Architekturseite von O-04) |
 | ADR-004 | **HMAC-SHA256**, Header **`X-EchoBox-Signature`** = `v1=<hex>`; Eingabe `<timestamp>.<payload_bytes>`; **eingefroren** | Angenommen |
 | ADR-005 | **Drei Kennungen**: `X-EchoBox-Event-Id`, `X-EchoBox-Delivery-Run-Id`, `X-EchoBox-Attempt-Id`; Body = exakt die Nutzlastbytes | Angenommen |
-| ADR-006 | Zustelllauf **ist** die Warteschlange (transaktionales Outbox); `FOR UPDATE SKIP LOCKED` + **Lease**; getrennte Rollen `api` und `worker`; Worker arbeitet **mandantenweise**; Replay **einmal** (`UNIQUE (replay_of)`) | Angenommen (im Rücksprung nachgezogen) |
+| ADR-006 | Zustelllauf **ist** die Warteschlange (transaktionales Outbox); `FOR UPDATE SKIP LOCKED` + **Lease**; getrennte Rollen `api` und `worker`; Worker arbeitet **mandantenweise**; Replay **einmal** (`UNIQUE (replay_of)`) — `replay_of` ist ein **historischer Verweis** ohne Fremdschlüssel; **23505 ⇒ 409**, `lock_timeout` kürzer als das HTTP-Timeout | Angenommen (im Rücksprung nachgezogen, im **Rücksprung 2** präzisiert) |
 | ADR-007 | Idempotenz je **(Mandant, Schlüssel)**; gleiche Nutzlast ⇒ 202 mit erster ID; abweichende Nutzlast ⇒ **409**; Vergleich über gezielten HMAC | Angenommen |
 | ADR-008 | Wiederholung bei 5xx/408/429/Netzwerkfehler; **3xx ⇒ kein Wiederholen**; Backoff mit **Verdopplung + voller Streuung**; **8 Versuche, Basis 1 min, ×2, Deckel 60 min, ± 20 %**; **Gesamtfenster ≈ 2 h**; **Zeitlimit je Versuch 5 s + 10 s = 15 s** | Angenommen (**bestätigt: F-04**, O-06/O-07) — enthält die frühere ADR-014 |
 | ADR-009 | **Ablehnungssignal: HTTP 410** + `X-EchoBox-Rejection: permanent` + festgeschriebener JSON-Body; übrige 4xx ⇒ ebenfalls Ende, aber `rejection_reason = client_error`; **3xx ⇒ ebenfalls Ende, Redirects werden nicht gefolgt** | Angenommen (im Rücksprung nachgezogen) |
 | ADR-010 | Endpunkt-Begrenzung: Zähler **immer** aktiv, Vorgabewert **60 Versuche/Endpunkt/Minute**, Strategie **`delay`**; **kein** Ereignisverlust; **genau zwei Zustände** (`NULL` = kein Override ⇒ 60, `0` = abgeschaltet) — die Spalte `enabled` ist entfallen | Angenommen (**bestätigt: F-01**) |
 | ADR-011 | Erfolgsquote = erfolgreiche Versuche / alle Versuche; p95 von Annahme bis erfolgreicher Antwort; `data_available: false` statt 0 % | Angenommen |
-| ADR-012 | Aufbewahrung: **zwei** Fristen, Vorgabe **je 30 Tage**, Fristbeginn **je Datensatz** = **letzter Versuch**; markieren (`deleted_at`) dann Purge nach der **Karenzzeit**; **Kaskade** (Ereignis nimmt Läufe und Versuche mit); `dry_run` als Default | Angenommen (**bestätigt: F-02**) |
+| ADR-012 | Aufbewahrung: **zwei** Fristen, Vorgabe **je 30 Tage**, Fristbeginn **je Datensatz** = **letzter Versuch**; markieren (`deleted_at`) dann Purge nach der **Karenzzeit** (ohne gesetzten Wert: Purge im **nächsten** Durchlauf — **kein** erfundener Vorgabewert); **Kaskade** (Ereignis nimmt Läufe und Versuche mit); die **Versuche folgen ihrem Lauf** (sie verlieren die Sichtbarkeit mit ihm); `dry_run` als Default | Angenommen (**bestätigt: F-02**, im **Rücksprung 2** präzisiert) |
 | ADR-013 | Ein Image, zwei Rollen; `echobox.tenant.id` bindet eine Instanz an einen Mandanten; non-root, keine Secrets im Image; Staging/Produktion getrennt | Angenommen |
 | ADR-014 | — | **Zusammengeführt in ADR-008** (Verweisdatei) |
-| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; Rollenmatrix (Service-Admin mandantenübergreifend über die Eigentümerfunktionen des Schemas); Replay **nur** für den Empfänger-Admin und **nur einmal** | Angenommen (**bestätigt: F-03**) |
+| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; Rollenmatrix (die mandantenübergreifende Sicht des Service-Admins gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung — das **Zustellprotokoll bleibt mandantengefiltert**); Replay **nur** für den Empfänger-Admin und **nur einmal** (23505 ⇒ `delivery_state_conflict`) | Angenommen (**bestätigt: F-03**, im **Rücksprung 2** korrigiert) |
 | ADR-016 | Ein Ort pro Wahrheit: Vertrag **einmal**, Schema kanonisch + byte-identische Kopie; Freeze nach Schritt 4 | Angenommen |
 | ADR-017 | Protokollsuche **nur** über Metadaten; Denormalisierung von `event_type`/`endpoint_id`; Cursor-Paginierung ohne `total` | Angenommen |
 | ADR-018 | Next.js 15 App Router; Barrierefreiheit als **Bauregel**: native Bedienelemente, echte `<table>`, Status nie nur über Farbe, axe als CI-Gate | Angenommen |
@@ -94,7 +95,7 @@ Worker: Scheduler → app.tenant_ids_for_worker() → je Mandant:
 | R-09 Replay-Berechtigung widersprüchlich | **entschieden: nur Empfänger-Admin**, Entwickler und Betrieb ⇒ 403 (F-03) | ADR-015 |
 | R-10 Dienst wird zum Event-Store | Zustelllauf ist die einzige Wahrheit; Frist konfigurierbar | ADR-012 |
 | R-11 Doppelzustellung durch konkurrierende Worker | `SKIP LOCKED` + Lease | ADR-006 |
-| R-13 Mandantenleck über die mandantenübergreifende Sicht | Drei schmale `SECURITY DEFINER`-Eigentümerfunktionen, `REVOKE` von `PUBLIC`, `EXECUTE` nur für die Applikationsrolle, fail-closed, **keine** Nutzlast und **keine** Secrets in der Projektion — **gegen echtes PostgreSQL 16 belegt** | ADR-002 §7 |
+| R-13 Mandantenleck über die mandantenübergreifende Sicht | Drei schmale `SECURITY DEFINER`-Eigentümerfunktionen, `REVOKE` von `PUBLIC`, `EXECUTE` nur für die Applikationsrolle, fail-closed, **keine** Nutzlast und **keine** Secrets in der Projektion, Totenliste mit **fest verdrahtetem** Status — **gegen echtes PostgreSQL 16 belegt**. **Verbleibende Lücke (ehrlich benannt, ADR-002):** dieselbe Applikationsrolle kann `app.cross_tenant` setzen; die Härtung ist **offen** (E-12, Gate 2) | ADR-002 §7 |
 | R-12 Latenzversprechen gebrochen | Annahme und Zustellung getrennt (D-10) | ADR-006 |
 
 ## 6. Vertragsumfang
@@ -134,7 +135,9 @@ Die Zuordnung Story → Vertragsort steht **einmal** in
 | O-05 | AVV | technisch vorbereitet | Fachbereich + Recht | Gate 2 |
 | O-06 | Versuche/Backoff | **entschieden (F-04)**: 8 Versuche, 1 min Basis, ×2, 60 min Deckel, ± 20 % | — | erledigt |
 | O-07 | Zeitlimit je Versuch | **entschieden** (ADR-008): 5 s + 10 s = 15 s | — | erledigt |
-| **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) | **kein beschlossener Vorgabewert**; konfigurierbar (`echobox.retention.purge-delay`), **ohne Vorbelegung**; der Vertrag behauptet keinen Wert (ADR-012 §6). **F-02 bleibt unverändert** (30 Tage je Datenart, Anker letzter Versuch, Kaskade) | Fachbereich | **Gate 2** |
+| **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) | **kein beschlossener Vorgabewert**; konfigurierbar (`echobox.retention.purge-delay`), **ohne Vorbelegung**; der Vertrag behauptet keinen Wert (ADR-012 §6). Das **Schema-Verhalten ist explizit**: ohne gesetzten Wert Purge im **nächsten** Durchlauf (E-13). **F-02 bleibt unverändert** (30 Tage je Datenart, Anker letzter Versuch, Kaskade) | Fachbereich | **Gate 2** |
+| **E-12** | **Härtung** der mandantenübergreifenden Sicht: eigene Laufzeitrolle `echobox_ops` statt der Allzweckrolle `echobox_app`? | **nicht entschieden** — die Grenze ist in **ADR-002** ehrlich benannt (die Applikationsrolle kann `app.cross_tenant` setzen). Die Härtung wäre die konsequenteste Lösung, verlangt aber eine getrennte Verbindungsrolle im Betrieb (ADR-013) | Fachbereich + Plattform | **Gate 2** |
+| **V-26** | `Endpoint.organisation_id`: Beschreibung („nur für `service_admin` gefüllt“) und zwei Beispiele (`pauseEndpoint`, `listEndpoints` mit `organisation_id: m-1`) widersprechen sich | **nicht entschieden** — dokumentiert in `.agent/artifacts/ruecksprung-bilanz.md` §6. Die gewählte Variante für `DeliveryRun.organisation_id` (V-25) folgt der Beschreibung und muss mit dieser Entscheidung zusammen geprüft werden | Architektur (Delta-Prüfung) | **vor dem Freeze** |
 
 ## 9. Befunde dieses Schritts
 
@@ -176,6 +179,27 @@ Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 | E-01…E-09 | offene Entscheidungen | **alle 9 entschieden und umgesetzt** (E-06 in Schritt 1, E-07 in Schritt 5) |
 | R-01…R-05 | beim Beheben gefundene Befunde des Rücksprungs | **R-03, R-04, R-05 in Schritt 3 behoben**; **R-01 bleibt offen** (Fachbereich, Gate 2) — siehe §8 und §9 |
 
+## 9b. Befunde aus dem **zweiten** Stresstest (2026-10-21) — alle behandelt
+
+Vollständig in `.agent/artifacts/stress-test.md` (Commit `c9c8038`); die
+Behandlungsbilanz je Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
+
+| # | Befund | Behandlung (**Rücksprung 2** in Schritt 2) |
+|---|---|---|
+| **V-23** | **„muss“** — der Abdeckungseintrag zu AC-022-3 nennt den „Connection-Initializer“ | **behoben**: der Eintrag nennt jetzt die entschiedene Semantik — der Mandant wird **innerhalb der Transaktion**, die auch liest, gesetzt (transaktionslokal, **nicht** verbindungsgebunden) |
+| **V-24** | **„soll“** — deutsche Worte in Code-Formatierung (`aktiv`, `pausiert`) statt der Werte | **behoben**: `active` / `paused` in Code-Formatierung, die deutsche Übersetzung als Klartext |
+| **V-25** | **„soll“** — `DeliveryRun.organisation_id` legt ein mandantenübergreifendes Protokoll nahe | **behoben**: Variante „nur in mandantenübergreifenden Antworten gefüllt; die Protokollliste ist **mandantengefiltert**“ (E-10) — im Feld benannt |
+| **N-13** | **„muss“** — markierte Versuche bleiben sichtbar und zählen in den Kennzahlen | **behoben (Schema)**: die Policy auf `delivery_attempts` bezieht `delivery_runs.deleted_at IS NULL` ein — **eine** Wahrheit, keine zweite Spalte |
+| **N-14** | **„muss“** — die Totenlisten-Funktion ist fail-open (optionaler Statusfilter) | **behoben (Schema)**: der Status ist **fest verdrahtet** (`AND d.status = 'abandoned'`), die Funktion hat **keinen** Statusparameter mehr; die alte Signatur wird per `DROP FUNCTION` entfernt |
+| **N-15** | **„muss“** — die Replay-Historie verschwindet beim Purge des Vorgängers | **behoben (Schema)**: `replay_of` **ohne Fremdschlüssel** (E-11), `UNIQUE (replay_of)` bleibt |
+| **N-16** | **„soll“** — logische Löschung ist der Applikationsrolle nicht möglich | **behoben (Dokumentation)**: ADR-002 §7, Zielstruktur (Konvention „Logische Löschung“), Schema-Kopfkommentar — **gegen PostgreSQL 16 belegt** |
+| **N-17** | **„soll“** — die mandantenübergreifenden Listen haben keinen stützenden Index | **behoben (Schema)**: zwei partielle Indizes, passend zur **tatsächlichen** Sortierung der Funktionen — **gegen PostgreSQL 16 belegt** (Index-Scan statt Seq Scan + Sort) |
+| **N-18** | **„soll“** — ADR-002 nennt die neue Grenze (`app.cross_tenant`) nicht | **behoben**: neuer Absatz „Grenze (ehrlich benannt)“; die Härtung ist als **offene Entscheidung E-12 (Gate 2)** vermerkt |
+| **N-19** | **„soll“** — ADR-015 verspricht ein mandantenübergreifendes Protokoll, das es nicht gibt | **behoben**: Rollenmatrix korrigiert — die mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung (E-10) |
+| **N-20** | **„soll“** — der konkurrierende zweite Replay wartet auf die Sperre des ersten | **behoben (ADR)**: **23505 ⇒ `delivery_state_conflict`** und `lock_timeout`/`statement_timeout` **kürzer** als das HTTP-Timeout — als Vorgabe für Schritt 6 |
+| **E-13** | Karenzzeit: Schema-Verhalten explizit machen, **keinen** Wert erfinden | **behoben**: Schema-Kommentar, ADR-012 §6, Zielstruktur — ohne gesetzten Wert Purge im **nächsten** Durchlauf; der Vertrag behauptet **weiterhin keinen** Wert |
+| **V-26** | **neu** — `Endpoint.organisation_id`: Beschreibung und zwei Beispiele widersprechen sich | **dokumentiert, nicht entschieden** (§ 8) — gehört in die Delta-Prüfung |
+
 ## 10. Geprüft
 
 | Prüfung | Ergebnis |
@@ -184,11 +208,16 @@ Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 | OpenAPI: 23 Stories, 101 AKs, 24 Anforderungen auffindbar | **ok** |
 | OpenAPI: jedes Beispiel gegen sein Schema geprüft (Pflichtfelder) | **ok** |
 | OpenAPI: je Operation `operationId`, `x-ac-id`, `x-requirement-ids` | **ok** |
-| Schema: angewendet gegen **PostgreSQL 16** (Rücksprung aus Schritt 4) | **ok** (10 Tabellen, 10 Policies, 33 Indizes, 3 `SECURITY DEFINER`-Funktionen) |
-| Schema: RLS-Verhalten (ohne Kontext 0 Zeilen, je Mandant nur eigene Zeilen) | **ok** |
-| Schema: mandantenübergreifende Sicht (fail-closed ohne Freigabe, 2 Mandanten über die Funktionen, Worker ohne Recht, kein Klartext/Secret in der Projektion) | **ok** — belegt in `.agent/artifacts/ruecksprung-bilanz.md` §4 |
+| Schema: angewendet gegen **PostgreSQL 16.15** (Rücksprung 2) | **ok** (10 Tabellen, 10 Policies, 7 Funktionen, 3 `SECURITY DEFINER`-Funktionen, 23 ausdrücklich angelegte Indizes) |
+| Schema: RLS-Verhalten (ohne Kontext 0 Zeilen, je Mandant nur eigene Zeilen, keine Rolle mit `BYPASSRLS`) | **ok** |
+| Schema: mandantenübergreifende Sicht (fail-closed ohne Freigabe, 2 Mandanten über die Funktionen, Worker ohne Recht, kein Klartext/Secret in der Projektion) | **ok** — belegt in `.agent/artifacts/ruecksprung-bilanz.md` § 5.1 und § 5.6 |
+| Schema: **N-13** — markierte Versuche unsichtbar, zählen nicht mehr in den Kennzahlen | **ok** (1 → 0; `marked_attempts = 1`) |
+| Schema: **N-14** — die Totenliste liefert ausschließlich `abandoned`, auch ohne Statusparameter | **ok** (2 Zeilen, 0 mit fremdem Status, 0 ohne `abandoned_at`) |
+| Schema: **N-15** — `replay_of` ohne Fremdschlüssel, `UNIQUE (replay_of)` wirksam, Historie überlebt den Purge | **ok** (23505; Verweis bleibt nach dem Löschen des Vorgängers) |
+| Schema: **N-16** — logische Löschung durch die Applikationsrolle nicht möglich | **ok** (`new row violates row-level security policy`) |
+| Schema: **N-17** — die Cross-Tenant-Listen nutzen die neuen Teilindizes | **ok** (Index Only Scan / Index Scan, kein `Sort`) |
 | Schema: `UNIQUE (replay_of)` — zweites Replay ⇒ `unique_violation` | **ok** |
-| Schema-Spiegel: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (in diesem Schritt **nicht** angefasst) |
+| Schema-Spiegel: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (in diesem Schritt **beide** Dateien geändert) |
 | `python3 .agent/tools/traceability_check.py` | **grün** |
 | `knowledge/openapi.yaml` ist ein Verweis | **ok** |
 
@@ -211,5 +240,5 @@ Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 | `.agent/artifacts/api-review.md` | Vertragsreview |
 | `.agent/artifacts/adr-index.md` | **ADR-Gate-Vorlage** (bestätigt / offen) — der Index selbst steht in `docs/adr/README.md` |
 | `.agent/artifacts/simplify-report.md` | **Reduktionsbericht (Schritt 3)** |
-| `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — 22 Vertragsdefekte, 7 „muss“-Befunde, offene Entscheidungen |
-| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2)** — Defektbilanz V-01…V-22, S-01, N-01/N-02/N-08, E-01…E-09, PostgreSQL-Nachweis |
+| `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — 22 Vertragsdefekte (erste Runde), 7 „muss“-Befunde, offene Entscheidungen |
+| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2, Rücksprung 2)** — V-23…V-25, N-13…N-20, E-10…E-13, PostgreSQL-16-Nachweis |

@@ -206,7 +206,9 @@ Das Löschen von Ereignissen, Zustellläufen und Versuchen nach einer Frist.
   sofort unsichtbar); ein Purge-Vorgang entfernt sie endgültig. Die Frist ist
   je Mandant und **getrennt** für Ereignisse und Zustellprotokolle
   konfigurierbar; Vorgabewert **je 30 Tage**, Fristbeginn ist der **letzte
-  Zustellversuch** (bestätigt am 2026-10-21, F-02).
+  Zustellversuch** (bestätigt am 2026-10-21, F-02). Die **Versuche** haben
+  keine eigene Markierung: sie verlieren die Sichtbarkeit **mit ihrem
+  Zustelllauf** — und zählen danach auch nicht mehr in den Kennzahlen.
 - **Nicht:** ein fest verdrahteter Wert. Der Vorgabewert steht in der
   Konfiguration und ist je Mandant überschreibbar.
 - **Quelle:** FR-031, D-12, ADR-012

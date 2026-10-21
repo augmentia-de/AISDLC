@@ -81,6 +81,20 @@ fällige Zustellläufe aller Mandanten an. Ihm die Datenbankrolle mit
      Schreibzugriff mandantenübergreifend.
    - In den mandantenübergreifenden Antworten ist `organisation_id` **im
      Datensatz** gefüllt, damit der Client die Herkunft erkennt.
+   - **Fail-closed auch ohne Parameter:** die Totenlisten-Funktion hat
+     **keinen** Statusparameter — der Status `abandoned` ist **fest verdrahtet**.
+     Mit einem optionalen Statusfilter lieferte die Funktion ohne Wert das
+     vollständige Zustellprotokoll **aller** Mandanten (statt der Totenliste):
+     ein Datenabfluss aus einer Funktion, die die RLS umgeht (N-14).
+   - **Logische Löschung ist der Applikationsrolle nicht möglich:** PostgreSQL
+     prüft den `USING`-Ausdruck einer Policy auch gegen die **neue** Zeile. Ein
+     `UPDATE … SET deleted_at = now()` durch `echobox_app` endet deshalb mit
+     `new row violates row-level security policy`. Markiert wird
+     ausschließlich über die Eigentümerfunktion
+     `app.enforce_retention_cross_tenant` (N-16). Das ist **Absicht**: die
+     logische Löschung ist ein mandantenübergreifender Vorgang (ADR-012) und
+     gehört damit in die schmale Eigentümerfunktion, nicht in eine
+     Allzweckrolle.
 
 ## Konsequenzen
 
@@ -113,6 +127,23 @@ fällige Zustellläufe aller Mandanten an. Ihm die Datenbankrolle mit
   Anwendungsrolle kompromittiert, kann `app.set_tenant('m-2')` aufrufen. Das ist
   die Standardgrenze von PostgreSQL-RLS und wird hier nicht kaschiert: die
   Schutzbedrohung ist der **Fehler**, nicht der Angreifer mit Datenbankzugang.
+- **Grenze (ehrlich benannt) — die verbleibende Lücke zwischen RLS und
+  Anwendung:** dieselbe Applikationsrolle kann auch
+  `app.cross_tenant = 'service_admin'` setzen und damit die
+  mandantenübergreifende Sicht öffnen — Endpunktliste, Totenliste und
+  Aufbewahrung **aller** Mandanten. Das ist die **einzige** Erweiterung
+  gegenüber dem Normalfall und die **einzige** Stelle, an der eine
+  Fehlkonfiguration mandantenübergreifend sichtbar macht: dieselbe
+  Allzweckrolle, die RLS für alle anderen Zugriffe durchsetzt, hält den
+  Schlüssel zur Ausnahme. Eine SQL-Injektion oder ein fehlerhafter
+  Query-Builder in der Applikation hätte über `app.cross_tenant` **alle**
+  Mandanten im Blick.
+  **Härtung als offene Entscheidung (E-12, Gate 2):** die konsequenteste
+  Härtung wäre eine **eigene Laufzeitrolle** `echobox_ops`, der die Freigabe
+  der drei Funktionen gehört, während `echobox_app` sie nicht mehr bekommt.
+  Das verlangt eine getrennte Verbindungsrolle im Betrieb (ADR-013: zwei
+  Rollen, ein Image) und ist eine **echte Architekturentscheidung**, die der
+  Mensch treffen muss. **Bis dahin gilt die Grenze so, wie hier benannt.**
 
 ## Alternativen
 
@@ -140,6 +171,9 @@ Gegen PostgreSQL 16 geprüft:
 | `app.list_endpoints_cross_tenant(...)` **ohne** `app.cross_tenant` | 0 Zeilen (fail-closed) |
 | `app.list_endpoints_cross_tenant(...)` **mit** `app.cross_tenant = 'service_admin'` | Endpunkte **aller** Mandanten, je mit `organisation_id` |
 | `app.list_dead_deliveries_cross_tenant(...)` / `app.enforce_retention_cross_tenant(...)` ohne Freigabe | 0 Zeilen (fail-closed) |
+| `app.list_dead_deliveries_cross_tenant(...)` **ohne** Statusparameter | ausschließlich `abandoned` — kein `sent`, kein `cancelled`; `abandoned_at` immer gefüllt (N-14) |
+| logische Löschung durch `echobox_app` (`UPDATE … SET deleted_at`) | `new row violates row-level security policy` — die Löschung läuft über die Eigentümerfunktion (N-16) |
+| markierter Zustelllauf ⇒ seine Versuche | für die Applikationsrolle **unsichtbar** (Policy folgt dem Zustand des Vaters) — die Kennzahlen zählen sie nicht mehr (N-13) |
 | `echobox_worker` ruft eine der drei Funktionen auf | `permission denied` — der Worker ist **nicht** freigegeben |
 | Rückgabeprojektion der drei Funktionen | enthält **kein** Feld für Secret, Chiffre, Nutzlast oder Schlüssel |
 

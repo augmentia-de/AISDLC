@@ -63,6 +63,15 @@ endgültige Löschung eine **technische**. Die Karenzzeit erlaubt, in einer
 Fehleruntersuchung noch zuzugreifen, ohne die Zusage zu brechen. Karenzzeit
 ist konfigurierbar; ohne gesetzte Frist läuft der Vorgang als **No-Op**.
 
+**Die Versuche folgen ihrem Lauf (N-13).** `delivery_attempts` hat **keine**
+eigene `deleted_at`-Spalte: die Sichtbarkeit folgt dem Zustelllauf — die
+Policy bezieht `delivery_runs.deleted_at IS NULL` ein. Ein markierter Lauf
+macht seine Versuche **sofort unsichtbar**, und die Versuche zählen **nicht
+mehr** in den Kennzahlen (Erfolgsquote, p95). Das ist die Zusage des Vertrags
+(„sie verlieren mit ihm die Sichtbarkeit“) — umgesetzt mit **einer** Wahrheit
+statt mit zwei (`deleted_at` je Datensatz **und** je Versuch), die auseinander
+laufen könnten.
+
 ### 4. Reihenfolge und Kaskade
 
 1. `delivery_attempts` löschen (Kind von `delivery_runs`)
@@ -105,7 +114,7 @@ Stichtage und die Zahl der betroffenen Datensätze.
 | Frist Ereignisse | `echobox.retention.event-days` | **30** |
 | Frist Zustellprotokolle | `echobox.retention.delivery-days` | **30** |
 | Bezugspunkt | `echobox.retention.anchor` | **`last_attempt_at`** |
-| Karenzzeit | `echobox.retention.purge-delay` | konfigurierbar (der Vorgabewert ist **nicht** entschieden — offener Punkt **R-01**, Fachbereich, Gate 2) |
+| Karenzzeit | `echobox.retention.purge-delay` | konfigurierbar (der Vorgabewert ist **nicht** entschieden — offener Punkt **R-01** / **E-13**, Fachbereich, Gate 2) |
 
 - Der Vorgabewert gilt **pro Umgebung**; je Mandant kann `retention_settings`
   beide Fristen überschreiben. `NULL` bedeutet: **kein Override** — es gilt
@@ -115,6 +124,14 @@ Stichtage und die Zahl der betroffenen Datensätze.
 - Der manuelle Aufruf meldet die **beiden** angewandten Fristen und Stichtage.
 - **Kein** Wert ist im Code verdrahtet; alle vier Werte kommen aus der
   Konfiguration.
+- **Karenzzeit ohne Wert (E-13):** ist `purge_delay_days` nicht gesetzt
+  (`null`), rechnet das Schema mit **0 Tagen** — der Purge erfolgt dann im
+  **nächsten** Durchlauf. Das ist das **dokumentierte Verhalten ohne Wert**,
+  **kein** beschlossener Vorgabewert: der Vertrag behauptet weiterhin
+  **keinen** Wert (`purge_delay_days: null`, „Ein Vorgabewert ist nicht
+  festgelegt“), und die Fachbereichsentscheidung (R-01) bleibt offen. Der
+  Wert kommt aus der Konfiguration (`echobox.retention.purge-delay`); ohne
+  gesetzten Wert gilt das beschriebene Verhalten.
 
 ### 7. Was **nicht** gelöscht wird
 
@@ -157,6 +174,11 @@ Stichtage und die Zahl der betroffenen Datensätze.
 - **Negativ:** Ereignisse, die nie zugestellt wurden, fallen unter dieselbe
   Frist wie Zustellprotokolle. Das ist die bewusst gewählte Folge des
   Bezugspunkts „letzter Versuch“ (mit `accepted_at` als Alternative).
+- **Negativ:** Die Totenliste ist **technisch** auf `abandoned` festgelegt
+  (ADR-002 §7) — die mandantenübergreifende Funktion hat **keinen**
+  Statusparameter. Ein breiterer Totenlisten-Begriff (etwa „abgelehnt“ als
+  eigene Liste) braucht deshalb eine **eigene** Funktion mit eigener
+  Projektion — nicht eine Verbreiterung dieser einen.
 
 ## Alternativen
 

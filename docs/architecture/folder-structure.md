@@ -83,7 +83,7 @@
 | Datei | Verantwortung |
 |---|---|
 | `delivery/DeliveryWorker.java` | Hintergrundprozess: arbeitet **mandantenweise** — Scheduler → `app.tenant_ids_for_worker()` → je Mandant `set_tenant` → beanspruchen; je Mandant eine eigene Transaktion. Beansprucht fällige Läufe, plant Wiederholungen, beendet Läufe. |
-| `delivery/DeliveryService.java` | Fachlogik des Zustelllaufs: Zustandsautomat, Replay (neuer Lauf, neue ID, Versuchszahl zurückgesetzt). Ein Vorgängerlauf ist **einmal** replaybar; der zweite Versuch scheitert an `UNIQUE (replay_of)` ⇒ HTTP 409 `delivery_state_conflict`. |
+| `delivery/DeliveryService.java` | Fachlogik des Zustelllaufs: Zustandsautomat, Replay (neuer Lauf, neue ID, Versuchszahl zurückgesetzt). Ein Vorgängerlauf ist **einmal** replaybar; der zweite Versuch scheitert an `UNIQUE (replay_of)` ⇒ SQLSTATE **23505** ⇒ HTTP 409 `delivery_state_conflict` (ADR-015 §6). Die Replay-Transaktion setzt **vor** dem `INSERT` ein `lock_timeout` und ein `statement_timeout`, die **kürzer** sind als das HTTP-Timeout — der verlierende Replay antwortet mit 409 statt mit einem Timeout (N-20). |
 | `delivery/DeliveryController.java` | REST-Adapter: `POST /deliveries/{id}/replay` (US-013). |
 | `delivery/DeliveryStateMachine.java` | Die Zustandsübergänge des Zustelllaufs — die einzige Stelle, die Zustände ändert. |
 | `delivery/DeliveryDispatcher.java` | Fächer: nimmt einen beanspruchten Lauf, holt Nutzlast, signiert, versendet, wertet aus. |
@@ -110,10 +110,10 @@
 |---|---|
 | `protocol/ProtocolController.java` | REST-Adapter: **Zustellprotokoll** (`GET /deliveries`, `GET /deliveries/{id}`), **Totenliste** und **Aufbewahrung** erzwingen. Der Replay liegt im `delivery`-Modul (Traceability-Matrix, Schritt 1). |
 | `protocol/ProtocolQueryService.java` | Protokollsuche **nur über Metadaten** (D-11), cursor-basiert paginiert. |
-| `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin` — über `app.list_dead_deliveries_cross_tenant` (nur mit `CrossTenantScope`). **Auflage:** der Statusfilter ist **immer** `abandoned` zu setzen — ohne diesen Wert liefert die Funktion **alle** Zustände (auch `sent`) und ihre Projektion entspricht dann nicht der Vertragsprojektion `DeadDelivery` (`abandoned_at` ist dort Pflicht). |
-| `protocol/EndpointMetricsService.java` | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false` ohne Daten (FR-032). |
+| `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin` — über `app.list_dead_deliveries_cross_tenant` (nur mit `CrossTenantScope`). **Der Status ist fest verdrahtet:** die Funktion hat **keinen** Statusparameter und liefert ausschließlich `abandoned` (ADR-002 §7, N-14). Der Query-Parameter `status` des Vertrags hat nur den Wert `abandoned` (`DeadDeliveryStatus`) und wird **nicht** weitergereicht. |
+| `protocol/EndpointMetricsService.java` | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false` ohne Daten (FR-032). **Markierte Versuche zählen nicht mit:** sie verlieren mit ihrem Zustelllauf die Sichtbarkeit (N-13). |
 | `protocol/MetricsController.java` | REST-Adapter der Kennzahlen. |
-| `protocol/RetentionService.java` | Durchsetzung der Aufbewahrung — mandantenübergreifend über `app.enforce_retention_cross_tenant` (nur mit `CrossTenantScope`). Zwei Fristen, Vorgabe je 30 Tage ab dem **letzten Versuch** (D-12, F-02); Anker je Datenart, Stufen *markieren* → *Purge* nach der Karenzzeit, Kaskade Ereignis → Läufe → Versuche. |
+| `protocol/RetentionService.java` | Durchsetzung der Aufbewahrung — mandantenübergreifend über `app.enforce_retention_cross_tenant` (nur mit `CrossTenantScope`). Zwei Fristen, Vorgabe je 30 Tage ab dem **letzten Versuch** (D-12, F-02); Anker je Datenart, Stufen *markieren* → *Purge* nach der Karenzzeit, Kaskade Ereignis → Läufe → Versuche. **Ohne gesetzte Karenzzeit** (`purge_delay_days: null`) wird mit 0 Tagen gerechnet ⇒ der Purge erfolgt im **nächsten** Durchlauf — das dokumentierte Verhalten **ohne** Vorgabewert (E-13, R-01 bleibt offen). Die logische Löschung (`deleted_at`) setzt **nur** diese Eigentümerfunktion — die Applikationsrolle kann sie nicht setzen (N-16). |
 
 ### 2.6 `tenant` — Mandantentrennung (US-004, US-022)
 
@@ -188,6 +188,7 @@
 | Ports | Alle nach außen gerichteten Zugriffe laufen über Ports (`DeliveryPort`, `SecretPort`, `ClockPort`, `IdGenerator`, Repositories). |
 | SQL | **Nur** vorbereitete Statements über `JdbcTemplate` mit benannten Parametern. Kein String-Konkatenieren, kein dynamisch zusammengesetztes SQL. Jede Abfrage trägt den Mandanten. |
 | **Mandant** | `app.set_tenant(...)` wird **innerhalb** der Transaktion ausgeführt, die auch liest, und **immer** vor der ersten Abfrage. Kein Zugriff auf `app.*` außerhalb einer solchen Transaktion, kein `REQUIRES_NEW` nach dem Setzen, kein Autocommit. Der Kontext ist **transaktionsgebunden**, nicht verbindungsgebunden — ein Connection-Pool ändert daran nichts (ADR-002 §2-3). |
+| **Logische Löschung** | `deleted_at` setzt die Applikationsrolle **nicht** selbst: PostgreSQL prüft den `USING`-Ausdruck einer Policy auch gegen die **neue** Zeile, ein `UPDATE … SET deleted_at` endet mit „new row violates row-level security policy“. Die logische Löschung läuft **ausschließlich** über die Eigentümerfunktion `app.enforce_retention_cross_tenant` (ADR-002 §7, N-16). |
 | Fehler | Ausnahmen aus `common` (`TenantParameterException`, `IdempotencyConflictException`, `PayloadTooLargeException`, …); die Abbildung auf HTTP geschieht **ausschließlich** in `GlobalExceptionHandler`. |
 | Kein Klartext | Nutzlast und Secrets erscheinen in **keinem** Log, **keiner** Fehlermeldung und **keinem** `toString()`. |
 | Konfiguration | Alle Zahlenwerte kommen aus `DeliveryProperties` (ENV). Keine Zahl ist im Code verdrahtet. |
