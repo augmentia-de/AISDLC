@@ -79,8 +79,11 @@ fällige Zustellläufe aller Mandanten an. Ihm die Datenbankrolle mit
      Purge die dokumentierte Löschung aus. Sie kann **keine** fachlichen Daten
      anlegen, ändern oder löschen. Es gibt **keinen** allgemeinen
      Schreibzugriff mandantenübergreifend.
-   - In den mandantenübergreifenden Antworten ist `organisation_id` **im
-     Datensatz** gefüllt, damit der Client die Herkunft erkennt.
+   - `organisation_id` ist **immer** gefüllt und benennt den **besitzenden
+     Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den
+     mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz
+     gehört (V-26). Der Client erkennt die Herkunft damit **immer**, nicht nur
+     in der mandantenübergreifenden Sicht.
    - **Fail-closed auch ohne Parameter:** die Totenlisten-Funktion hat
      **keinen** Statusparameter — der Status `abandoned` ist **fest verdrahtet**.
      Mit einem optionalen Statusfilter lieferte die Funktion ohne Wert das
@@ -180,3 +183,11 @@ Gegen PostgreSQL 16 geprüft:
 ## Status
 
 **Angenommen** — bei Gate 1 am 2026-10-21 bestätigt.
+
+**Korrektur vom 2026-10-21 (Rücksprung 6, nach dem Einfrieren des Vertrags):**
+§7 — der Bullet zu `organisation_id` ist auf die **V-26**-Fassung umgestellt:
+das Feld ist **immer** gefüllt und benennt den **besitzenden Mandanten** der
+Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden
+Antworten den Mandanten, zu dem der Datensatz gehört (V-48). Die Semantik der
+drei Eigentümerfunktionen ist **unverändert**; es wurde **keine** bestätigte
+Entscheidung neu aufgerollt.

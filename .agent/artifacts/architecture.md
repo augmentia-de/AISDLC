@@ -1,10 +1,13 @@
 # Architektur — EchoBox (kompakter Katalog)
 
 > Schritt 3 (**Simplify & Reduktion** nach dem Rücksprung aus Schritt 4) ·
+> **Schritt 2 — Rücksprung 6** (nach dem Freeze: die zwei Formulierungslücken
+> **V-48** und **V-49** behoben — ADR-002 §7, ADR-015 §1, Vertrag; der Vertrag
+> ist **ab dem Commit dieses Schritts wieder eingefroren**) ·
 > **Schritt 2 — Rücksprung 5** (letzter Korrekturdurchgang vor dem Einfrieren:
 > V-39…V-44 entschieden und umgesetzt) ·
 > **Schritt 4 — dritte Runde** (Delta-Prüfung, `2026-10-21`): der Vertrag ist
-> **einfrierreif**; die zwei neuen Befunde **V-48** und **V-49** stehen in § 8,
+> **einfrierreif**; die zwei neuen Befunde **V-48** und **V-49** standen in § 8,
 > die drei offenen **V-45…V-47** trägt die Testmatrix (Schritt 5) · Agent:
 > `aisdlc-architecture` · Stand: 2026-10-21
 > Erzählung: `docs/architecture/architecture.md` · Vertrag: `docs/api/openapi.yaml`
@@ -29,7 +32,7 @@ nachvollziehbares Protokoll über jeden Versuch — bewusst **kein** Broker und
 | ADR | Entscheidung | Status |
 |---|---|---|
 | ADR-001 | **Java 21 / Spring Boot 3 / PostgreSQL 16 / Next.js 15 (React 19, TS strict)**; Persistenz über JdbcTemplate, kein JPA; kein LLM | Angenommen |
-| ADR-002 | **Mandantentrennung per Row-Level-Security** auf jeder fachlichen Tabelle; `app.set_tenant()` **transaktionsgebunden** (in der Transaktion, die auch liest); **fail-closed**; keine Rolle mit `BYPASSRLS`; **§7:** die mandantenübergreifende Sicht des Service-Admins über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** (kein `BYPASSRLS`, keine Mandantenliste) — Totenliste mit **fest verdrahtetem** Status `abandoned`, **keine** logische Löschung durch die Applikationsrolle; **Grenze:** die Applikationsrolle kann `app.cross_tenant` setzen (E-12, Gate 2) | Angenommen (im Rücksprung und im **Rücksprung 2** nachgezogen) |
+| ADR-002 | **Mandantentrennung per Row-Level-Security** auf jeder fachlichen Tabelle; `app.set_tenant()` **transaktionsgebunden** (in der Transaktion, die auch liest); **fail-closed**; keine Rolle mit `BYPASSRLS`; **§7:** die mandantenübergreifende Sicht des Service-Admins über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** (kein `BYPASSRLS`, keine Mandantenliste) — Totenliste mit **fest verdrahtetem** Status `abandoned`, **keine** logische Löschung durch die Applikationsrolle; **§7:** `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** (V-26/V-48); **Grenze:** die Applikationsrolle kann `app.cross_tenant` setzen (E-12, Gate 2) | Angenommen (im Rücksprung und im **Rücksprung 2** nachgezogen, im **Rücksprung 6** an V-48 geschärft) |
 | ADR-003 | **AES-256-GCM (AEAD)** für Nutzlast und Endpunkt-Secret; Schlüssel aus dem Secret-Store, **außerhalb** der DB; entschlüsselt **nur** zur Zustellung; Suche nur über Metadaten | Angenommen (Architekturseite von O-04) |
 | ADR-004 | **HMAC-SHA256**, Header **`X-EchoBox-Signature`** = `v1=<hex>`; Eingabe `<timestamp>.<payload_bytes>`; **eingefroren** | Angenommen |
 | ADR-005 | **Drei Kennungen**: `X-EchoBox-Event-Id`, `X-EchoBox-Delivery-Run-Id`, `X-EchoBox-Attempt-Id`; Body = exakt die Nutzlastbytes | Angenommen |
@@ -42,7 +45,7 @@ nachvollziehbares Protokoll über jeden Versuch — bewusst **kein** Broker und
 | ADR-012 | Aufbewahrung: **zwei** Fristen, Vorgabe **je 30 Tage**, Fristbeginn **je Datensatz** = **letzter Versuch**; markieren (`deleted_at`) dann Purge nach der **Karenzzeit** (ohne gesetzten Wert: Purge im **nächsten** Durchlauf — **kein** erfundener Vorgabewert); **Kaskade** (Ereignis nimmt Läufe und Versuche mit); die **Versuche folgen ihrem Lauf** (sie verlieren die Sichtbarkeit mit ihm); `dry_run` als Default | Angenommen (**bestätigt: F-02**, im **Rücksprung 2** präzisiert) |
 | ADR-013 | Ein Image, zwei Rollen; `echobox.tenant.id` bindet eine Instanz an einen Mandanten; non-root, keine Secrets im Image; Staging/Produktion getrennt | Angenommen |
 | ADR-014 | — | **Zusammengeführt in ADR-008** (Verweisdatei) |
-| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; **§3: erst der Mandant, dann die Rolle** (V-39); Rollenmatrix (die mandantenübergreifende Sicht des Service-Admins gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung — das **Zustellprotokoll bleibt mandantengefiltert**, `organisation_id` ist **immer** gefüllt); Replay **nur** für den Empfänger-Admin und **nur einmal** (23505 ⇒ `delivery_state_conflict`) | Angenommen (**bestätigt: F-03**, im **Rücksprung 2** korrigiert, im **Rücksprung 5** an V-26/V-27/V-39 angeglichen) |
+| ADR-015 | Ein Fehlerschema (`Problem`); 422 bei Mandantenparameter, 404 bei fremden Ressourcen, 403 bei Rollenverstoß; **§3: erst der Mandant, dann die Rolle** (V-39); Rollenmatrix (die mandantenübergreifende Sicht des Service-Admins gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung — das **Zustellprotokoll bleibt mandantengefiltert**, `organisation_id` ist **immer** gefüllt; der `service_admin` verwaltet Endpunkte **nur im eigenen Mandanten** und liefert **keine** Ereignisse ein — V-49); Replay **nur** für den Empfänger-Admin und **nur einmal** (23505 ⇒ `delivery_state_conflict`) | Angenommen (**bestätigt: F-03**, im **Rücksprung 2** korrigiert, im **Rücksprung 5** an V-26/V-27/V-39 angeglichen, im **Rücksprung 6** an V-49 geschärft) |
 | ADR-016 | Ein Ort pro Wahrheit: Vertrag **einmal**, Schema kanonisch + byte-identische Kopie; Freeze nach Schritt 4 | Angenommen |
 | ADR-017 | Protokollsuche **nur** über Metadaten; Denormalisierung von `event_type`/`endpoint_id`; Cursor-Paginierung ohne `total`; **§4:** der Zeitraumfilter ist **je Liste benannt** — Protokoll ⇒ `created_at`, Totenliste ⇒ `abandoned_at` (V-40) | Angenommen (im **Rücksprung 5** präzisiert) |
 | ADR-018 | Next.js 15 App Router; Barrierefreiheit als **Bauregel**: native Bedienelemente, echte `<table>`, Status nie nur über Farbe, axe als CI-Gate | Angenommen |
@@ -114,6 +117,23 @@ Worker: Scheduler → app.tenant_ids_for_worker() → je Mandant:
 | Anforderungen auffindbar | **24 / 24** (`x-requirement-coverage`) |
 | Fehlende Operationen | **keine** |
 
+### 6a. Der Vertrag ist wieder **eingefroren**
+
+> **Der Vertrag `docs/api/openapi.yaml` gilt ab dem Commit dieses Schritts
+> (Rücksprung 6) wieder als eingefroren.**
+>
+> **Verlauf:** eingefroren ab dem Commit des dritten Stresstests (`68ffa4e`,
+> Schritt 4). Der **Rücksprung 6** hat den Vertrag **für genau zwei
+> Änderungen** geöffnet — **V-48** (ADR-002 §7: `organisation_id` ist **immer**
+> gefüllt) und **V-49** (Rollenmatrix: ADR-015 §1 geschärft, Vertrag
+> `info.description` § „Rollen“ **vollständig**) — und **friert ihn danach
+> wieder ein**. **V-48 und V-49 waren die einzigen Änderungen nach dem
+> Freeze.**
+>
+> Jede weitere Änderung am Vertrag ist ein **Rücksprung zu Schritt 2** — der
+> Vertrag wird nie im Vorbeigehen geändert (AGENTS.md, `.agent/PHASES.md` →
+> „Einfrierpunkt des Vertrags: nach Schritt 4“).
+
 ## 7. Abdeckung der 23 Stories
 
 Die Zuordnung Story → Vertragsort steht **einmal** in
@@ -152,8 +172,11 @@ Die Zuordnung Story → Vertragsort steht **einmal** in
 | **V-45** | AC-013-3 nennt **403 ohne Mandantbezug** — mit V-39 ist ein Zustelllauf **fremden** Mandanten **404**. Die Testmatrix (Schritt 5) muss „eigener Mandant, falsche Rolle ⇒ 403" und „fremder Mandant ⇒ 404" **trennen**; die **Anforderung** wird **nicht** geändert | **dokumentiert, nicht entschieden** (Bilanz § 11.3) | Schritt 5 (Testmatrix) | **vor dem Freeze** |
 | **V-46** | Optionale, aber als immer vorhanden beschriebene Antwortfelder (`EndpointMetrics.attempts_total`/`attempts_successful`/`success_rate`/`delivery_latency_p95_ms`, `Event.subscribed_endpoint_count`, `EventIntakeResponse.subscribed_endpoint_count`/`payload_size_bytes`) — dieselbe Musterlage wie V-42 | **dokumentiert, nicht entschieden** (Bilanz § 11.3) | Architektur | nach dem Freeze |
 | **V-47** | `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` **deklarieren** 404, **nennen** die Fremdmandanten-Regel aber nicht (anders als die vier Lesoperationen) | **dokumentiert, nicht entschieden** (Bilanz § 11.3) | Architektur | nach dem Freeze |
-| **V-48** | ADR-002 §7 (`:82`) nennt `organisation_id` nur für die **mandantenübergreifenden** Antworten — die schwächere V-25-Fassung, die V-26 abgelöst hat; der Vertrag sagt es an 12 Stellen richtig | **dokumentiert, nicht entschieden** (Stresstest 3, § 2.6) — **kein** Widerspruch, nur schwächer; Korrektur ist ein Satz in `docs/adr/` | Architektur | **Gate 1** → Rücksprung zu Schritt 2 |
-| **V-49** | Die **Rollentabelle des Vertrags** (`info.description`, `:50-54`) nennt dem `service_admin` weder die Endpunktverwaltung noch die Ereigniseinlieferung, die **ADR-015 §1** (`:67-68`) gewährt; PRD und Vertrag sagen es **nicht** | **dokumentiert, nicht entschieden** (Stresstest 3, § 2.6) — **kein** AK/FR betroffen; Empfehlung: ADR-015 §1 auf PRD + Vertrag **verschärfen** | Fachbereich + Architektur | **Gate 1** → Rücksprung zu Schritt 2 |
+| **V-48** | ADR-002 §7 nannte `organisation_id` nur für die **mandantenübergreifenden** Antworten — die schwächere V-25-Fassung, die V-26 abgelöst hat | **behoben** (Rücksprung 6): der Bullet steht jetzt auf der **V-26**-Fassung — `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten**; die Semantik der drei Eigentümerfunktionen ist unverändert, das Schema unberührt | — | erledigt |
+| **V-49** | Die **Rollentabelle des Vertrags** (`info.description`) war gegenüber **ADR-015 §1** unvollständig; die ADR gewährte dem `service_admin` zwei Rechte, die der Vertrag nicht nannte | **behoben** (Rücksprung 6, Gate-1-Entscheidung (a)): **ADR-015 §1** geschärft — der `service_admin` verwaltet Endpunkte **nur im eigenen Mandanten** und liefert **keine** Ereignisse ein; der Vertrag führt die Matrix jetzt **vollständig** (3 Rollen × 8 Rechte) und maschinenlesbar (`x-contract-rules.roles`). **Kein** AK, **kein** FR, **keine** Operation und **kein** Feld geändert | — | erledigt |
+| **V-50** | Die Rollenzeile des **PRD** (Abschnitt 3) kennt das Recht des `service_admin` auf die Endpunktverwaltung im **eigenen** Mandanten nicht (nach V-49 entschieden) — sie **schweigt**, sie verbietet nichts | **dokumentiert, nicht entschieden** (Bilanz § 12.4) — die Anforderung wird **nicht** geändert (`docs/requirements/` ist in diesem Schritt nicht änderbar); die ADR ist die normative Quelle der Rechte | Fachbereich (+ Architektur) | Gate 1/2 |
+| **V-51** | Die sechs Operationen `createEndpoint`, `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` und `submitEvent` nennen ihre **Rolle** nicht in der Beschreibung — die Matrix in `info.description` ist vollständig, die operationseigene Beschreibung nicht (dieselbe Musterlage wie V-47) | **dokumentiert, nicht entschieden** (Bilanz § 12.4) — reine Textergänzung **ohne** neue Zusage, nach dem Freeze nur mit Rücksprung | Architektur | nach dem Freeze |
+| **V-52** | Mehrere Rollenrechte der Matrix haben **kein** Akzeptanzkriterium (u. a. `service_admin` bei der Endpunktverwaltung, `developer` und `service_admin` bei der Totenliste) | **dokumentiert, nicht entschieden** (Bilanz § 12.4) — die Testmatrix (Schritt 5) leitet die Fälle aus der Matrix ab; die Anforderung wird **nicht** geändert | Schritt 5 (Testmatrix) | Schritt 5 |
 
 ## 9. Befunde dieses Schritts
 
@@ -204,7 +227,7 @@ Behandlungsbilanz je Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 |---|---|---|
 | **V-23** | **„muss“** — der Abdeckungseintrag zu AC-022-3 nennt den „Connection-Initializer“ | **behoben**: der Eintrag nennt jetzt die entschiedene Semantik — der Mandant wird **innerhalb der Transaktion**, die auch liest, gesetzt (transaktionslokal, **nicht** verbindungsgebunden) |
 | **V-24** | **„soll“** — deutsche Worte in Code-Formatierung (`aktiv`, `pausiert`) statt der Werte | **behoben**: `active` / `paused` in Code-Formatierung, die deutsche Übersetzung als Klartext |
-| **V-25** | **„soll“** — `DeliveryRun.organisation_id` legt ein mandantenübergreifendes Protokoll nahe | **behoben**: Variante „nur in mandantenübergreifenden Antworten gefüllt; die Protokollliste ist **mandantengefiltert**“ (E-10) — im Feld benannt |
+| **V-25** | **„soll“** — `DeliveryRun.organisation_id` legt ein mandantenübergreifendes Protokoll nahe | **behoben**: Variante „nur in mandantenübergreifenden Antworten gefüllt; die Protokollliste ist **mandantengefiltert**“ (E-10) — im Feld benannt. **› überholt durch V-26** (Rücksprung 3): `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** |
 | **N-13** | **„muss“** — markierte Versuche bleiben sichtbar und zählen in den Kennzahlen | **behoben (Schema)**: die Policy auf `delivery_attempts` bezieht `delivery_runs.deleted_at IS NULL` ein — **eine** Wahrheit, keine zweite Spalte |
 | **N-14** | **„muss“** — die Totenlisten-Funktion ist fail-open (optionaler Statusfilter) | **behoben (Schema)**: der Status ist **fest verdrahtet** (`AND d.status = 'abandoned'`), die Funktion hat **keinen** Statusparameter mehr; die alte Signatur wird per `DROP FUNCTION` entfernt |
 | **N-15** | **„muss“** — die Replay-Historie verschwindet beim Purge des Vorgängers | **behoben (Schema)**: `replay_of` **ohne Fremdschlüssel** (E-11), `UNIQUE (replay_of)` bleibt |
@@ -251,6 +274,20 @@ je Befund dort. Der Gegenstand ist der **Vertrag** und **ADR-015/ADR-017** —
 | **V-44** | **„muss“** — ADR-015 §1/§2 widersprachen V-26/V-27 | **entschieden und umgesetzt** (6 ADR-015- + 2 Index-Stellen): Rollenmatrix, `organisation_id` und die Prüfreihenfolge sind an den entschiedenen Stand gebracht |
 | **V-45…V-47** | **neu** — AC-013-3 ohne Mandantbezug; optionale, aber als vorhanden beschriebene Felder; vier Operationen ohne Fremdmandanten-404 im Text | **dokumentiert, nicht entschieden** (§ 8) — sie **blockieren den Freeze nicht** |
 
+## 9e. Befunde aus dem **Rücksprung 6** (2026-10-21) — V-48 und V-49, alle behandelt
+
+Vollständig in `.agent/artifacts/ruecksprung-bilanz.md` § 12; die Behandlungsbilanz
+je Befund dort. Der Gegenstand ist der **Vertrag** und **ADR-002/ADR-015** —
+`docs/architecture/` und das **Schema** blieben unberührt. Der Vertrag war
+ab `68ffa4e` **eingefroren**; dieser Rücksprung öffnet ihn **für genau diese
+zwei Änderungen** und **friert ihn danach wieder ein** (§ 6a).
+
+| # | Befund | Behandlung (**Rücksprung 6** in Schritt 2) |
+|---|---|---|
+| **V-48** | **„sollte“** — ADR-002 §7 nannte `organisation_id` nur für die mandantenübergreifenden Antworten (die schwächere V-25-Fassung) | **behoben** (2 ADR-002-Stellen): der Bullet steht auf der **V-26**-Fassung — `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten**. Die Semantik der drei Eigentümerfunktionen und das Schema sind **unverändert** |
+| **V-49** | **„sollte“** — die Rollentabelle des Vertrags war gegenüber ADR-015 §1 unvollständig; die ADR gewährte dem `service_admin` zwei Rechte, die der Vertrag nicht nannte | **behoben** (7 ADR-015- + 3 Index- + 2 Vertragsstellen): **ADR-015 §1** geschärft (Gate-1-Entscheidung (a) — Endpunktverwaltung **nur im eigenen Mandanten**, **keine** Ereigniseinlieferung); der Vertrag führt die Matrix jetzt **vollständig** (3 Rollen × 8 Rechte) und maschinenlesbar (`x-contract-rules.roles`) |
+| **V-50…V-52** | **neu** — PRD-Rollenzeile ohne das Recht des `service_admin`; sechs Operationen ohne Rollenangabe; mehrere Rollenrechte ohne AK | **dokumentiert, nicht entschieden** (§ 8) — sie **blockieren den Freeze nicht** |
+
 ## 10. Geprüft
 
 | Prüfung | Ergebnis |
@@ -278,6 +315,13 @@ je Befund dort. Der Gegenstand ist der **Vertrag** und **ADR-015/ADR-017** —
 | **Rücksprung 5**: Beispiele gegen ihr Schema (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum, Längen, Bereiche) | **0 Abweichungen** |
 | **Rücksprung 5**: `not_ready` / Enum `unavailable` im Vertrag | **0 Treffer** — nur noch `service_unavailable` |
 | **Rücksprung 5**: `deleted_at` in einem **Antwortmodell** | **keiner** — 3 Treffer = Markiervorgang der Aufbewahrung |
+| **Rücksprung 6**: YAML gültig, 17 Operationen, 177 `$ref` auflösbar, kein ungenutztes Objekt | **ok** |
+| **Rücksprung 6**: `x-acceptance-coverage` / `x-requirement-coverage` | **101 / 24**, lückenlos, keine Dubletten |
+| **Rücksprung 6**: Rollenmatrix Vertrag ↔ ADR-015 §1 | **deckungsgleich** — 3 Rollen × 8 Rechte; alle gemeinsamen Zellen **zeichengleich** (maschinell verglichen) |
+| **Rücksprung 6**: `grep "im Datensatz gefüllt"` in `docs/adr/` | **kein Treffer** — die V-25-Fassung ist entfernt (V-48) |
+| **Rücksprung 6**: `grep "für Migrations-/Testzwecke"` in `docs/adr/` und im Vertrag | **kein Treffer** — die Ausnahme ist entfernt (V-49) |
+| **Rücksprung 6**: `python3 .agent/tools/traceability_check.py` | **grün** (23 Stories, 101 AKs, 24 Anforderungen) |
+| **Rücksprung 6**: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** — das Schema wurde nicht angefasst |
 
 ## 11. Artefakte
 
@@ -299,4 +343,4 @@ je Befund dort. Der Gegenstand ist der **Vertrag** und **ADR-015/ADR-017** —
 | `.agent/artifacts/adr-index.md` | **ADR-Gate-Vorlage** (bestätigt / offen) — der Index selbst steht in `docs/adr/README.md` |
 | `.agent/artifacts/simplify-report.md` | **Reduktionsbericht (Schritt 3)** |
 | `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — 22 Vertragsdefekte (erste Runde), 7 „muss“-Befunde, offene Entscheidungen |
-| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2, Rücksprung 5)** — V-23…V-27, V-28…V-38 (Abschluss-Sweep), V-39…V-44 (entschieden und umgesetzt), V-45…V-47 (offen), N-13…N-20, E-10…E-13, PostgreSQL-16-Nachweis |
+| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2, Rücksprung 6)** — V-23…V-27, V-28…V-38 (Abschluss-Sweep), V-39…V-44 (entschieden und umgesetzt), V-45…V-47 (offen), **V-48/V-49 (behoben — der Vertrag ist wieder eingefroren)**, V-50…V-52 (offen), N-13…N-20, E-10…E-13, PostgreSQL-16-Nachweis |

@@ -1,9 +1,12 @@
 # API-Review — EchoBox
 
-> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung 5 aus Schritt 4)** ·
+> Schritt 3 (Simplify & Reduktion) · **Schritt 2 (Rücksprung 6 aus Schritt 4)** ·
 > Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Geprüfter Vertrag: `docs/api/openapi.yaml` (OpenAPI 3.0.3, `info.version` 1.0.0)
-> Vertrag ist ein **Entwurf** — er wird **nach Schritt 4** eingefroren.
+> Der Vertrag ist **ab dem Commit des Rücksprungs 6 wieder eingefroren** —
+> eingefroren war er ab dem dritten Stresstest (`68ffa4e`); der Rücksprung hat
+> ihn **für genau zwei Änderungen** geöffnet (**V-48**, **V-49**) und **friert
+> ihn danach wieder ein**.
 > Die 22 Vertragsdefekte des **ersten** Stresstests sind im ersten Rücksprung
 > **alle** behoben; die drei Vertragssätze des **zweiten** Stresstests
 > (**V-23, V-24, V-25**) sind im **Rücksprung 2** behoben, **V-26** im
@@ -12,7 +15,10 @@
 > behoben, **6** neue Befunde (**V-39…V-44**) dokumentiert und **nicht**
 > entschieden — und im **Rücksprung 5** (letzter Korrekturdurchgang vor dem
 > Freeze) **alle sechs entschieden und umgesetzt** (**35 Stellen** in Vertrag
-> und ADRs). Danach: **3** neue Befunde (**V-45…V-47**) dokumentiert und
+> und ADRs). Der **dritte** Stresstest bestätigt **48 von 48** Nachprüfungen und
+> findet **0** neue Vertragsdefekte; die zwei verbliebenen
+> **Formulierungslücken** (**V-48**, **V-49**) sind im **Rücksprung 6**
+> behoben. Danach: **3** neue Befunde (**V-50…V-52**) dokumentiert und
 > **nicht** entschieden. Die Bilanz steht in
 > `.agent/artifacts/ruecksprung-bilanz.md`.
 > Die früheren Befund-IDs dieses Reviews heißen jetzt **A-01…A-10**, damit sie
@@ -31,6 +37,7 @@
 | Gibt es Felder oder Operationen ohne Zweck? | **Nein** — nach der Reduktion (Schritt 3) trägt jede Operation mindestens eine Story und jedes Feld ist im Protokoll sichtbar, in der Zustandsmaschine nötig oder ein Mandanten-/Zeitmetadatum. |
 | Ist die Fehlersemantik einheitlich? | **Ja** — ein Schema (`Problem`) für alle Fehlerantworten, `code` maschinenlesbar; **jede** Operation mit Request-Body deklariert **400**, jede authentifizierte **429**, jede per ID adressierte **404** (Rücksprung 4, V-29). Die Grenze 403/404 ist ausdrücklich geregelt: **erst der Mandant, dann die Rolle** (Rücksprung 5, V-39). |
 | Ist die Mandantentrennung im Vertrag durchgesetzt? | **Ja** — D-01 (422 bei Mandantenparameter), D-02 (404 bei fremden Ressourcen — **auch** für `service_admin`, V-27), global `bearerAuth`. |
+| Ist die Rollenmatrix vollständig? | **Ja** — `info.description` § „Rollen“ führt **jede** Rolle mit **jedem** Recht (3 Rollen × 8 Rechte), **deckungsgleich mit ADR-015 §1**; die Regeln stehen zusätzlich maschinenlesbar in `x-contract-rules.roles` (Rücksprung 6, V-49). |
 | Ist der nicht bereite Zustand eindeutig? | **Ja** — HTTP 200 ⇒ `status: ready` mit `checks.*: ok`; der nicht bereite Zustand ⇒ **503** mit `Problem` (Rücksprung 5, V-41). |
 | Sind die bestätigten Vorgabewerte sichtbar? | **Ja** — F-01…F-04 stehen in `info.description`, in `x-contract-rules.defaults` und an der jeweiligen Operation. |
 
@@ -140,7 +147,7 @@ Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 | Thema | Stand |
 |---|---|
 | **22 Vertragsdefekte** (V-01…V-22 des Stresstests) | **alle behoben** — Bilanz: `.agent/artifacts/ruecksprung-bilanz.md` §1 |
-| **S-01** — `service_admin` sieht alle Mandanten | **behoben** über drei `SECURITY DEFINER`-Eigentümerfunktionen (ADR-002 §7); `organisation_id` ist in den mandantenübergreifenden Antworten **im Datensatz** gefüllt |
+| **S-01** — `service_admin` sieht alle Mandanten | **behoben** über drei `SECURITY DEFINER`-Eigentümerfunktionen (ADR-002 §7); `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource (V-26/V-48) |
 | **Rate-Limit** | `rate_limit.limit` = **immer** der wirksame Grenzwert (Vorgabe 60); `rate_limit.limited: false` ⇒ abgeschaltet (`limit: 0`). `null` ist als Grenzwert **ausgeschlossen** |
 | **Aufbewahrung** | Anker (`last_attempt_at`), zwei Stufen (`marked_*` / `purged_*`), Karenzzeit (`purge_delay_days`), Kaskade und Geltungsbereich (`scope: all`, `tenants[]`) im Vertrag benannt |
 | **Byte-Identität** | „Die zugestellten Bytes sind die **Nutzlastbytes des Ereignisses**“ — bei `payload` kanonisch materialisiert (RFC 8785), bei `payload_base64` exakt geliefert |
@@ -239,6 +246,28 @@ Vertrag, 10 in den ADRs und ihrem Index). Vollständiger Nachweis je Befund:
 | **V-46** | Optionale, aber als immer vorhanden beschriebene Antwortfelder (`EndpointMetrics.attempts_total`/`attempts_successful`/`success_rate`/`delivery_latency_p95_ms`, `Event.subscribed_endpoint_count`, `EventIntakeResponse.subscribed_endpoint_count`/`payload_size_bytes`) — dieselbe Musterlage wie V-42 | in `required` aufnehmen (`null` über `nullable`) | Architektur (nach dem Freeze) |
 | **V-47** | `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` **deklarieren** 404, **nennen** aber die Fremdmandanten-Regel nicht (anders als die vier Lesoperationen) | Regel an den vier Operationen ergänzen | Architektur (nach dem Freeze) |
 
+## 4f. Stand nach dem **Rücksprung 6** (2026-10-21) — die zwei letzten Formulierungslücken
+
+Der dritte Stresstest (Commit `68ffa4e`) bestätigt **48 von 48** entschiedene
+Nachprüfungen und findet **0** neue Vertragsdefekte; er empfiehlt den Freeze.
+Offen blieben **zwei Formulierungslücken** — **V-48** und **V-49** — beide
+„sollte“, beide **kein** Widerspruch gegen eine bestätigte Entscheidung. Der
+Rücksprung 6 setzt **beide** um und **friert den Vertrag danach wieder ein**.
+Vollständiger Nachweis je Befund: `.agent/artifacts/ruecksprung-bilanz.md` § 12.
+
+| ID | Entscheidung | Umsetzung | Nachweis |
+|---|---|---|---|
+| **V-48** | ADR-002 §7: `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** — nicht nur in den mandantenübergreifenden Antworten | **ADR-002 §7** (der Bullet) · **ADR-002 § „Status“** · `docs/adr/README.md` (Indexzeile + Korrekturabschnitt) | `grep "im Datensatz gefüllt"` in `docs/adr/` ⇒ **kein** Treffer; die Semantik der drei Eigentümerfunktionen und das Schema unverändert |
+| **V-49** | Die Rollenmatrix des Vertrags wird **vollständig** und folgt **ADR-015 §1**; ADR-015 §1 wird geschärft (Gate 1, Option (a)): der `service_admin` verwaltet Endpunkte **nur im eigenen Mandanten** und liefert **keine** Ereignisse ein | **ADR-015 §1** (2 Matrixzellen, 2 Prüftabellenzeilen, neuer Korrekturhinweis, `organisation_id`-Satz) · **ADR-015 § „Status“** · `docs/adr/README.md` (2 Indexzeilen + Abschnitt) · **Vertrag** `info.description` § „Rollen“ (**3 Rollen × 8 Rechte**) · **Vertrag** `x-contract-rules.roles` (neu, 3 Regeln) | Matrix Vertrag ↔ ADR-015 §1: alle gemeinsamen Zellen **zeichengleich** (maschinell verglichen); die Ausnahme „Migrations-/Testzwecke“ kommt im **Vertrag** nicht mehr vor (in ADR-015 nur in den Korrekturvermerken); **17** Operationen, **177** `$ref`, **101/24** Abdeckung — unverändert |
+
+### 4f.1 Neu dokumentiert und **nicht** entschieden (Rücksprung 6)
+
+| ID | Thema | Empfehlung | Owner |
+|---|---|---|---|
+| **V-50** | Die Rollenzeile des **PRD** kennt das Recht des `service_admin` auf die Endpunktverwaltung im **eigenen** Mandanten nicht — sie schweigt (kein Widerspruch) | PRD **unverändert** lassen; die ADR ist die normative Quelle der Rechte | Fachbereich (+ Architektur) |
+| **V-51** | `createEndpoint`, `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` und `submitEvent` nennen ihre **Rolle** nicht in der Beschreibung — dieselbe Musterlage wie V-47 | je Operation **einen** Satz zur Rolle ergänzen (keine neue Zusage) | Architektur (nach dem Freeze) |
+| **V-52** | Mehrere Rollenrechte der Matrix haben **kein** Akzeptanzkriterium (u. a. `service_admin` bei der Endpunktverwaltung, `developer`/`service_admin` bei der Totenliste) | die Testmatrix leitet je Rolle und Recht einen Positiv- und einen Negativfall aus der Matrix ab; die Anforderung wird **nicht** geändert | Schritt 5 (Testmatrix) |
+
 ---
 
 ## 5. Maschinenprüfung
@@ -274,18 +303,28 @@ Vertrag, 10 in den ADRs und ihrem Index). Vollständiger Nachweis je Befund:
 | **Rücksprung 5**: `grep "dort ist das Feld \`null\`"` / `"im Datensatz gefüllt"` in ADR-015 | **kein Treffer** — V-44 umgesetzt |
 | **Rücksprung 5**: `python3 .agent/tools/traceability_check.py` | **grün** (23 Stories, 101 AKs, 24 Anforderungen) |
 | **Rücksprung 5**: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** — das Schema wurde nicht angefasst |
+| **Rücksprung 6**: YAML gültig, `$ref` aufgelöst (177), ungenutzte Objekte (37 Schemas, 11 Antwort-Komponenten, 7 Parameter) | **ok** — kein ungenutztes Objekt |
+| **Rücksprung 6**: `x-acceptance-coverage` / `x-requirement-coverage` | **101 / 24**, lückenlos, keine Dubletten |
+| **Rücksprung 6**: Rollenmatrix Vertrag ↔ ADR-015 §1 (gemeinsame Spalten, alle Rollen) | **zeichengleich** — 3 Rollen × 8 Rechte im Vertrag, ADR-Matrix 7 + „Secret rotieren“ aus der ADR-Prüftabelle |
+| **Rücksprung 6**: `grep "im Datensatz gefüllt"` in `docs/adr/` | **kein Treffer** — V-48 umgesetzt |
+| **Rücksprung 6**: `grep "für Migrations-/Testzwecke"` im Vertrag / in `docs/adr/` | **kein** Treffer im Vertrag; in ADR-015 noch **2** Treffer, beide in den **Korrekturvermerken** („ist **entfallen**“) — Matrix und Prüftabelle sind frei davon |
+| **Rücksprung 6**: `x-contract-rules.roles` | **3** maschinenlesbare Regeln (Verweis auf die Matrix, Rechte des `service_admin`, Prüfreihenfolge) |
+| **Rücksprung 6**: `python3 .agent/tools/traceability_check.py` | **grün** (23 Stories, 101 AKs, 24 Anforderungen) |
+| **Rücksprung 6**: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** — das Schema wurde nicht angefasst |
 
 ---
 
-## 6. Stand für Schritt 4 (Delta-Prüfung)
+## 6. Stand für Schritt 5 (Testmatrix) und Schritt 8 (Security)
 
-> Der **zweite** Stresstest **ist** gelaufen (`.agent/artifacts/stress-test.md`,
-> Commit `c9c8038`). Seine drei Vertragssätze (**V-23, V-24, V-25**) sind im
-> **Rücksprung 2** behoben; die drei „muss“-Schema-Befunde (**N-13, N-14,
-> N-15**) und die „sollte“-Befunde (**N-16…N-20**) sind im **Rücksprung 2**
-> behoben — **ohne** Vertragsänderung (Bilanz § 2, § 3, § 5).
+> Der **dritte** Stresstest **ist** gelaufen (`.agent/artifacts/stress-test.md`,
+> Commit `68ffa4e`): **48 von 48** entschiedene Nachprüfungen sind am aktuellen
+> Stand belegt, **0** neue Vertragsdefekte, **Freeze-Empfehlung**. Seine zwei
+> verbliebenen **Formulierungslücken** (**V-48**, **V-49**) sind im **Rücksprung
+> 6** behoben; der Vertrag ist **ab dem Commit dieses Rücksprungs wieder
+> eingefroren**.
 >
-> **Offen für die Delta-Prüfung (Schritt 4)** ist damit:
+> **Offen für die Testmatrix (Schritt 5) und die Security (Schritt 8)** ist
+> damit:
 >
 > - **V-45** — AC-013-3 nennt 403 **ohne** Mandantbezug; die **Testmatrix**
 >   (Schritt 5) muss „eigener Mandant, falsche Rolle ⇒ 403" und „fremder
@@ -296,6 +335,14 @@ Vertrag, 10 in den ADRs und ihrem Index). Vollständiger Nachweis je Befund:
 >   wie V-42) — **dokumentiert, nicht entschieden**.
 > - **V-47** — vier endpunktändernde Operationen **deklarieren** 404, **nennen**
 >   die Fremdmandanten-Regel aber nicht — **dokumentiert, nicht entschieden**.
+> - **V-50** — die Rollenzeile des **PRD** kennt das Recht des `service_admin`
+>   auf die Endpunktverwaltung im **eigenen** Mandanten nicht (sie schweigt) —
+>   die **Anforderung** wird **nicht** geändert; die ADR ist die normative
+>   Quelle der Rechte.
+> - **V-51** — sechs Operationen nennen ihre **Rolle** nicht in der
+>   Beschreibung — **dokumentiert, nicht entschieden**.
+> - **V-52** — mehrere Rollenrechte der Matrix haben **kein**
+>   Akzeptanzkriterium; die Testmatrix leitet die Fälle aus der Matrix ab.
 > - **E-12** (Härtung der mandantenübergreifenden Sicht) — offen, Gate 2.
 > - **R-01** (= E-13) — die Karenzzeit der Aufbewahrung hat keinen
 >   beschlossenen Vorgabewert; der Vertrag behauptet **keinen**; die
@@ -305,11 +352,12 @@ Vertrag, 10 in den ADRs und ihrem Index). Vollständiger Nachweis je Befund:
 > (entschieden im Rücksprung 4, umgesetzt an 10 Stellen), **11** weitere
 > Widersprüche des Abschluss-Sweeps (**V-28…V-38**) sowie **alle sechs**
 > Befunde **V-39…V-44** (entschieden und umgesetzt im **Rücksprung 5** —
-> **35 Stellen** in Vertrag und ADRs).
+> **35 Stellen** in Vertrag und ADRs) sowie **V-48** und **V-49** (behoben im
+> **Rücksprung 6** — **14 Stellen** in Vertrag und ADRs).
 >
-> **Die drei neuen Befunde V-45…V-47 blockieren den Freeze nicht** — keiner
-> widerspricht einer bestätigten Entscheidung; sie gehen als **offene Punkte**
-> in Schritt 5/8 ein.
+> **Die dokumentierten Befunde V-45…V-47 und V-50…V-52 blockieren den Freeze
+> nicht** — keiner widerspricht einer bestätigten Entscheidung; sie gehen als
+> **offene Punkte** in Schritt 5/8 ein.
 
 Die frühere Prüfliste des ersten Stresstests (Grenzfälle des
 Idempotenzvergleichs, 1-MB-Grenze bei `payload_base64`, `delayed` als
@@ -332,3 +380,6 @@ zugehörigen Befunde V-01…V-22 und die Entscheidungen E-01…E-09 sind in
 | **V-45** | AC-013-3 nennt 403 **ohne** Mandantbezug — die **Testmatrix** muss die beiden Fälle trennen (V-39); die Anforderung bleibt unverändert (Bilanz § 11.3) | Schritt 5 (Testmatrix) | **vor dem Freeze** |
 | **V-46** | Optionale, aber als immer vorhanden beschriebene Antwortfelder in `EndpointMetrics`, `Event`, `EventIntakeResponse` — dieselbe Musterlage wie V-42 (Bilanz § 11.3) | Architektur | nach dem Freeze |
 | **V-47** | `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` **nennen** die Fremdmandanten-404 nicht in ihrer Beschreibung (Bilanz § 11.3) | Architektur | nach dem Freeze |
+| **V-50** | Die Rollenzeile des **PRD** kennt das Recht des `service_admin` auf die Endpunktverwaltung im **eigenen** Mandanten nicht — sie schweigt (kein Widerspruch); die **Anforderung** bleibt unverändert (Bilanz § 12.4) | Fachbereich (+ Architektur) | Gate 1/2 |
+| **V-51** | `createEndpoint`, `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` und `submitEvent` **nennen** ihre Rolle nicht in der Beschreibung — dieselbe Musterlage wie V-47 (Bilanz § 12.4) | Architektur | nach dem Freeze |
+| **V-52** | Mehrere Rollenrechte der Matrix haben **kein** Akzeptanzkriterium — die Testmatrix leitet die Fälle aus der Matrix ab (Bilanz § 12.4) | Schritt 5 (Testmatrix) | Schritt 5 |

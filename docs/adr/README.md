@@ -17,7 +17,7 @@
 | ADR | Titel | Status | Gate-Hinweis |
 |---|---|---|---|
 | [ADR-001](ADR-001-tech-stack.md) | Tech-Stack | Angenommen | Quelle für `.agent/knowledge/stack.md` |
-| [ADR-002](ADR-002-mandantentrennung-rls.md) | Mandantentrennung durch Row-Level-Security | Angenommen | **§7:** mandantenübergreifende Sicht des Service-Admins über `SECURITY DEFINER`-Eigentümerfunktionen |
+| [ADR-002](ADR-002-mandantentrennung-rls.md) | Mandantentrennung durch Row-Level-Security | Angenommen | **§7:** mandantenübergreifende Sicht des Service-Admins über `SECURITY DEFINER`-Eigentümerfunktionen · **§7:** `organisation_id` ist **immer** gefüllt (V-26, V-48) |
 | [ADR-003](ADR-003-verschluesselung-ruhezustand.md) | Verschlüsselung im Ruhezustand und Schlüsselverwaltung | Angenommen | **Architekturseite von O-04** |
 | [ADR-004](ADR-004-signaturverfahren.md) | Signaturverfahren und Header-Namen | Angenommen | **eingefroren** |
 | [ADR-005](ADR-005-zustellkennungen.md) | Zustellkennungen und Empfänger-Header | Angenommen | **eingefroren** |
@@ -30,7 +30,7 @@
 | [ADR-012](ADR-012-aufbewahrung.md) | Aufbewahrung | Angenommen | **bestätigt: F-02 (O-02)** — 30 Tage, getrennt; Kaskade benannt (E-04); O-05 vor Gate 2 |
 | [ADR-013](ADR-013-mandanten-isolation-instanz.md) | Mandanten-Isolation pro Instanz und Containerbetrieb | Angenommen | — |
 | [ADR-014](ADR-014-zeitlimit-versuch.md) | ~~Zeitlimit je Zustellversuch~~ | **Zusammengeführt in ADR-008** | Verweisdatei, keine eigene Entscheidung |
-| [ADR-015](ADR-015-fehlersemantik-tenant-rollen.md) | Fehlersemantik, Mandantenherkunft und Rollenmatrix | Angenommen | **bestätigt: F-03 (O-03)** — nur Empfänger-Admin; Replay **einmal** (E-09) · **§3:** erst der Mandant, dann die Rolle (V-39) |
+| [ADR-015](ADR-015-fehlersemantik-tenant-rollen.md) | Fehlersemantik, Mandantenherkunft und Rollenmatrix | Angenommen | **bestätigt: F-03 (O-03)** — nur Empfänger-Admin; Replay **einmal** (E-09) · **§3:** erst der Mandant, dann die Rolle (V-39) · **§1:** Rollenmatrix **vollständig** (V-49) |
 | [ADR-016](ADR-016-kanonische-artefakte.md) | Kanonische Artefakte — ein Ort pro Wahrheit | Angenommen | — |
 | [ADR-017](ADR-017-protokollsuche-metadaten.md) | Protokollsuche ausschließlich über Metadaten | Angenommen | D-11; O-04 bleibt Produktfrage |
 | [ADR-018](ADR-018-barrierefreiheit-frontend.md) | Oberfläche — Framework und Barrierefreiheit | Angenommen | — |
@@ -115,6 +115,24 @@ ist **eine** ADR:
 neu aufgerollt; die drei Sätze waren **überholt** und wurden an den entschiedenen
 Stand gebracht. Der vollständige Nachweis steht in
 `.agent/artifacts/ruecksprung-bilanz.md` § 11.
+
+## Korrekturen aus dem vierten Rücksprung (Rücksprung 6, 2026-10-21)
+
+Der **vierte** Rücksprung (nach dem Einfrieren des Vertrags) hat die **zwei**
+Formulierungslücken des dritten Stresstests umgesetzt — **V-48** und **V-49**.
+Beide betreffen **Formulierungen**, nicht die Semantik. Betroffen sind **zwei**
+ADRs:
+
+| ADR | Korrektur | Befund |
+|---|---|---|
+| ADR-002 | **§7** der Bullet zu `organisation_id` ist auf die **V-26**-Fassung umgestellt: das Feld ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört | V-48 |
+| ADR-015 | **§1** Rollenmatrix: „Endpunkte verwalten" des `service_admin` ist auf **„nur im eigenen Mandanten"** geschärft (wie der `receiver_admin`), die mandantenübergreifende Sicht bleibt bei den **drei** Listen-/Betriebsoperationen (E-01, V-27); „Ereignisse einliefern" steht auf **nein** (FR-010) · **§1** die Aussage zu `organisation_id` gilt **immer**, nicht nur in den mandantenübergreifenden Antworten (V-26/V-48) · **§1** Prüftabelle: „Endpunkt anlegen / ändern / pausieren" nur `receiver_admin` und `service_admin` — **jeweils im eigenen Mandanten**; „Ereignis einliefern" **nur** `developer` | V-49, V-48 |
+
+**Keine** bestätigte Festlegung (F-01…F-04, D-01…D-15, ADR-001…ADR-018) wurde
+neu aufgerollt; V-49 folgt der Gate-1-Entscheidung (Option (a)). Der Vertrag
+führt die Rollenmatrix **vollständig** mit (`info.description` § „Rollen") und
+ist **ab dem Commit dieses Rücksprungs wieder eingefroren**. Der vollständige
+Nachweis steht in `.agent/artifacts/ruecksprung-bilanz.md` § 12.
 
 ## Hinweis zur Nummerierung
 

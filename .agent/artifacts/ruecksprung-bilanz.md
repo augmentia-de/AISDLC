@@ -1,4 +1,4 @@
-# Rücksprung-Bilanz — Schritt 2 (Konzept & Architektur), **Rücksprung 5**
+# Rücksprung-Bilanz — Schritt 2 (Konzept & Architektur), **Rücksprung 6**
 
 > **Vorgangsprotokoll** — der Nachweis, dass kein Befund des **zweiten**
 > Stresstests liegen geblieben ist. **Kein lebender Wahrheitsort**: die
@@ -22,6 +22,16 @@
 > Vertrag und ADRs. Danach: **ein** Konsistenzlauf über die **berührten**
 > Bereiche (kein neuer Voll-Sweep) mit **3** neuen, dokumentierten und **nicht**
 > entschiedenen Befunden (**V-45…V-47**). Der Vertrag ist **einfrierreif**.
+>
+> **› Fortsetzung — Rücksprung 6 (Abschnitt 12):** der dritte Stresstest hat
+> **48 von 48** Nachprüfungen bestätigt, **0** neue Vertragsdefekte gefunden und
+> die **Freeze-Empfehlung** ausgesprochen; der Vertrag war ab `68ffa4e`
+> **eingefroren**. Zwei **Formulierungslücken** blieben — **V-48** und **V-49**
+> — beide „sollte“, beide **kein** Widerspruch gegen eine bestätigte
+> Entscheidung. Dieser Rücksprung setzt **beide** um (ADR-002 §7, ADR-015 §1,
+> Vertrag) und **friert den Vertrag danach wieder ein** — Einfrierpunkt: der
+> Commit dieses Schritts. **3** neue Befunde (**V-50…V-52**) sind dokumentiert
+> und **nicht** entschieden; sie **blockieren** den Freeze nicht.
 >
 > **Rücksprung 2 aus Schritt 4 (Grill-Me-Stresstest)** · Agent:
 > `aisdlc-architecture` · Stand: 2026-10-21 · Eingang:
@@ -80,6 +90,15 @@ und **10** in den ADRs/ihrem Index (**35** insgesamt). Danach: **ein**
 Konsistenzlauf über die **berührten** Bereiche; **3** neue Befunde
 (**V-45…V-47**) sind dokumentiert und **nicht** entschieden. Der Vertrag ist
 **einfrierreif** — eingefroren wird er nach Schritt 4 (Delta-Prüfung).
+
+**› Stand nach Rücksprung 6 (Abschnitt 12):** der dritte Stresstest bestätigt
+**48 von 48** Nachprüfungen und findet **0** neue Vertragsdefekte; der Vertrag
+wird **eingefroren**. Die zwei verbliebenen **Formulierungslücken** (**V-48**,
+**V-49**) sind in diesem Rücksprung **behoben** — **14 Stellen** in Vertrag und
+ADRs (inkl. ADR-Index). Der Vertrag ist **ab dem Commit dieses Schritts wieder
+eingefroren**; **V-48** und **V-49** waren die **einzigen** Änderungen nach dem
+Freeze. **3** neue Befunde (**V-50…V-52**) sind dokumentiert und **nicht**
+entschieden — sie **blockieren** den Freeze nicht.
 
 ---
 
@@ -682,6 +701,143 @@ ADR-017: 1 · `docs/adr/README.md`: 2).
 | Beispiele gegen ihr Schema (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum, Längen, Bereiche, Formate) | **0 Abweichungen** (33 Antwort-/Objektbeispiele + alle Property-Beispiele) |
 | `not_ready` / `unavailable` im Vertrag | **0** Enum-Treffer (verbleibend nur `service_unavailable`, 7×) |
 | `deleted_at` in einem **Antwortmodell** | **keiner** (3 verbleibende Treffer = Markiervorgang der Aufbewahrung) |
+| `python3 .agent/tools/traceability_check.py` | **grün** — „Keine Luecken …" (23 Stories / 101 AKs / 24 Anforderungen) |
+| `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (byte-identisch — das Schema wurde nicht angefasst) |
+| Anforderungen unberührt | `git diff --stat -- docs/requirements/ docs/Anforderung.md` → **leer** |
+| Architekturdokumente unberührt | `git diff --stat -- docs/architecture/` → **leer** |
+| Kein Anwendungscode | `git diff --stat -- src/` → **leer** (`src/` existiert nicht) |
+
+---
+
+## 12. Rücksprung 6 — V-48 und V-49: die zwei letzten Formulierungslücken vor dem Freeze
+
+> **Eingang:** der dritte Stresstest (Commit `68ffa4e`) hat **48 von 48**
+> entschiedenen Nachprüfungen bestätigt, **0** neue Vertragsdefekte gefunden und
+> die **Freeze-Empfehlung** ausgesprochen. Offen blieben **zwei
+> Formulierungslücken** — **V-48** und **V-49** — beide „sollte“, beide **kein**
+> Widerspruch gegen eine bestätigte Entscheidung, beide **nur** Wortlaut.
+> Agent: `aisdlc-architecture` · Stand: 2026-10-21 · Vertrag:
+> `docs/api/openapi.yaml` (17 Operationen) — der Vertrag war ab `68ffa4e`
+> **eingefroren**; dieser Rücksprung **öffnet ihn für genau diese zwei
+> Änderungen** und **friert ihn danach wieder ein** (Einfrierpunkt: der Commit
+> dieses Schritts).
+> Schema: **nicht angefasst** (`diff` leer) · `docs/architecture/`,
+> `docs/requirements/`, `docs/Anforderung.md`: **nicht angefasst**.
+
+### 12.1 V-48 — ADR-002 §7 auf die V-26-Fassung umgestellt
+
+| | |
+|---|---|
+| **Fundstelle** | `docs/adr/ADR-002-mandantentrennung-rls.md` §7 — „In den mandantenübergreifenden Antworten ist `organisation_id` **im Datensatz** gefüllt, damit der Client die Herkunft erkennt." |
+| **Erwartet (V-26)** | `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört. |
+| **Tatsächlich (vorher)** | Die Füllung wurde **nur** für die mandantenübergreifenden Antworten genannt — die **V-25-Fassung**, die V-26 abgelöst hat. Wer ADR-002 §7 allein las, konnte „für andere Rollen `null`" ableiten — genau die Lesart, die **V-44** in ADR-015 §2 korrigieren musste. |
+| **Korrektur** | Der Bullet lautet jetzt: „`organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandant, zu dem der Datensatz gehört (V-26). Der Client erkennt die Herkunft damit **immer**, nicht nur in der mandantenübergreifenden Sicht." Dazu ein Korrekturvermerk in § „Status" und die Indexzeile in `docs/adr/README.md`. |
+| **Nachweis** | `grep "im Datensatz gefüllt"` in `docs/adr/` ⇒ **kein** Treffer. Die Semantik der **drei** Eigentümerfunktionen ist **unverändert**; das Schema wurde **nicht** angefasst (`diff` leer). Der Vertrag sagt es an **12** Stellen bereits richtig — er bleibt dort **unverändert**. |
+
+### 12.2 V-49 — die Rollenmatrix: ADR-015 §1 geschärft, der Vertrag vollständig
+
+**Der Ausgangspunkt.** ADR-015 §1 enthielt **zwei** Aussagen, die der Vertrag
+und das PRD **nicht** nennen — „Endpunkt anlegen / ändern / pausieren | nur
+`receiver_admin` und `service_admin`" und „Ereignis einliefern | `developer`
+(und `service_admin` für Migrations-/Testzwecke)" — und eine Matrixzelle, die in
+der Form **mehrdeutig** war: „Endpunkte verwalten | **ja** (alle Mandanten —
+**nur in der Liste** …)" — die Spalte sagt „verwalten“, die Klammer sagt „nur
+sehen“. Ein Implementer nach dem **Vertrag** antwortete dem `service_admin` mit
+**403**, wer **ADR-015 §1** folgt, mit **201/200/202**. Kein AK und kein FR war
+betroffen.
+
+**Die Entscheidung** (Gate 1, Stresstest § 7, V-49, Option (a)): ADR-015 §1 wird
+auf PRD + Vertrag **verschärft** — der Service-Admin verwaltet Endpunkte **nur
+im eigenen Mandanten** (wie `receiver_admin`) und liefert **keine** Ereignisse
+ein. Ein Recht des Plattformbetriebs auf die Endpunktverwaltung **aller**
+Mandanten wird **nicht** eingeführt.
+
+**Umsetzung — 14 Stellen in Vertrag und ADRs** (ADR-015: 7 · ADR-002: 2 ·
+`docs/adr/README.md`: 3 · Vertrag: 2) — dazu die **drei Artefakte** dieses
+Schritts (dieses Dokument, `architecture.md`, `api-review.md`).
+
+| # | Stelle | Korrektur |
+|---|---|---|
+| 0 | **ADR-002 §7** (→ § 12.1) | der Bullet zu `organisation_id` auf die **V-26**-Fassung umgestellt |
+| 1 | **ADR-015 §1**, Matrixzeile `service_admin`, Spalte „Endpunkte verwalten" | „**ja** — **nur im eigenen Mandanten** (wie `receiver_admin`); die mandantenübergreifende **Sicht** gilt **nur** für die **drei** Listen-/Betriebsoperationen (E-01, V-27): der **Einzelabruf** einer fremden Ressource ⇒ **404**" |
+| 2 | **ADR-015 §1**, Matrixzeile `service_admin`, Spalte „Ereignisse einliefern" | „**nein** (FR-010)" (vorher „—") |
+| 3 | **ADR-015 §1**, Prüftabelle „Endpunkt anlegen / ändern / pausieren" | „`receiver_admin` und `service_admin` — **jeweils im eigenen Mandanten**" |
+| 4 | **ADR-015 §1**, Prüftabelle „Ereignis einliefern" | „**nur** `developer`" — die Ausnahme „(und `service_admin` für Migrations-/Testzwecke)" ist **entfallen** |
+| 5 | **ADR-015 §1**, neuer Korrekturhinweis „Korrektur der Rollenmatrix (V-49, 2026-10-21)" | begründet die Schärfung, nennt die Prüfreihenfolge (V-39) und stellt fest: die Rollenmatrix ist die **normative Quelle**, der Vertrag führt sie **vollständig** mit |
+| 6 | **ADR-015 §1**, Absatz zu den Eigentümerfunktionen | „In diesen Antworten ist `organisation_id` **immer** gefüllt" → „`organisation_id` ist **immer** gefüllt … in den mandantenübergreifenden Antworten steht damit der Mandant, zu dem der Datensatz gehört" (Pull-along aus **V-48**: die Aussage gilt **immer**, nicht nur in diesen Antworten) |
+| 7 | **ADR-015 § „Status"** | Korrekturvermerk Rücksprung 6 (keine bestätigte Entscheidung neu aufgerollt) |
+| 8 | **ADR-002 § „Status"** | Korrekturvermerk Rücksprung 6 (zu V-48) |
+| 9 | **`docs/adr/README.md`**, Indexzeile ADR-002 | ergänzt um „**§7:** `organisation_id` ist **immer** gefüllt (V-26, V-48)" |
+| 10 | **`docs/adr/README.md`**, Indexzeile ADR-015 | ergänzt um „**§1:** Rollenmatrix **vollständig** (V-49)" |
+| 11 | **`docs/adr/README.md`**, neuer Abschnitt | „Korrekturen aus dem vierten Rücksprung (Rücksprung 6, 2026-10-21)" |
+| 12 | **Vertrag** `docs/api/openapi.yaml`, `info.description` § „Rollen" | Die Zweispalten-Tabelle wird zur **vollständigen Matrix**: **3 Rollen × 8 Rechte** (Endpunkte verwalten · Ereignisse einliefern · Secret rotieren · Zustellprotokoll lesen · Tote Zustellung erneut auslösen · Totenliste mandantenübergreifend · Kennzahlen · Aufbewahrung erzwingen) — deckungsgleich mit ADR-015 §1 (Matrix **und** Prüftabelle). Drei Absätze: die mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung (E-01) — ein vierter Leseweg und ein mandantenübergreifender **Schreibzugriff** werden **nicht** gebaut; der **Einzelabruf** einer fremden Ressource ergibt **404** — **auch für `service_admin`** (D-02, V-27); **Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle** — 404 = fremder Mandant, 403 = eigener Mandant, falsche Rolle (V-39, ADR-015 §3) |
+| 13 | **Vertrag** `x-contract-rules.roles` (**neu**) | drei maschinenlesbare Regeln: Verweis auf die Matrix (ADR-015 §1 als normative Fassung), die Rechte des `service_admin`, die Prüfreihenfolge. Die Rechte standen bisher **nur** im Prosa-Text (Stresstest § 5, Achse „Auffindbarkeit“) |
+
+**Was sich für einen Aufrufer ändert — genau eine Sache:** der `service_admin`
+erhält im Vertrag die **Endpunktverwaltung im eigenen Mandanten** (wie der
+`receiver_admin`) — das Recht, das ADR-015 §1 in der Prüftabelle **schon**
+gewährt hat und das der Vertrag bisher **nicht** nannte. Alles andere bleibt:
+ein Endpunkt eines **fremden** Mandanten ⇒ **404** (D-02, V-27); ein Replay ⇒
+**403** (F-03); Ereignisse liefert **nur** der `developer` ein (FR-010); die
+mandantenübergreifende Sicht bleibt auf die **drei** Listen-/Betriebsoperationen
+beschränkt (E-01). **Keine** Operation, **kein** Feld, **keine** Story, **kein**
+Akzeptanzkriterium und **keine** Anforderung hat sich geändert — der Umfang
+bleibt **17** Operationen / **23** Stories / **101** AKs / **24** Anforderungen.
+
+### 12.3 Nachziehen, was daraus folgt — kein neuer Voll-Sweep
+
+Geprüft wurden **nur** die von V-48/V-49 **berührten** Stellen (die Sweeps sind
+gelaufen: 26 + 35 Stellen).
+
+| # | Stelle | Folge aus V-48/V-49 | Behandlung |
+|---|---|---|---|
+| 1 | **ADR-015 §1**, Absatz zu den Eigentümerfunktionen | dieselbe enge Formulierung wie in ADR-002 §7 („in **diesen** Antworten … gefüllt“) | umgestellt auf „**immer** gefüllt“ (V-26) — Stelle 6 der Korrekturliste |
+| 2 | **Vertrag**, `x-contract-rules` | die Rollenrechte standen **nur** im Prosa-Text | neue Gruppe `roles` (3 Regeln) — maschinenlesbar, **ohne** neue Zusage |
+| 3 | **Vertrag**, `info.description` § „Mandant“ und § „Fehlersemantik“ | nennen V-26/V-39 bereits richtig | **unverändert** — kein Widerspruch |
+| 4 | **Vertrag**, die operationsbeschreibenden Texte (`listEndpoints`, `listDeadDeliveries`, `getEndpoint`, `getDeliveryRun`, `getEvent`, `getEndpointMetrics`, `replayDelivery`, `enforceRetention`) | nennen die mandantenübergreifende Sicht bzw. den 403/404 bereits richtig | **unverändert** — die Operationensemantik wurde **nicht** angefasst |
+| 5 | `.agent/artifacts/api-review.md` (§ 4a, Zeile zu S-01) | trug die alte V-25-Fassung („im Datensatz gefüllt“) | auf die V-26-Fassung umgestellt |
+| 6 | `.agent/artifacts/architecture.md` (§ 9b, Zeile zu V-25) | nannte die überholte V-25-Variante ohne Hinweis | Verweis „› überholt durch V-26“ ergänzt |
+| 7 | `docs/architecture/` (`architecture.md`, `folder-structure.md`, `GLOSSARY.md`, 5 Diagramme) | Rollenwaage | **kein** Widerspruch: die Dokumente nennen die mandantenübergreifende Sicht **nur** für die drei Operationen und schweigen zur Endpunktverwaltung des `service_admin` — **nichts** zu ändern. `docs/architecture/` ist in diesem Schritt **nicht** änderbar |
+| 8 | `docs/requirements/PRD.md` § 3 (Rollenzeile) | nennt die beiden Rechte nicht | **kein** Widerspruch (die PRD schweigt, sie verbietet nicht) — die Anforderung wird **nicht** geändert (`docs/requirements/` ist nicht änderbar) → **V-50** |
+| 9 | `docs/requirements/stories/*.json` | für mehrere Rollenrechte gibt es **kein** Akzeptanzkriterium | die Anforderung wird **nicht** geändert → **V-52** |
+
+### 12.4 Neue Befunde — dokumentiert, **nicht** entschieden
+
+> Diese Befunde **blockieren** den Freeze nicht: keiner ist ein Widerspruch
+> gegen eine bestätigte Entscheidung. Sie gehen als **offene Punkte** in Schritt 5
+> (Testmatrix) und Schritt 8 (Security) ein.
+
+| ID | Befund | Fundstelle | Frage | Optionen | Empfehlung |
+|---|---|---|---|---|---|
+| **V-50** | **Die Rollenzeile des PRD kennt das Recht des `service_admin` auf die Endpunktverwaltung im eigenen Mandant nicht.** Nach der V-49-Entscheidung (Option (a)) verwaltet der Plattform-Betrieb Endpunkte **wie** der `receiver_admin`, aber **nur im eigenen Mandanten**. Die PRD-Zeile (Abschnitt 3, „Was er darf“) nennt nur: „Endpunkte aller Mandanten **sehen**, Tote-Zustellungsliste abholen, Aufbewahrung erzwingen — **kein** erneutes Auslösen“. Die PRD **schweigt** damit — sie **verbietet** nichts; ein Widerspruch liegt **nicht** vor. | `docs/requirements/PRD.md:74` gegen `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md` §1 (Matrixzeile `service_admin`) und `docs/api/openapi.yaml` § „Rollen“ | Soll die Rollenzeile des PRD das Recht ergänzen (Rücksprung zu Schritt 1)? | (a) PRD-Zeile um „Endpunkte im **eigenen** Mandanten verwalten“ ergänzen; (b) die PRD **unverändert** lassen — sie schweigt, und die ADR ist die normative Quelle für die Rechte | **(b)** — die Anforderung fordert das Recht **nicht**; die Entscheidung (a) des Stresstests hat es als **Berechtigung** des Betriebs im eigenen Mandanten geregelt, nicht als Anforderung. **(a)** wäre ein Rücksprung zu Schritt 1 — nur wenn der Fachbereich das Recht **nicht** will. **Nicht entschieden** — `docs/requirements/` ist in diesem Schritt **nicht** änderbar; der Punkt geht an den Fachbereich (Gate 1/2) |
+| **V-51** | **Die endpunktverwaltenden Operationen nennen ihre Rolle nicht.** Die Rollenmatrix in `info.description` ist jetzt **vollständig**, die **operationseigene** Beschreibung der fünf Operationen `createEndpoint`, `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` und von `submitEvent` nennt die Rolle **nicht**. Ein Client, der nur die Operationsbeschreibung liest, erfährt nicht, dass der `service_admin` im **eigenen** Mandant verwalten darf und dass Ereignisse **nur** der `developer` einliefert. Dieselbe Musterlage wie **V-47** (dort: die Fremdmandanten-404 steht nicht an den vier Operationen). | `docs/api/openapi.yaml` — `createEndpoint`, `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret`, `submitEvent` gegen § „Rollen“ | Soll jede dieser Operationen ihre Rolle (und die 403-Folge) nennen? | (a) je Operation **einen** Satz ergänzen; (b) die Rollenmatrix **allein** tragen lassen | **(a)** — die Regel soll an der Stelle stehen, an der der Client sie liest; die vier Lesoperationen machen es für die Fremdmandanten-404 vor. **Nicht entschieden** — reine Textergänzung **ohne** neue Zusage, aber nach dem Freeze nur mit Rücksprung |
+| **V-52** | **Mehrere Rollenrechte haben **kein** Akzeptanzkriterium.** Die Matrix nennt 24 Rollenrechte; die AKs decken **13** davon ab (AC-001-1, AC-003-3, AC-004-1…3, AC-005-1, AC-013-3, AC-015-3, AC-016-1…2, AC-017-4, AC-019-1, AC-020-1…2). **Ohne** AK bleiben: der `service_admin` bei der Endpunktverwaltung (positiv), der `service_admin` beim Einliefern von Ereignissen (negativ), der `service_admin` bei der Secret-Rotation (negativ), der `developer` bei der Totenliste (negativ) und bei der Endpunktverwaltung (negativ). Die Testmatrix (Schritt 5) kann diese Fälle nur **aus der Matrix** ableiten. | `docs/requirements/stories/*.json` (AKs) gegen `docs/api/openapi.yaml` § „Rollen“ und ADR-015 §1 | Müssen die Rollenrechte **je** ein AK bekommen, oder leitet die Testmatrix sie aus der Matrix ab? | (a) Testmatrix führt **je Rolle und Recht** mindestens einen Positiv- und einen Negativfall aus der Matrix ab; (b) AKs in Schritt 1 ergänzen | **(a)** — die Matrix ist die normative Fassung der Rechte; die Anforderung wird **nicht** geändert. **Nicht entschieden** — die Zuordnung der Testfälle ist Sache des Testmatrix-Schritts (Schritt 5) |
+
+### 12.5 Umfang und Nachweis
+
+**Umfang unverändert:** **17** Operationen · **37** Schemas · **11**
+Antwort-Komponenten · **7** Parameter · **1** Header · **177** `$ref` ·
+**23** Stories / **101** AKs / **24** Anforderungen — **keine** neue Operation,
+**kein** neues Feld, **keine** neue Story, **kein** neues Akzeptanzkriterium,
+**keine** Ausweitung einer bestätigten Zusage. Das **Schema** wurde **nicht**
+angefasst (`diff` leer), `docs/architecture/` **nicht** angefasst,
+`docs/requirements/` **nicht** angefasst.
+
+**Geänderte Stellen: 17** — **2** im Vertrag (§ „Rollen“, `x-contract-rules.roles`),
+**12** in den ADRs und ihrem Index (ADR-002: 2 · ADR-015: 7 ·
+`docs/adr/README.md`: 3), **3** in den Artefakten dieses Schritts (dieses
+Dokument, `architecture.md`, `api-review.md`).
+
+| Prüfung | Ergebnis |
+|---|---|
+| YAML gültig | **gültig** (`yaml.safe_load`) |
+| `$ref` | **177**, **alle** auflösbar |
+| Operationen | **17**, alle mit `operationId` (eindeutig), `x-ac-id`, `x-requirement-ids` |
+| `x-acceptance-coverage` / `x-requirement-coverage` | **101 / 24**, lückenlos, keine Dubletten |
+| ungenutzte Objekte | **keine** (37 Schemas, 11 Antwort-Komponenten, 7 Parameter) |
+| `grep "im Datensatz gefüllt"` in `docs/adr/` | **kein** Treffer — die V-25-Fassung ist **entfallen** (V-48) |
+| `grep "für Migrations-/Testzwecke"` in `docs/api/openapi.yaml` | **kein** Treffer — die Ausnahme steht **nicht** im Vertrag. In `docs/adr/ADR-015-…` noch **2** Treffer, beide in den **Korrekturvermerken** („ist **entfallen**“); in der **Matrix** und in der **Prüftabelle** steht sie **nicht** mehr |
+| Rollenmatrix Vertrag ↔ ADR-015 §1 | **deckungsgleich**: 3 Rollen × **8** Rechte im Vertrag (ADR-Matrix 7 + „Secret rotieren“ aus der ADR-Prüftabelle). Alle **gemeinsamen** Zellen sind **zeichengleich** (maschinell verglichen); die Spalte „Protokoll lesen“ (ADR) heißt im Vertrag „Zustellprotokoll lesen“ — dieselbe Aussage |
 | `python3 .agent/tools/traceability_check.py` | **grün** — „Keine Luecken …" (23 Stories / 101 AKs / 24 Anforderungen) |
 | `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (byte-identisch — das Schema wurde nicht angefasst) |
 | Anforderungen unberührt | `git diff --stat -- docs/requirements/ docs/Anforderung.md` → **leer** |

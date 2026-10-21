@@ -32,7 +32,7 @@ Entwickler, Empfänger-Admin, Service-Admin.
 |---|---|---|---|---|---|---|---|
 | `developer` | — | **ja** | **ja** (eigener Mandant) | **nein** (F-03) | **nein** | eigener Mandant | **nein** |
 | `receiver_admin` | **ja** (eigener Mandant) | — | **ja** (eigener Mandant) | **ja** (eigener Endpunkt) | **nein** | eigener Mandant | **nein** |
-| `service_admin` | **ja** (alle Mandanten — **nur in der Liste**; der **Einzelabruf** einer fremden Ressource ⇒ **404**, V-27) | — | **ja** (eigener Mandant) | **nein** (F-03) | **ja** | **ja** (eigener Mandant) | **ja** |
+| `service_admin` | **ja** — **nur im eigenen Mandanten** (wie `receiver_admin`); die mandantenübergreifende **Sicht** gilt **nur** für die **drei** Listen-/Betriebsoperationen (E-01, V-27): der **Einzelabruf** einer fremden Ressource ⇒ **404** | **nein** (FR-010) | **ja** (eigener Mandant) | **nein** (F-03) | **ja** | **ja** (eigener Mandant) | **ja** |
 
 > **Korrektur der Rollenmatrix (N-19):** die mandantenübergreifende Sicht des
 > `service_admin` gilt **nur** für die **drei** Operationen der
@@ -50,22 +50,40 @@ Entwickler, Empfänger-Admin, Service-Admin.
 > Listen-/Betriebsoperationen; der **Einzelabruf** einer Ressource eines
 > **fremden** Mandanten ergibt **404** — **auch** für `service_admin` (D-02,
 > V-27). Ein **vierter** mandantenübergreifender Leseweg wird **nicht** gebaut.
+>
+> **Korrektur der Rollenmatrix (V-49, 2026-10-21):** die Zelle „Endpunkte
+> verwalten" des `service_admin` ist **weiter** geschärft: der
+> Plattform-Betrieb verwaltet Endpunkte **wie** der `receiver_admin`, aber
+> **ausschließlich im eigenen Mandanten**. Die mandantenübergreifende Sicht
+> bleibt auf die **drei** Listen-/Betriebsoperationen beschränkt (E-01, V-27) —
+> ein **Schreibzugriff** mandantenübergreifend gibt es **nicht** (ADR-002 §7).
+> Die Zelle „Ereignisse einliefern" des `service_admin` steht auf **nein**:
+> Ereignisse liefert **nur** der `developer` ein (FR-010) — die Ausnahme
+> „(und `service_admin` für Migrations-/Testzwecke)" ist **entfallen**; ein
+> Recht des Betriebs auf die Ereigniseinlieferung wird **nicht** eingeführt.
+> **Die Prüfreihenfolge gilt auch hier:** erst der **Mandant** (404), dann die
+> **Rolle** (403) — V-39, §3.
+>
+> **Die Rollenmatrix ist die normative Quelle** für die Rechte jeder Rolle; der
+> Vertrag (`docs/api/openapi.yaml`, `info.description` § „Rollen") führt sie
+> **vollständig** mit.
 
 Die mandantenübergreifende Sicht des `service_admin` wird über die **drei
 schmalen Eigentümerfunktionen** des Schemas hergestellt
 (`app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`,
 `app.enforce_retention_cross_tenant` — ADR-002 §7) — **nicht** über eine
 Laufzeitrolle mit `BYPASSRLS` und **nicht** über einen Mandantenfilter im
-Vertrag. In diesen Antworten ist `organisation_id` **immer** gefüllt — es
-benennt den **besitzenden Mandanten** der Ressource (V-26).
+Vertrag. `organisation_id` ist **immer** gefüllt — es benennt den **besitzenden
+Mandanten** der Ressource (V-26); in den mandantenübergreifenden Antworten
+steht damit der Mandant, zu dem der Datensatz gehört.
 
 Zusätzliche Rollenprüfungen:
 
 | Aktion | Regel | Verstoß |
 |---|---|---|
 | Secret-Rotation | nur `receiver_admin` | 403 (AC-003-3) |
-| Endpunkt anlegen / ändern / pausieren | nur `receiver_admin` und `service_admin` | 403 |
-| Ereignis einliefern | `developer` (und `service_admin` für Migrations-/Testzwecke) | 403 |
+| Endpunkt anlegen / ändern / pausieren | `receiver_admin` und `service_admin` — **jeweils im eigenen Mandanten** | 403 |
+| Ereignis einliefern | **nur** `developer` | 403 |
 | Endpunkt-/Protokoll-Listen | alle Rollen, aber **mandantengefiltert** — auch der `service_admin` sieht im Protokoll nur den eigenen Mandanten (E-10) | — |
 | Totenliste | nur `service_admin` | 403 (AC-016-2) |
 | Replay | nur `receiver_admin` **des betroffenen Endpunkts**; `developer` und `service_admin` ⇒ 403 — **innerhalb des eigenen Mandanten**; ein Zustelllauf **fremder** Mandanten ⇒ 404 (V-39) | 403 (AC-013-3, F-03) |
@@ -242,3 +260,17 @@ Mandanten) und §3 (**Reihenfolge der Prüfungen: erst der Mandant, dann die
 Rolle**). Es wurde **keine** bestätigte Entscheidung neu aufgerollt — die drei
 Sätze waren durch V-26, V-27 und V-39 überholt und sind an den entschiedenen
 Stand gebracht.
+
+**Korrekturen vom 2026-10-21 (Rücksprung 6, nach dem Einfrieren des Vertrags):**
+§1 — die Zelle „Endpunkte verwalten" des `service_admin` ist auf **„nur im
+eigenen Mandanten"** geschärft (wie der `receiver_admin`); die
+mandantenübergreifende Sicht bleibt bei den **drei** Listen-/Betriebsoperationen
+(E-01, V-27). Die Zelle „Ereignisse einliefern" des `service_admin` steht auf
+**nein** (FR-010) — die Ausnahme für Migrations-/Testzwecke ist **entfallen**;
+die Prüftabelle nennt für „Ereignis einliefern" **nur** den `developer` und für
+„Endpunkt anlegen / ändern / pausieren" den `receiver_admin` und den
+`service_admin` — **jeweils im eigenen Mandanten**. §1 — die Aussage zu
+`organisation_id` gilt **immer**, nicht nur in den mandantenübergreifenden
+Antworten (V-26, V-48). Der Vertrag führt die Rollenmatrix **vollständig** mit
+(`info.description` § „Rollen"). Es wurde **keine** bestätigte Entscheidung neu
+aufgerollt — V-49 (Gate 1, Option (a)).

@@ -47,17 +47,28 @@ info:
 
     ## Rollen
 
-    | Rolle | Rechte |
-    |---|---|
-    | `developer` | Ereignisse einliefern, Zustellprotokoll einsehen (eigener Mandant) |
-    | `receiver_admin` | Endpunkte registrieren/ändern/pausieren/reaktivieren (eigener Mandant), Secret rotieren, Zustellprotokoll einsehen (eigener Mandant), tote Zustellung erneut auslösen (eigener Endpunkt) |
-    | `service_admin` | Endpunkte **aller** Mandanten **in der Liste** sehen, Tote-Zustellungsliste mandantenübergreifend, Zustellprotokoll und Kennzahlen (eigener Mandant), Aufbewahrung erzwingen |
+    Die Rollenmatrix ist **vollständig** — sie nennt **jede** Rolle mit
+    **jedem** Recht (ADR-015 §1):
+
+    | Rolle | Endpunkte verwalten | Ereignisse einliefern | Secret rotieren | Zustellprotokoll lesen | Tote Zustellung erneut auslösen | Totenliste mandantenübergreifend | Kennzahlen | Aufbewahrung erzwingen |
+    |---|---|---|---|---|---|---|---|---|
+    | `developer` | — | **ja** | — | **ja** (eigener Mandant) | **nein** (F-03) | **nein** | eigener Mandant | **nein** |
+    | `receiver_admin` | **ja** (eigener Mandant) | — | **ja** | **ja** (eigener Mandant) | **ja** (eigener Endpunkt) | **nein** | eigener Mandant | **nein** |
+    | `service_admin` | **ja** — **nur im eigenen Mandanten** (wie `receiver_admin`); die mandantenübergreifende **Sicht** gilt **nur** für die **drei** Listen-/Betriebsoperationen (E-01, V-27): der **Einzelabruf** einer fremden Ressource ⇒ **404** | **nein** (FR-010) | — | **ja** (eigener Mandant) | **nein** (F-03) | **ja** | **ja** (eigener Mandant) | **ja** |
+
+    **Die mandantenübergreifende Sicht** des `service_admin` gilt **nur** für die
+    **drei** Listen-/Betriebsoperationen: Endpunktliste, Totenliste und
+    Aufbewahrung (E-01). Ein **vierter** mandantenübergreifender Leseweg wird
+    **nicht** gebaut; ein **Schreibzugriff** mandantenübergreifend gibt es
+    **nicht**.
 
     **Der Einzelabruf einer Ressource eines fremden Mandanten ergibt HTTP 404 —
-    auch für `service_admin`** (D-02, V-27). Die mandantenübergreifende Sicht
-    gilt **nur** für die **drei** Listen-/Betriebsoperationen: Endpunktliste,
-    Totenliste und Aufbewahrung (E-01). Ein **vierter** mandantenübergreifender
-    Leseweg wird **nicht** gebaut.
+    auch für `service_admin`** (D-02, V-27).
+
+    **Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle** (V-39).
+    Eine Ressource eines **fremden** Mandanten ergibt **404** — für **alle**
+    Rollen; die Rolle wird **erst** innerhalb des **eigenen** Mandanten geprüft
+    und ergibt dort **403** (ADR-015 §3).
 
     ## Fehlersemantik
 
@@ -3437,6 +3448,10 @@ x-contract-rules:
     - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02) — **auch** für `service_admin`: der **Einzelabruf** einer Ressource eines fremden Mandanten endet mit 404 (V-27)."
     - "**Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle.** Eine Ressource eines **fremden** Mandanten ergibt HTTP 404 — auch für `developer` und `service_admin`; die Rolle wird **erst** innerhalb des **eigenen** Mandanten geprüft und ergibt dort HTTP 403 (ADR-015 §3, V-39)."
     - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002 §7), **nicht** über eine Rolle mit `BYPASSRLS`. Die mandantenübergreifende Sicht gilt **nur** für die **drei** Listen-/Betriebsoperationen — Endpunktliste, Totenliste und Aufbewahrung (E-01); ein vierter mandantenübergreifender Leseweg wird **nicht** gebaut (V-27). `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört."
+  roles:
+    - "Die Rollenrechte stehen **vollständig** in der Rollenmatrix in `info.description` (Abschnitt „Rollen“) — normative Fassung: ADR-015 §1. Je Rolle und Recht: Endpunkte verwalten · Ereignisse einliefern · Secret rotieren · Zustellprotokoll lesen · Tote Zustellung erneut auslösen · Totenliste mandantenübergreifend · Kennzahlen · Aufbewahrung erzwingen."
+    - "Der `service_admin` verwaltet Endpunkte **nur im eigenen Mandanten** (wie `receiver_admin`), liefert **keine** Ereignisse ein (FR-010), rotiert **kein** Secret und löst **keine** tote Zustellung erneut aus (F-03); seine mandantenübergreifende Sicht gilt **nur** für Endpunktliste, Totenliste und Aufbewahrung (E-01, V-27)."
+    - "**Reihenfolge der Prüfungen: erst der Mandant, dann die Rolle** — eine Ressource eines **fremden** Mandanten ergibt HTTP 404 (auch für `service_admin`, V-27), eine Ressource des **eigenen** Mandanten ohne die nötige Rolle ergibt HTTP 403 (V-39, ADR-015 §3)."
   errors:
     - "Alle Fehlerantworten nutzen das Schema `Problem` mit `Content-Type: application/problem+json`."
     - "Die Grenze zwischen **400** (syntaktisch fehlerhaft) und **422** (semantisch ungültig) sowie die Zuordnung Status → `code` stehen im Abschnitt „Fehlersemantik“ in `info.description`."
