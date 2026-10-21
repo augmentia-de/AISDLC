@@ -6,6 +6,10 @@
 > `docs/api/openapi.yaml`, die offenen Punkte in `.agent/artifacts/architecture.md`
 > §8.
 >
+> **› Fortsetzung — Rücksprung 3 (Abschnitt 9):** der Mensch hat den
+> Vertragswiderspruch **V-26** entschieden; er ist umgesetzt. Der Vertrag war
+> dabei **noch nicht eingefroren** — der Einfrierpunkt folgt nach Schritt 4.
+>
 > **Rücksprung 2 aus Schritt 4 (Grill-Me-Stresstest)** · Agent:
 > `aisdlc-architecture` · Stand: 2026-10-21 · Eingang:
 > `.agent/artifacts/stress-test.md` (zweite Runde, Commit `c9c8038`)
@@ -47,6 +51,11 @@ Anforderungen, unverändert). Der Vertrag: YAML gültig, **17** Operationen,
 Abschnitt 5) — er gehört in die Delta-Prüfung (Schritt 4), nicht in diesen
 Schritt.
 
+**› Stand nach Rücksprung 3 (Abschnitt 9):** **V-26 ist entschieden und
+umgesetzt** — `organisation_id` benennt **immer** den **besitzenden Mandanten**
+der Ressource. Neu dokumentiert und **nicht** entschieden: **V-27**
+(Abschnitt 9.5). Der Vertrag wird **nach Schritt 4** eingefroren.
+
 ---
 
 ## 1. Die drei Vertragssätze (V-23, V-24, V-25)
@@ -61,7 +70,7 @@ eingefroren**, nicht vorher.
 | **V-23** (muss) | `openapi.yaml:3233` — Abdeckungseintrag **AC-022-3** nennt den „**Connection-Initializer**“ | `openapi.yaml:3241` | Der Eintrag nennt jetzt die **entschiedene** Semantik: „**ADR-002 §3**: der Mandant wird **innerhalb der Transaktion**, die auch liest, aus dem JWT gesetzt (`app.set_tenant`, transaktionslokal) — **nicht** verbindungsgebunden; ein Parameter aus dem Request-Body wird nicht uebernommen.“ Der historische Klassenname (`TenantConnectionInitializer`) bleibt nur dort, wo er historisch ist (ADR-002 §3, Zielstruktur) — **im Vertrag** steht er nicht mehr. | `grep -n "Connection-Initializer" docs/api/openapi.yaml` ⇒ **kein Treffer**. |
 | **V-24** (sollte) | `openapi.yaml:480` („Status `aktiv`“) und `:697` („`pausiert`“) — deutsche Wörter in Code-Formatierung | `openapi.yaml:480` und `:697` | Die **Werte** stehen jetzt in Code-Formatierung, die deutsche Übersetzung als Klartext: „mit dem Status **`active`** (aktiv) angelegt“ und „Setzt den Endpunkt auf **`paused`** (pausiert)“. | `grep -n "\`(aktiv\|pausiert)\`" docs/api/openapi.yaml` ⇒ **kein Treffer**. Die Werte `active`/`paused` stehen als **Enum** in `components.schemas.EndpointStatus` und im CHECK-Constraint `endpoints_status_ck` — unverändert. |
 | **V-25** (sollte) | `openapi.yaml:2446-2449` — `DeliveryRun.organisation_id`: „**Nur** für `service_admin` gefüllt“ legt eine mandantenübergreifende Protokollliste nahe | `openapi.yaml:2446-2456` | **Gewählte Variante: „nur in mandantenübergreifenden Antworten gefüllt; die Protokollliste ist mandantengefiltert“.** Der Vertrag sagt das jetzt ausdrücklich: „Die Protokollliste ist **mandantengefiltert** und zeigt auch dem `service_admin` nur die Läufe des Mandanten aus der Identität (E-10). Die mandantenübergreifende Sicht gilt nur für Endpunktliste, Totenliste und Aufbewahrung (ADR-002 §7). Im Zustellprotokoll bleibt das Feld deshalb `null`; es ist **kein** Filter (D-01).“ | **Warum diese Variante:** sie ist widerspruchsfrei zum **Geltungsbereich** der Operation (`listDeliveries` 200: „Zustellprotokoll (mandantengefiltert)“), zur **Rollenzeile** (`service_admin` ohne Protokollrecht) und zur **`x-contract-rules`**-Regel („In den mandantenübergreifenden Antworten ist `organisation_id` **im Datensatz** gefüllt“) — sie folgt derselben Regel wie `Endpoint.organisation_id`. Die Alternative („immer gefüllt“) hätte zwei Beispiele und die Pflichtfeldliste verändert und eine **neue** Zusage geschaffen, die keine Entscheidung trägt. |
-| | | | **Parallel:** ADR-015 §1 (Rollenmatrix) korrigiert — siehe **N-19**. | |
+| | | | **Parallel:** ADR-015 §1 (Rollenmatrix) korrigiert — siehe **N-19**. **› Überholt durch V-26** (Rücksprung 3, Abschnitt 9): die hier gewählte Variante („nur in mandantenübergreifenden Antworten gefüllt") ist **nicht mehr gültig** — `DeliveryRun.organisation_id` ist jetzt **immer** gefüllt und benennt den **besitzenden Mandanten**. | |
 
 ---
 
@@ -303,3 +312,91 @@ Orchestrator geschrieben.
 | Kein Anwendungscode | `git diff --stat -- src/` | **leer** (`src/` existiert nicht) |
 | Diagramme nicht zurückgedreht | `git diff --stat -- docs/architecture/diagrams/` | **leer** |
 | Commit-Scope | `git add -A -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/ .agent/knowledge/` | **nur** diese Pfade |
+
+---
+
+## 9. Rücksprung 3 — V-26: `organisation_id` benennt **immer** den besitzenden Mandanten
+
+> **Eingang:** der Mensch hat **V-26 entschieden** (Freigabe vor diesem Schritt) —
+> die Entscheidung wird hier **nicht** neu diskutiert, sondern **umgesetzt**.
+> Agent: `aisdlc-architecture` · Stand: 2026-10-21 · Vertrag: `docs/api/openapi.yaml`
+> (17 Operationen) — **noch nicht eingefroren**, der Einfrierpunkt folgt nach
+> Schritt 4 (Delta-Prüfung).
+
+### 9.1 Fundstelle — der Widerspruch im Wortlaut
+
+| # | Stelle (vorher) | Befund |
+|---|---|---|
+| 1 | `openapi.yaml:2164-2167` — `Endpoint.organisation_id` | Feldbeschreibung: „Mandant des Endpunkts. **Nur** für `service_admin` gefüllt; für andere Rollen ist das Feld `null`, weil der Mandant bereits aus der Identität bekannt ist." — **falsch** |
+| 2 | `openapi.yaml:520` — Beispiel 201 `createEndpoint` | zeigte `organisation_id: null` — die einzige Stelle, die die alte Beschreibung stützte |
+| 3 | `openapi.yaml:580` (Beispiel 200 `listEndpoints`) und `:720` (Beispiel 200 `pauseEndpoint`) | zeigten `organisation_id: m-1` — auch für den **eigenen** Mandanten (ein `receiver_admin`-Vorgang auf dem Endpunkt des eigenen Mandanten) → **Widerspruch** zur Beschreibung |
+| 4 | `openapi.yaml:549-553` (Operationsbeschreibung `listEndpoints`) vs. `:572` (Antwortbeschreibung 200) | die Operationsbeschreibung sagt dem `service_admin` **alle** Mandanten zu, die Antwortbeschreibung sagt „Endpunktliste (**mandantengefiltert**)" → **nicht** in Einklang |
+| 5 | `openapi.yaml:2446-2457` — `DeliveryRun.organisation_id` | die Beschreibung aus **V-25** sagte das Gegenteil: „Das Feld ist **nur** in mandantenübergreifenden Antworten gefüllt … Im Zustellprotokoll bleibt das Feld deshalb `null`" |
+| 6 | `openapi.yaml:89-90` (Abschnitt „Mandantenübergreifende Listen"), `:3298` (`x-contract-rules.tenant`), `:2625-2631` (`DeadDelivery.organisation_id`) | weitere Stellen mit der antwort- bzw. rollenbezogenen Formulierung |
+
+**Kern des Widerspruchs:** Beschreibung, Beispiele und Operations-/Antwortbeschreibung
+sagten drei verschiedene Dinge über dasselbe Feld.
+
+### 9.2 Entscheidung (vom Menschen freigegeben)
+
+**`organisation_id` ist IMMER gefüllt.** Das Feld benennt den **besitzenden
+Mandanten** der Ressource. Es ist **kein** Sonderfeld für `service_admin`:
+
+* im eigenen Mandanten: der eigene Mandant,
+* in der mandantenuebergreifenden Liste (nur `service_admin`): der Mandant, zu dem
+  die Ressource gehört.
+
+Die Aussage „nur für `service_admin` gefüllt; für andere Rollen `null`" ist
+**falsch** und wurde korrigiert. Die Entscheidung gilt für **beide** Felder mit
+dieser Bedeutung: `Endpoint.organisation_id` **und** `DeliveryRun.organisation_id`
+— die beiden Felder werden **gleichlautend** beschrieben.
+
+### 9.3 Korrektur — was im Vertrag geändert wurde
+
+| Stelle (nachher) | vorher | nachher |
+|---|---|---|
+| `Endpoint.organisation_id` (`:2178-2184`, Pflicht in `:2167`) | `nullable: true`, **nicht** in `required`, „**Nur** für `service_admin` gefüllt … sonst `null`" | **Pflichtfeld**, **nicht** `nullable`: „Der **besitzende Mandant** der Ressource — **immer** gefüllt: im eigenen Mandanten der eigene Mandant, in der mandantenübergreifenden Sicht (`service_admin`) der Mandant, zu dem der Endpunkt gehört (E-01)." |
+| `DeliveryRun.organisation_id` (`:2464-2473`, Pflicht in `:2437`) | `nullable: true`, **nicht** in `required`, „**nur** in mandantenübergreifenden Antworten gefüllt … im Zustellprotokoll `null`" | **Pflichtfeld**, **nicht** `nullable`, **derselbe Leitsatz** wie bei `Endpoint` + Kontextsatz: das Zustellprotokoll ist **mandantengefiltert** (E-10) → dort ist es der Mandant aus der Identität |
+| `DeadDelivery.organisation_id` (`:2642-2648`, Pflicht in `:2629`) | `nullable: true`, **nicht** in `required`, „in der Totenliste **immer** gefüllt" | **Pflichtfeld**, **nicht** `nullable`, derselbe Leitsatz (die Totenliste ist mandantenübergreifend, AC-016-1) |
+| Beispiel 201 `createEndpoint` (`:528`) | `organisation_id: null` | `organisation_id: m-1` — die Antwort eines selbst erstellten Endpunkts gehört zum **eigenen** Mandanten |
+| Beispiel 200 `listDeliveries` (`:1086`) und `getDeliveryRun` (`:1149`) | Feld **fehlte** | `organisation_id: m-1` ergänzt (Pflichtfeld) |
+| Operationsbeschreibung `listEndpoints` (`:556-570`) | „Ein `receiver_admin` sieht **nur** die Endpunkte seines Mandanten; ein `service_admin` sieht die Endpunkte **aller** Mandanten" + „**In diesem Fall** ist `organisation_id` in **jedem** Datensatz gefüllt" | „Für **alle** Rollen **außer** `service_admin` ist die Liste **mandantengefiltert** … ein `service_admin` sieht die Endpunkte **aller** Mandanten (FR-004, E-01)" + „`organisation_id` … in **jedem** Datensatz gefüllt — es benennt den **besitzenden Mandanten**" (**kein** Sonderfall der mandantenübergreifenden Sicht) |
+| Antwortbeschreibung 200 `listEndpoints` (`:583-586`) | „Endpunktliste (mandantengefiltert)." | „Endpunktliste — **mandantengefiltert** für alle Rollen **außer** `service_admin`, der die Endpunkte **aller** Mandanten sieht (E-01); `organisation_id` benennt je Datensatz den **besitzenden Mandanten**." |
+| `info.description`, Abschnitt „Mandant" (`:30-34`) | kein Satz zur Feldbedeutung | neuer Absatz: „**`organisation_id` in den Antworten:** Das Feld ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource … Es ist **kein** Sonderfeld einer Rolle und **kein** Filter (D-01)." |
+| `info.description`, Abschnitt „Mandantenübergreifende Listen" (`:95-97`) | „In den mandantenübergreifenden Antworten ist `organisation_id` deshalb **im Datensatz** gefüllt." | „`organisation_id` ist **immer** gefüllt — es benennt den **besitzenden Mandanten** der Ressource; in diesen mandantenübergreifenden Antworten steht damit der Mandant, zu dem der Datensatz gehört." |
+| `x-contract-rules.tenant` (`:3315`) | „In den mandantenübergreifenden Antworten ist `organisation_id` **im Datensatz** gefüllt." | „`organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört." |
+
+**Geprüft und bewusst nicht geändert** (Nachzug ohne Änderungsbedarf):
+
+| Stelle | Befund | Warum unverändert |
+|---|---|---|
+| `TenantRetention.organisation_id` (`:3018`) und die Beschreibung von `tenants[]` (`:2986`) | „Mandant — **im Datensatz**, damit der Client die Herkunft erkennt (AC-016-1)" | war bereits **Pflichtfeld**, **nicht** `nullable` und **ohne** Rollenbedingung — stimmt mit der Entscheidung überein |
+| `x-delivery-protocol` (`:160-3137`) | nennt `organisation_id` **nicht** | der ausgehende Zustellvertrag ist davon nicht betroffen — nichts nachzuziehen |
+| Fehlerbeschreibungen (`tenant_parameter_rejected`: `:59`, `:1833`, `:2005`, `:2133`, `:2157`, `:2239`, `:2336`, `:2703`, `:2845`) und das Fehlerbeispiel (`:1864`) | betreffen den **Mandantenparameter im Request** (Body/Query/Header → 422, D-01) | unberührt: das **Antwort**-Feld `organisation_id` ist davon nicht betroffen |
+| `listDeadDeliveries` (`:1220`), Totenlisten-Beispiel (`:1277`), Aufbewahrungs-Beispiele (`:1532`, `:1545`) | „`organisation_id` ist in **jedem** Datensatz gefüllt" | stimmt mit „immer gefüllt" überein |
+
+**Umfang unverändert:** 17 Operationen, 23 Stories / 101 AKs / 24 Anforderungen —
+**kein** neues Feld, **keine** neue Operation, **keine** Story, **kein**
+Akzeptanzkriterium. **Kein** Schema-Anfassen (`diff` leer).
+
+### 9.4 Nachweis
+
+| Prüfung | Ergebnis |
+|---|---|
+| YAML | **gültig** (`yaml.safe_load`) |
+| `$ref` | **176**, **alle** auflösbar |
+| Operationen | **17**, alle mit `operationId` (eindeutig), `x-ac-id`, `x-requirement-ids` |
+| `x-acceptance-coverage` / `x-requirement-coverage` | **101 / 24**, lückenlos, keine Dubletten |
+| Beispiele gegen die Schemas (Pflichtfelder, `null` bei nicht-`nullable`, unbekannte Felder, Enum) | **0 Abweichungen** |
+| `organisation_id` in `Endpoint` / `DeliveryRun` / `DeadDelivery` / `TenantRetention` | jeweils **Pflichtfeld**, **nicht** `nullable` |
+| Suche nach der alten Zusage | **kein** Treffer auf „nur für `service_admin` gefüllt", „für andere Rollen `null`", „bleibt das Feld deshalb `null`" — die einzige verbliebene `null`-Stelle zu `organisation_id` (`createEndpoint`) ist ersetzt |
+| `python3 .agent/tools/traceability_check.py` | **grün** — „Keine Luecken …" (23 Stories / 101 AKs / 24 Anforderungen) |
+| `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (byte-identisch) |
+| Anforderungen unberührt | `git diff --stat -- docs/requirements/ docs/Anforderung.md` → **leer** |
+| Kein Anwendungscode | `git diff --stat -- src/` → **leer** |
+
+### 9.5 Neue Befunde — dokumentiert, **nicht** entschieden
+
+| ID | Befund | Fundstelle | Warum nicht entschieden |
+|---|---|---|---|
+| **V-27** | **Der `service_admin` bekommt IDs, die er nicht öffnen kann.** Die mandantenübergreifende **Endpunktliste** (und die **Totenliste**) liefert dem `service_admin` Endpunkt- bzw. Zustelllauf-IDs **fremder Mandanten**; der **Einzelabruf** (`getEndpoint`, `getDeliveryRun`) beantwortet eine Ressource eines fremden Mandanten aber mit **HTTP 404** (D-02). Der Vertrag sagt **nicht**, ob die 404 auch für den `service_admin` gilt; das Schema lässt nur die **drei** mandantenübergreifenden **Listen** zu (ADR-002 §7: `list_endpoints_cross_tenant`, `list_dead_deliveries_cross_tenant`, `enforce_retention_cross_tenant`) — ein mandantenübergreifender **Einzelabruf** existiert **nicht**. Die Rollenmatrix in ADR-015 §1 nennt für `service_admin` „Endpunkte verwalten: **ja** (alle Mandanten)", was in die andere Richtung deutet. | `openapi.yaml:625-628` (`getEndpoint`), `:1127-1131` (`getDeliveryRun`), `:556-570` (`listEndpoints`), `:1217-1221` (`listDeadDeliveries`); `docs/adr/ADR-002-mandantentrennung-rls.md` §7 (drei Eigentümerfunktionen); `docs/adr/ADR-015-fehlersemantik-tenant-rollen.md:35` | Das ist **kein** Widerspruch im engeren Sinn (beide Sätze können gleichzeitig gelten, wenn „fremd" am Mandanten aus der Identität gemessen wird) — es ist eine **offene Semantikfrage** mit realer Client-Folge: die Liste übergibt IDs, deren Detailabruf 404 endet. Die Auflösung (Vertragssatz „die 404 gilt auch für `service_admin`" vs. ein mandantenübergreifender Einzelabruf als **vierte** Eigentümerfunktion) ist eine **Semantik- und Architekturentscheidung** — sie gehört in die **Delta-Prüfung (Schritt 4)**, vor dem Einfrieren. **Hier nicht entschieden.** Hinweis: `docs/adr/` ist in diesem Schritt nicht änderbar — ADR-015 und ADR-002 blieben unberührt. |

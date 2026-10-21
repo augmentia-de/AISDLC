@@ -27,6 +27,12 @@ info:
     Fremde Ressourcen werden mit **HTTP 404** beantwortet, damit die Existenz
     fremder Objekte nicht preisgegeben wird (D-02).
 
+    **`organisation_id` in den Antworten:** Das Feld ist **immer** gefüllt und
+    benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten
+    den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem
+    die Ressource gehört. Es ist **kein** Sonderfeld einer Rolle und **kein**
+    Filter (D-01).
+
     ## Rollen
 
     | Rolle | Rechte |
@@ -85,9 +91,11 @@ info:
     globalen Reihenfolge über **alle** Mandanten: der Cursor läuft **über die
     Mandantgrenzen hinweg**, es gibt **keine** Seite je Mandant, und eine Seite
     kann Datensätze verschiedener Mandanten enthalten. Die Sortierschlüssel
-    sind dort `updated_at` (Endpunktliste) und `created_at` (Totenliste). In den
-    mandantenübergreifenden Antworten ist `organisation_id` deshalb **im
-    Datensatz** gefüllt. Ein Cursor gilt nur für **dieselbe** Operation **mit
+    sind dort `updated_at` (Endpunktliste) und `created_at` (Totenliste).
+    `organisation_id` ist **immer** gefüllt — es benennt den **besitzenden
+    Mandanten** der Ressource; in diesen mandantenübergreifenden Antworten
+    steht damit der Mandant, zu dem der Datensatz gehört. Ein Cursor gilt nur
+    für **dieselbe** Operation **mit
     denselben Filtern**; bei geänderten Filtern beginnt die Liste neu.
 
     `POST /api/v1/retention/enforcement` ist **nicht** paginiert: die Antwort
@@ -517,7 +525,7 @@ paths:
                 $ref: "#/components/schemas/Endpoint"
               example:
                 endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
-                organisation_id: null
+                organisation_id: m-1
                 target_url: https://orders.example.invalid/hooks/echobox
                 status: active
                 event_types: [order.changed, order.cancelled]
@@ -546,17 +554,20 @@ paths:
       tags: [Endpunkte]
       summary: Endpunkte auflisten
       description: >-
-        Listet die Endpunkte. Ein `receiver_admin` sieht **nur** die Endpunkte
-        seines Mandanten; ein `service_admin` sieht die Endpunkte **aller**
-        Mandanten, jeweils mit dem Mandantenkennzeichen `organisation_id`
-        (FR-004). Mandant ohnehin aus der Identität — ein `organisation_id`-Filter
-        ist nicht Teil des Vertrags (D-01).
+        Listet die Endpunkte. Für **alle** Rollen **außer** `service_admin` ist
+        die Liste **mandantengefiltert**: ein `receiver_admin` sieht **nur** die
+        Endpunkte **seines** Mandanten; ein `service_admin` sieht die Endpunkte
+        **aller** Mandanten (FR-004, E-01). Mandant ohnehin aus der Identität —
+        ein `organisation_id`-Filter ist nicht Teil des Vertrags (D-01).
 
         **Mandantenübergreifende Sicht:** Sie wird über die schmalen
         Eigentümerfunktionen des Schemas hergestellt (ADR-002 §7) — **nicht**
-        über eine Laufzeitrolle mit `BYPASSRLS`. In diesem Fall ist
-        `organisation_id` in **jedem** Datensatz gefüllt, damit der Client die
-        Herkunft erkennt.
+        über eine Laufzeitrolle mit `BYPASSRLS`.
+
+        **`organisation_id`:** Das Feld ist in **jedem** Datensatz gefüllt — es
+        benennt den **besitzenden Mandanten** des Endpunkts: im eigenen Mandanten
+        den eigenen, in der mandantenübergreifenden Sicht den Mandanten, zu dem
+        der Endpunkt gehört.
       x-ac-id:
         - US-004/AC-004-1
         - US-004/AC-004-2
@@ -569,7 +580,10 @@ paths:
         - $ref: "#/components/parameters/Cursor"
       responses:
         "200":
-          description: Endpunktliste (mandantengefiltert).
+          description: >-
+            Endpunktliste — **mandantengefiltert** für alle Rollen **außer**
+            `service_admin`, der die Endpunkte **aller** Mandanten sieht (E-01);
+            `organisation_id` benennt je Datensatz den **besitzenden Mandanten**.
           content:
             application/json:
               schema:
@@ -1069,6 +1083,7 @@ paths:
                   - delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
                     event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
                     endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                    organisation_id: m-1
                     event_type: order.changed
                     status: failed
                     attempt_count: 2
@@ -1131,6 +1146,7 @@ paths:
                 delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
                 event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
                 endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                organisation_id: m-1
                 event_type: order.changed
                 status: failed
                 attempt_count: 2
@@ -2148,6 +2164,7 @@ components:
         Rotation (AC-001-4).
       required:
         - endpoint_id
+        - organisation_id
         - target_url
         - status
         - event_types
@@ -2160,11 +2177,11 @@ components:
           format: uuid
         organisation_id:
           type: string
-          nullable: true
           description: >-
-            Mandant des Endpunkts. **Nur** für `service_admin` gefüllt; für
-            andere Rollen ist das Feld `null`, weil der Mandant bereits aus der
-            Identität bekannt ist.
+            Der **besitzende Mandant** der Ressource — **immer** gefüllt: im
+            eigenen Mandanten der eigene Mandant, in der mandantenübergreifenden
+            Sicht (`service_admin`) der Mandant, zu dem der Endpunkt gehört
+            (E-01).
         target_url:
           type: string
           format: uri
@@ -2417,6 +2434,7 @@ components:
       required:
         - delivery_run_id
         - event_id
+        - organisation_id
         - event_type
         - status
         - attempt_count
@@ -2445,16 +2463,14 @@ components:
           description: "`null` bei `no_subscriber` — es gibt keinen Endpunkt."
         organisation_id:
           type: string
-          nullable: true
           description: >-
-            Mandant des Zustelllaufs. Das Feld ist **nur** in
-            mandantenübergreifenden Antworten gefüllt. Für das
-            **Zustellprotokoll** gibt es keine solche Antwort: die
-            Protokollliste ist **mandantengefiltert** und zeigt auch dem
-            `service_admin` nur die Läufe des Mandanten aus der Identität
-            (E-10). Die mandantenübergreifende Sicht gilt nur für Endpunktliste,
-            Totenliste und Aufbewahrung (ADR-002 §7). Im Zustellprotokoll bleibt
-            das Feld deshalb `null`; es ist **kein** Filter (D-01).
+            Der **besitzende Mandant** der Ressource — **immer** gefüllt: im
+            eigenen Mandanten der eigene Mandant, in der mandantenübergreifenden
+            Sicht der Mandant, zu dem der Zustelllauf gehört (E-01). Im
+            Zustellprotokoll — das **mandantengefiltert** ist und auch dem
+            `service_admin` nur die Läufe des Mandanten aus der Identität zeigt
+            (E-10) — ist das der Mandant aus der Identität. Es ist **kein**
+            Filter (D-01).
         event_type:
           type: string
         status:
@@ -2610,6 +2626,7 @@ components:
       required:
         - delivery_run_id
         - event_id
+        - organisation_id
         - endpoint_id
         - event_type
         - status
@@ -2624,11 +2641,11 @@ components:
           format: uuid
         organisation_id:
           type: string
-          nullable: true
           description: >-
-            Mandant des Endpunkts — in der Totenliste **immer** gefüllt: sie ist
-            mandantenübergreifend und nur `service_admin` zugänglich
-            (AC-016-1).
+            Der **besitzende Mandant** der Ressource — **immer** gefüllt: in der
+            Totenliste der Mandant, zu dem die tote Zustellung gehört. Die
+            Totenliste ist mandantenübergreifend und nur `service_admin`
+            zugänglich (AC-016-1).
         endpoint_id:
           type: string
           format: uuid
@@ -3295,7 +3312,7 @@ x-contract-rules:
     - "Der Mandant stammt ausschließlich aus dem JWT-Claim `organisation_id` (D-01)."
     - "Ein Mandantenparameter (`organisation_id`) im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."
     - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02)."
-    - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002 §7), **nicht** über eine Rolle mit `BYPASSRLS`. In den mandantenübergreifenden Antworten ist `organisation_id` **im Datensatz** gefüllt."
+    - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002 §7), **nicht** über eine Rolle mit `BYPASSRLS`. `organisation_id` ist **immer** gefüllt und benennt den **besitzenden Mandanten** der Ressource — im eigenen Mandanten den eigenen, in den mandantenübergreifenden Antworten den Mandanten, zu dem der Datensatz gehört."
   errors:
     - "Alle Fehlerantworten nutzen das Schema `Problem` mit `Content-Type: application/problem+json`."
     - "Die Grenze zwischen **400** (syntaktisch fehlerhaft) und **422** (semantisch ungültig) sowie die Zuordnung Status → `code` stehen im Abschnitt „Fehlersemantik“ in `info.description`."
