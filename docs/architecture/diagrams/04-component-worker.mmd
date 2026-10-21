@@ -1,0 +1,39 @@
+%% EchoBox — C4 Komponenten (Level 3) des Zustell-Workers
+%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur)
+%% Welche Komponenten sitzen hinter dem Container "Zustell-Worker"?
+
+C4Component
+    title EchoBox — Komponenten des Zustell-Workers (C4 Level 3)
+
+    System_Boundary(workerBoundary, "Zustell-Worker (Spring Boot, Hintergrundprozess)") {
+        Component(scheduler, "Scheduler\n(zeitgesteuerte Schleife)", "Scheduled", "Sucht je Mandant fällige Zustellläufe und stößt die Verarbeitung an (D-10).")
+        Component(claimer, "Claimer\n(Laufzeitbeanspruchung)", "Fachlogik", "Beansprucht fällige Läufe per FOR UPDATE SKIP LOCKED und setzt eine Lease mit Ablaufzeit — genau eine Instanz führt den Versuch aus (AC-023-3, AC-023-4).")
+        Component(dispatcher, "Dispatcher\n(Versand)", "Fachlogik", "Baut den HTTP-Request, signiert ihn, versendet ihn und wertet die Antwort aus (2xx / 410 / 4xx / 5xx / Netzwerkfehler).")
+        Component(signer, "Signatur\n(HMAC-SHA256)", "Krypto", "Bildet die Signier-Eingabe timestamp.payload und setzt den Header X-EchoBox-Signature (ADR-004).")
+        Component(payloadProvider, "Nutzlastquelle\n(Entschlüsselung)", "Krypto", "Entschlüsselt die Nutzlast für den Versand — oder reicht die Chiffre unverändert weiter (FR-013).")
+        Component(backoff, "Backoff-Politik\n(Verdopplung + Streuung)", "Fachlogik", "Berechnet den nächsten Versuchszeitpunkt; konfigurierbar, ohne vorbelegte Werte (D-09, O-06).")
+        Component(rateLimiter, "Endpunkt-Begrenzung\n(je Endpunkt)", "Fachlogik", "Zählt die Versuche je Endpunkt und Zeitfenster und verschiebt oder blockiert nach der konfigurierten Strategie — ohne vorbelegten Grenzwert (D-14, O-01).")
+        Component(protocolWriter, "Protokollschreiber\n(Versuche)", "Fachlogik", "Schreibt je Versuch Zustand, Antwortcode, Fehlercode und den nächsten Versuchszeitpunkt (FR-030).")
+        Component(leaseRecovery, "Lease-Rettung\n(Absturz)", "Fachlogik", "Gibt Läufe nach Ablauf der Lease wieder frei, ohne die Versuchszahl sprunghaft zu erhöhen (AC-023-4).")
+    }
+
+    ContainerDb(database, "PostgreSQL 16 (app)", "RLS", "Zustellläufe und Versuche")
+    System_Ext(endpointSystem, "Empfangendes System", "Zielsystem hinter der Empfänger-URL")
+    System_Ext(secretStore, "Secret-Store", "Endpunkt-Secrets")
+
+    Rel(scheduler, claimer, "fordert fällige Läufe an")
+    Rel(claimer, database, "SELECT ... FOR UPDATE SKIP LOCKED, Lease setzen", "JDBC/RLS")
+    Rel(claimer, dispatcher, "übergibt den beanspruchten Lauf")
+    Rel(dispatcher, payloadProvider, "Nutlastbytes für den Request")
+    Rel(payloadProvider, secretStore, "Schlüssel für die Entschlüsselung")
+    Rel(dispatcher, signer, "Zeitstempel und Nutlastbytes")
+    Rel(signer, secretStore, "Endpunkt-Secret")
+    Rel(dispatcher, endpointSystem, "POST mit Signatur und Zustell-Kennungen", "HTTPS/JSON")
+    Rel(dispatcher, backoff, "Antwort auswerten → nächster Versuchszeitpunkt")
+    Rel(dispatcher, rateLimiter, "Versuch zählen, ggf. verschieben")
+    Rel(dispatcher, protocolWriter, "Versuch protokollieren")
+    Rel(backoff, database, "next_attempt_at und Status schreiben", "JDBC/RLS")
+    Rel(rateLimiter, database, "Zähler je Endpunkt und Zeitfenster schreiben", "JDBC/RLS")
+    Rel(protocolWriter, database, "Versuch und Status des Laufs schreiben", "JDBC/RLS")
+    Rel(leaseRecovery, database, "überfällige Leases freigeben", "JDBC/RLS")
+    Rel(scheduler, leaseRecovery, "regelmäßig prüfen")

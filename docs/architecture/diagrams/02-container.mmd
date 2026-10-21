@@ -1,0 +1,37 @@
+%% EchoBox — C4 Container (Level 2)
+%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur)
+%% Welche Container gibt es, wie kommunizieren sie, welche Daten tragen sie?
+
+C4Container
+    title EchoBox — Container (C4 Level 2)
+
+    Person(entwickler, "Entwickler", "Liefert Ereignisse ein, liest das Protokoll")
+    Person(empfaengerAdmin, "Empfänger-Admin", "Verwaltet Endpunkte")
+    Person(serviceAdmin, "Service-Admin", "Betrieb und Totenliste")
+
+    System_Boundary(echobox, "EchoBox") {
+        Container(webApi, "API-Layer\n(Spring Boot, HTTP)", "REST/JSON unter /api/v1", "Nimmt Ereignisse an, verwaltet Endpunkte, liefert Protokoll, Totenliste und Kennzahlen. Setzt den Mandanten aus dem JWT (D-01).")
+        Container(deliveryWorker, "Zustell-Worker\n(Spring Boot, Hintergrundprozess)", "Scheduled Batch", "Beansprucht fällige Zustellläufe, signiert, sendet, plant Wiederholungen mit Backoff und Streuung, schreibt das Protokoll (D-10, ADR-006).")
+        Container(cryptoService, "Krypto-Modul", "AEAD + HMAC", "Verschlüsselt die Nutzlast im Ruhezustand, berechnet die HMAC-Signatur, entschlüsselt nur für den Zustellvorgang (ADR-003, ADR-004).")
+        ContainerDb(database, "PostgreSQL 16\n(Schema app)", "RLS", "Endpunkte, Ereignisse, Zustellläufe, Versuche, Zähler, Audit. Row-Level-Security erzwingt die Mandantentrennung (ADR-002).")
+    }
+
+    System_Ext(secretStore, "Secret-Store", "Schlüssel und Endpunkt-Secrets außerhalb der Datenbank")
+    System_Ext(endpointSystem, "Empfangendes System", "Zielsystem hinter der Empfänger-URL")
+    System_Ext(identityProvider, "Identity Provider", "JWT mit organisation_id und Rollen")
+
+    Rel(entwickler, webApi, "POST /api/v1/events, GET /api/v1/deliveries", "HTTPS/JSON, JWT")
+    Rel(empfaengerAdmin, webApi, "POST /api/v1/endpoints, pause, resume, secret-rotation, replay", "HTTPS/JSON, JWT")
+    Rel(serviceAdmin, webApi, "GET /api/v1/dead-deliveries, metrics, retention", "HTTPS/JSON, JWT")
+
+    Rel(webApi, identityProvider, "Token prüfen, organisation_id und Rollen lesen", "JWKS")
+    Rel(webApi, database, "Lesen und Schreiben innerhalb des Mandanten", "JDBC, RLS über app.set_tenant()")
+    Rel(webApi, cryptoService, "Nutzlast verschlüsseln, Secret anlegen", "In-Process")
+    Rel(webApi, secretStore, "Schlüssel und Secret-Zuordnung", "Secret-Injektion")
+
+    Rel(deliveryWorker, database, "Fällige Läufe beanspruchen (FOR UPDATE SKIP LOCKED), Versuche schreiben", "JDBC, RLS je Mandant")
+    Rel(deliveryWorker, cryptoService, "Nutzlast entschlüsseln, Signatur berechnen", "In-Process")
+    Rel(deliveryWorker, secretStore, "Endpunkt-Secret für die Signatur laden", "Secret-Injektion")
+    Rel(deliveryWorker, endpointSystem, "POST an die registrierte Ziel-URL — signiert, mit Zustell-Kennungen", "HTTPS/JSON")
+
+    Rel(webApi, deliveryWorker, "Kein direkter Aufruf — die Zustellung läuft über die Warteschlange in der Datenbank", "Datenbank")

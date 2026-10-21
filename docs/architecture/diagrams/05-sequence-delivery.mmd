@@ -1,0 +1,76 @@
+%% EchoBox — Sequenzdiagramm der Zustellung (inkl. Wiederholung, Backoff, Streuung und Replay)
+%% Quelle: docs/architecture/architecture.md, docs/architecture/domain_model.md
+%% Stand: Schritt 2 (Konzept & Architektur)
+
+sequenceDiagram
+    autonumber
+    participant Dev as Entwickler
+    participant API as API-Layer
+    participant DB as PostgreSQL (app)
+    participant W as Zustell-Worker
+    participant EP as Empfangendes System
+
+    Dev->>API: POST /api/v1/events (Typ, Nutzlast, Idempotenzschlüssel)
+    API->>API: JWT prüfen, Mandant aus organisation_id (D-01)
+    API->>API: app.set_tenant(mandant) — transaktionslokal
+    API->>API: Größe prüfen (> 1 MB → 413) und Pflichtfelder (→ 422)
+    alt Idempotenzschlüssel (Mandant, Schlüssel) existiert schon
+        API->>DB: Fingerprint vergleichen
+        alt gleiche Nutzlast
+            DB-->>API: Ereignis-ID des ersten Ereignisses
+            API-->>Dev: 202 Accepted, idempotent_replay = true
+        else abweichende Nutzlast
+            API-->>Dev: 409 Conflict (idempotency_conflict)
+        end
+    else neues Ereignis
+        API->>API: Nutzlast verschlüsseln (AEAD), Fingerprint bilden
+        API->>DB: INSERT events (Chiffre) — RLS erzwingt den Mandanten
+        API->>DB: INSERT delivery_runs je abonniertem Endpunkt (Status pending/scheduled)
+        Note over API,DB: Gleiche Transaktion — transaktionales Outbox-Muster
+        API-->>Dev: 202 Accepted, event_id
+    end
+
+    Note over W,EP: Die Zustellung beginnt erst NACH der Antwort (NFR-002, D-10)
+
+    W->>DB: SELECT fällige Läufe … FOR UPDATE SKIP LOCKED (Lease setzen)
+    W->>DB: Nutzlast entschlüsseln (oder Chiffre unverändert weiterreichen)
+    W->>W: Signatur bilden: HMAC-SHA256(secret, timestamp.payload)
+    W->>EP: POST Ziel-URL<br/>X-EchoBox-Event-Id, X-EchoBox-Delivery-Run-Id,<br/>X-EchoBox-Attempt-Id, X-EchoBox-Timestamp, X-EchoBox-Signature
+
+    alt Antwort 2xx
+        EP-->>W: 200 OK
+        W->>DB: Versuch als „success" protokollieren, Lauf = sent
+        Note over W,EP: Kein weiterer Versuch (AC-010-3)
+    else Ablehnungssignal 410 (+ X-EchoBox-Rejection: permanent)
+        EP-->>W: 410 Gone, Body {rejection, reason, …}
+        W->>DB: Versuch als „permanent_rejection" protokollieren, Lauf = rejected
+        Note over W,EP: Sofort aufgeben, keine Wiederholung (FR-025, D-08)
+    else übriger 4xx
+        EP-->>W: 400/403/404 …
+        W->>DB: Versuch als „client_error" protokollieren, Lauf = rejected
+        Note over W,EP: Keine Wiederholung (AC-014-4)
+    else 5xx / 408 / 429 / Netzwerkfehler
+        EP-->>W: 503 Service Unavailable (oder Timeout)
+        W->>W: Backoff: Abstand verdoppeln, Streuung anwenden (D-09)
+        W->>DB: Versuch als „retryable_failure" protokollieren,<br/>Lauf = failed/scheduled, next_attempt_at setzen
+        Note over W,EP: Nächster Versuch erst zum geplanten Zeitpunkt
+    end
+
+    opt Versuchsgrenze erreicht (O-06)
+        W->>DB: Lauf = abandoned, abandoned_at setzen
+        Note over DB: Der Lauf erscheint in der Totenliste (FR-031)
+    end
+
+    opt Endpunkt pausiert (D-03)
+        API->>DB: Endpunkt = paused
+        DB-->>W: offener Wiederholungsvorgang wird abgebrochen
+        W->>DB: Lauf = cancelled — es wird nichts nachgeliefert
+    end
+
+    opt Replay durch den Empfänger-Admin (FR-024)
+        Dev->>API: POST /api/v1/deliveries/{deliveryRunId}/replay
+        API->>DB: Prüfung: Empfänger-Admin des Endpunkts? (sonst 403, D-15)
+        API->>DB: Neuer Zustelllauf: neue delivery_run_id, gleiche event_id,<br/>Versuchszahl startet bei 1, Altdatensatz bleibt erhalten
+        API-->>Dev: 202 Accepted, neue delivery_run_id
+        Note over W,EP: Der neue Lauf durchläuft denselben Weg
+    end

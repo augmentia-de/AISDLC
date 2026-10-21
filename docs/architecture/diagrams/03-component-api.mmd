@@ -1,0 +1,48 @@
+%% EchoBox — C4 Komponenten (Level 3) des API-Layers
+%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur)
+%% Welche Komponenten sitzen hinter dem Container "API-Layer"?
+
+C4Component
+    title EchoBox — Komponenten des API-Layers (C4 Level 3)
+
+    Person(aufrufer, "Aufrufer", "Entwickler, Empfänger-Admin, Service-Admin")
+
+    System_Boundary(apiLayer, "API-Layer (Spring Boot)") {
+        Component(security, "Security-Adapter\n(Spring Security, JWT)", "Filter + SecurityContext", "Prüft das Bearer-Token, liest organisation_id und die Rollen und legt den Mandantenkontext fest (D-01). Ein Mandantenparameter im Request wird abgelehnt.")
+        Component(tenant, "Mandanten-Kontext\n(TenantContext, Connection-Initializer)", "Transaktionslokal", "Setzt je Transaktion app.organisation_id über app.set_tenant() — die Datenbank erzwingt die Trennung (ADR-002, AC-022-3).")
+        Component(endpointController, "EndpointController\n(REST)", "HTTP-Adapter", "Registrieren, Lesen, Aktualisieren, Pausieren, Reaktivieren, Secret-Rotation. Validiert am Rand, leitet an den Fachservice weiter.")
+        Component(endpointService, "EndpointService\n(Fachlogik)", "Domänenlogik", "Endpunktzustand, Pause-Semantik ohne Zwischenspeicherung und ohne Nachliefern (D-03), Secret-Rotation (FR-003), rollenabhängige Sichtbarkeit (FR-004).")
+        Component(eventController, "EventController\n(REST)", "HTTP-Adapter", "Nimmt Ereignisse an: 1-MB-Grenze, Idempotenz, Pflichtfelder. Antwortet 202, bevor die Zustellung startet (NFR-002).")
+        Component(eventService, "EventService\n(Fachlogik)", "Domänenlogik", "Idempotenz je (Mandant, Schlüssel), 409 bei abweichender Nutzlast (D-05), Verschlüsselung im Ruhezustand, Anlegen der Zustellläufe in derselben Transaktion (transaktionales Outbox).")
+        Component(crypto, "CryptoService\n(Verschlüsselung, Signatur)", "Fachlogik", "AEAD für die Nutzlast, HMAC-SHA256 für die Signatur, Fingerprint für den Idempotenzvergleich (ADR-003, ADR-004).")
+        Component(deliveryController, "DeliveryController\n(REST)", "HTTP-Adapter", "Zustellprotokoll, tote Zustellungen, Replay, Kennzahlen, Aufbewahrung.")
+        Component(deliveryQueryService, "ProtocolQueryService\n(Auswertung)", "Domänenlogik", "Zustellprotokoll und Totenliste über Metadaten, Kennzahlen je Endpunkt (Erfolgsquote, p95-Latenz, Rate-Limit-Zähler) (D-11, FR-032).")
+        Component(replayService, "ReplayService\n(Fachlogik)", "Domänenlogik", "Neuer Zustelllauf mit neuer Zustelllauf-ID und zurückgesetzter Versuchszahl, Berechtigung des Empfänger-Admins (FR-024, D-15).")
+        Component(retentionService, "RetentionService\n(Aufräumen)", "Domänenlogik", "Löscht Ereignisse, Zustellläufe und Versuche nach der konfigurierten Frist (D-12, O-02).")
+        Component(errorMapping, "Fehlerabbildung\n(Problem-Responses)", "Cross-Cutting", "Ein einheitliches Fehlerschema für alle Fehlerantworten: 400/401/403/404/409/413/422/429/500.")
+    }
+
+    ContainerDb(database, "PostgreSQL 16 (app)", "RLS", "Endpunkte, Ereignisse, Zustellläufe, Versuche, Audit")
+    Container(worker, "Zustell-Worker", "Hintergrundprozess", "Sendet, wiederholt, protokolliert")
+
+    Rel(aufrufer, security, "HTTPS mit Bearer-Token", "JWT")
+    Rel(security, tenant, "übergibt organisation_id und Rollen")
+    Rel(tenant, database, "SET LOCAL app.organisation_id je Transaktion", "JDBC")
+    Rel(aufrufer, endpointController, "Endpunktverwaltung", "HTTPS/JSON")
+    Rel(aufrufer, eventController, "Ereignis einliefern", "HTTPS/JSON")
+    Rel(aufrufer, deliveryController, "Protokoll, Totenliste, Replay, Kennzahlen", "HTTPS/JSON")
+    Rel(endpointController, endpointService, "Fachbefehl")
+    Rel(endpointController, errorMapping, "Fehlerabbildung")
+    Rel(eventController, eventService, "Fachbefehl")
+    Rel(eventController, errorMapping, "Fehlerabbildung")
+    Rel(deliveryController, deliveryQueryService, "Auswertung")
+    Rel(deliveryController, replayService, "Replay")
+    Rel(deliveryController, retentionService, "Aufbewahrung erzwingen")
+    Rel(deliveryController, errorMapping, "Fehlerabbildung")
+    Rel(endpointService, database, "CRUD Endpunkte, Ereignistypen, Secret-Historie", "JDBC/RLS")
+    Rel(eventService, database, "Ereignis und Zustellläufe anlegen, Idempotenz prüfen", "JDBC/RLS")
+    Rel(eventService, crypto, "Nutzlast verschlüsseln, Fingerprint bilden")
+    Rel(eventService, worker, "Zustellläufe in der Warteschlange — kein direkter Aufruf", "Datenbank")
+    Rel(deliveryQueryService, database, "Protokoll und Kennzahlen lesen", "JDBC/RLS")
+    Rel(replayService, database, "Neuen Zustelllauf anlegen", "JDBC/RLS")
+    Rel(retentionService, database, "Aufbewahrung durchsetzen", "JDBC/RLS")

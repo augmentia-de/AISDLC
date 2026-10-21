@@ -1,0 +1,134 @@
+# ADR-010: Rate-Limit je Endpunkt (Mechanismus ohne Grenzwert)
+
+## Kontext
+
+FR-033: *„Ein Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit
+geschützt. Die zulässige Rate steht noch nicht fest."*
+
+Abschnitt 13 der Anforderung nennt **zwei** offene Fragen:
+
+1. **Welche** Rate ist „angemessen"?
+2. Was passiert bei Überschreitung — **blockieren** oder **verschieben**?
+
+D-14 legt fest: der Begrenzungsmechanismus wird **gebaut und konfigurierbar**
+gehalten; bis O-01 entschieden ist, wird **kein** Grenzwert vorbelegt; erhoben
+werden nur die Zähler je Endpunkt und Zeitfenster als Datenbasis.
+
+**Offener Punkt O-01** (Fachbereich). Diese ADR entscheidet den **Mechanismus**,
+nicht den Wert.
+
+AC-018-1: bei Überschreitung greift die konfigurierte Strategie, und **kein
+Ereignis geht verloren**. AC-018-2: die Verzögerung ist im Protokoll erkennbar
+(Status und nächster Versuchszeitpunkt). AC-018-3: die Begrenzung wirkt **je
+Endpunkt** — ein anderer Endpunkt wird nicht verzögert. AC-018-4: solange O-01
+offen ist, ist **kein** Grenzwert vorbelegt; der Dienst erhebt nur die Zählung.
+
+## Entscheidung
+
+### 1. Zwei Rollen: Zähler und Begrenzer
+
+| Teil | Zweck | Zustand |
+|---|---|---|
+| **Zähler** (`endpoint_rate_limit_counters`) | Zählt die Zustellversuche je Endpunkt und Zeitfenster | **aktiv**, auch ohne Grenzwert |
+| **Begrenzer** (`endpoint_rate_limits`) | Hält Grenzwert, Fensterlänge und Strategie je Endpunkt | Grenzwert `NULL` = **nicht aktiv** |
+
+Der Zähler läuft **immer**. Damit ist die Datenbasis für O-01 ab dem ersten
+Tag vorhanden — ohne dass jemand raten muss, welche Rate passt.
+
+### 2. Strategien
+
+| Strategie | Verhalten | Datenverlust? |
+|---|---|---|
+| `delay` (**Vorschlag**) | Der Versuch wird **verschoben**: `next_attempt_at` wird in das nächste freie Fenster gelegt. Der Lauf trägt den Zustand `delayed`. | nein |
+| `block` | Der Versuch wird zurückgestellt, bis das Fenster wieder frei ist. | nein |
+
+**Kein Ereignis geht verloren** — das ist AC-018-1 und die zentrale Zusage.
+Ein Limit, das Zustellungen **verwirft**, wäre ein Datenverlust und ist
+ausgeschlossen. Ein Limit, das den Annahme-Request blockiert, wäre ein
+Latenzbruch (NFR-002) und ist ebenfalls ausgeschlossen.
+
+### 3. Kein vorbelegter Grenzwert
+
+- `endpoint_rate_limits.limit_value` ist `NULL` und `enabled = false`, bis O-01
+  entschieden ist.
+- Der Zähler läuft trotzdem. `GET /api/v1/endpoints/{endpointId}/metrics`
+  liefert `rate_limit.limit = null` und die beobachteten Zählerstände
+  (AC-018-4).
+- **Konfigurierbar** über die Anwendungskonfiguration (Default pro
+  Umgebung) **und** überschreibbar je Endpunkt in der Tabelle.
+
+### 4. Je Endpunkt, nicht global
+
+Die Zählung und die Begrenzung sind **je Endpunkt** (AC-018-3). Ein Endpunkt,
+der sein Limit überschreitet, blockiert **nicht** andere Endpunkte. Das
+Fenster ist konfigurierbar (Vorschlag: 60 s).
+
+### 5. Sichtbarkeit im Protokoll
+
+Ein verschobener Versuch hinterlässt **zwei** Spuren:
+
+| Spur | Ort |
+|---|---|
+| Der Zustand `delayed` mit `next_attempt_at` | `delivery_runs` → `GET /deliveries` (AC-018-2) |
+| Der Zählerstand inkl. `delayed_count` | `endpoint_rate_limit_counters` → `EndpointMetrics.rate_limit` |
+
+`delayed` ist ein **sichtbarer Zwischenzustand** — er steht im
+Zustandsautomat (`docs/architecture/domain_model.md`), nicht in einer
+Fußnote.
+
+### 6. Zählung: was zählt als Versuch?
+
+Ein **abgeschickter HTTP-Versuch** zählt — nicht die Annahme und nicht die
+Planung. Ein 2xx, ein 4xx und ein 5xx zählen **gleich**: der Endpunkt hat
+arbeitet bekommen. Der Zähler wird nach jedem abgeschickten Versuch erhöht —
+auch bei einem Timeout, denn der Empfänger hat die Anfrage möglicherweise
+bearbeitet.
+
+## Vorschlag zur Freigabe bei Gate 1
+
+> **Vorschlag (Werte und Strategie, nicht entschieden):** 60 Zustellversuche je
+> Endpunkt und Minute; bei Überschreitung **verschieben** (`delay`), nicht
+> blockieren, nicht verwerfen.
+> *Warum das der Fachbereich entscheidet:* Die erlaubte Rate richtet sich
+> danach, was ein abonnierendes System an Last verträgt — das ist eine
+> Vereinbarung über die Betriebslast zwischen zwei Teams und keine technische
+> Grenze. Ohne eine Zahl ist die Schutzfunktion nicht justierbar; deshalb
+> erhebt der Dienst ab sofort die Zähler, damit die Zahl **belegt** entschieden
+> werden kann statt geschätzt.
+> *Was bereits entschieden ist:* Der Mechanismus, die Zählweise, die
+> Wirksamkeit **je Endpunkt**, die Sichtbarkeit im Protokoll und die Zusage,
+> dass **kein** Ereignis verloren geht.
+
+## Konsequenzen
+
+- **Positiv:** Der Schutz ist **wirksam**, sobald ein Wert gesetzt ist — ohne
+  Codeänderung, nur über Konfiguration.
+- **Positiv:** Die Datenbasis für O-01 entsteht automatisch; die Entscheidung
+  wird **belegt** statt geschätzt.
+- **Positiv:** Der Zustand `delayed` macht die Verzögerung sichtbar — der
+  Empfänger-Admin sieht, dass der Endpunkt gedrosselt wird.
+- **Negativ:** Der Zähler wächst auch ohne Grenzwert. Er wird durch die
+  Aufbewahrung mit dem Zustellprotokoll bereinigt (ADR-012) — sonst wäre er
+  eine unbegrenzte Wachstumsquelle.
+- **Negativ:** Bei `delay` verschiebt sich der Versuch; der Empfänger merkt
+  davon nichts (außer an der Zeit). Das ist gewollt — die Alternative
+  (Verwerfen) wäre Datenverlust.
+- **Negativ:** Die Zählung kostet einen `INSERT`/`UPDATE` je Versuch. Bei
+  hohem Volumen wird sie in den Versuchspfad eingebettet (bereits der Fall:
+  der Versuch schreibt ohnehin eine Zeile in `delivery_attempts`).
+
+## Alternativen
+
+| Alternative | Warum nicht |
+|---|---|
+| **Kein Zähler ohne Grenzwert** | Dann gäbe es keine Datenbasis — O-01 wäre eine Vermutung statt einer Entscheidung (AC-018-4). |
+| **Globaler Grenzwert für alle Endpunkte** | Ein langsamer Endpunkt würde alle anderen bremsen (AC-018-3). |
+| **Verwerfen bei Überschreitung** | Datenverlust — widerspricht AC-018-1 und dem Leitsatz des PRD. |
+| **HTTP 429 an den Aufrufer der Annahme** | Der Aufrufer ist nicht der Empfänger; das ist ein API-Limit, nicht das Endpunkt-Limit (FR-033). |
+| **Zählung im Arbeitsspeicher des Workers** | Überlebt keinen Neustart und ist nicht mandantenfest; ein zweiter Worker sähe eine andere Zahl. |
+| **Token-Bucket im Worker** | Verteilte Zähler über mehrere Instanzen sind ohne gemeinsamen Zustand nicht korrekt. Die Datenbank ist der gemeinsame Zustand — und hat sie schon. |
+
+## Status
+
+**Angenommen** — der Mechanismus ist entschieden; der **Grenzwert** bleibt
+offen (O-01, Gate 1).

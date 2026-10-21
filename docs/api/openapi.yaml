@@ -1,0 +1,2757 @@
+openapi: 3.0.3
+
+info:
+  title: EchoBox — Ereignis-Briefkasten mit Zustellgarantie
+  version: 1.0.0
+  description: |
+    # EchoBox — Ereignis-Briefkasten mit Zustellgarantie
+
+    EchoBox nimmt Ereignisse entgegen und liefert sie per HTTP an registrierte
+    Empfänger-URLs weiter (Webhook-Zustell-Wrapper). Kein Message-Broker, kein
+    Event-Store. Der Dienst hält nur, was er für die Zustellung braucht, und das
+    so kurz wie möglich.
+
+    ## Vertrag und Versionierung
+
+    Dieser Vertrag ist die **Single Source of Truth**. Er wird **nach Schritt 4
+    (Grill-Me-Stresstest) eingefroren**; bis dahin ist er ein stabiler Entwurf.
+    Eine Änderung am Signaturverfahren, an Header-Namen oder am Ablehnungssignal
+    (Abschnitt `x-delivery-protocol`) ist ein **breaking change** und braucht
+    eine neue Hauptversion (`/api/v2`).
+
+    ## Mandant
+
+    Der Mandant stammt **ausschließlich aus der Identität** (JWT-Claim
+    `organisation_id`) und ist **kein** Filter- oder Request-Parameter (D-01).
+    Ein mitgelieferter Mandantenparameter wird mit **HTTP 422** abgelehnt.
+    Fremde Ressourcen werden mit **HTTP 404** beantwortet, damit die Existenz
+    fremder Objekte nicht preisgegeben wird (D-02).
+
+    ## Rollen
+
+    | Rolle | Rechte |
+    |---|---|
+    | `developer` | Ereignisse einliefern, Zustellprotokoll einsehen |
+    | `receiver_admin` | Endpunkte registrieren/ändern/pausieren/reaktivieren, Secret rotieren, tote Zustellung erneut auslösen |
+    | `service_admin` | Endpunkte aller Mandanten sehen, Tote-Zustellungsliste mandantenübergreifend, Kennzahlen, Aufbewahrung erzwingen |
+
+    ## Fehlersemantik
+
+    Alle Fehlerantworten nutzen **ein** Schema (`Problem`, RFC-7807-artig) mit
+    dem maschinenlesbaren Feld `code`:
+
+    | Status | `code` | Wann |
+    |---|---|---|
+    | 400 | `malformed_request` | syntaktisch fehlerhafte Anfrage (kein gültiges JSON) |
+    | 401 | `unauthorized` | kein oder ungültiges Token |
+    | 403 | `forbidden` | angemeldet, aber Rolle/Mandant darf es nicht |
+    | 404 | `not_found` | Ressource existiert nicht **oder** ist für diesen Mandanten nicht sichtbar |
+    | 409 | `idempotency_conflict` | gleicher Idempotenzschlüssel mit abweichender Nutzlast (D-05) |
+    | 413 | `payload_too_large` | Nutzlast > 1.048.576 Byte (NFR-001, D-13) |
+    | 422 | `validation_failed` / `tenant_parameter_rejected` | semantisch ungültig (Validierung, D-01) |
+    | 429 | `rate_limit_exceeded` | API-seitiges Anfragelimit (nicht das Endpunkt-Limit aus FR-033) |
+    | 500 | `internal_error` | unerwarteter Fehler — kein Stacktrace, kein internes Detail |
+    | 503 | `service_unavailable` | Dienst nicht bereit (Readiness) |
+
+    ## Pagination
+
+    Alle Listen sind **cursor-basiert** (`limit` + `cursor`, Antwort unter
+    `page.nextCursor` / `page.hasMore`). `total` wird bewusst **nicht**
+    ausgewiesen: eine Zählung über die verschlüsselten, zeitlich geordneten
+    Zustelltabellen wäre teuer und im Protokoll nicht nötig.
+
+    ## Suchbarkeit
+
+    Die Protokollsuche läuft **ausschließlich über Metadaten** (Ereignis-ID,
+    Ereignistyp, Endpunkt, Status, Zeitraum). Eine Suche nach Nutzlastinhalt
+    existiert **nicht** — das wäre mit der Verschlüsselung im Ruhezustand
+    unvereinbar (FR-012, D-11).
+
+  contact:
+    name: Plattform-Team Interne Systeme
+    email: platform-eng@example.invalid
+  license:
+    name: Proprietary — internes Plattformprojekt
+
+servers:
+  - url: https://echobox.example
+    description: Produktion (EU-Hosting). Staging und Produktion nutzen getrennte Konfigurationen und getrennte Secrets (AC-023-5).
+
+tags:
+  - name: Endpunkte
+    description: Registrierung, Pause, Reaktivierung und Secret-Rotation (FR-001…FR-004).
+  - name: Ereignisse
+    description: Annahme, Idempotenz und Verschlüsselung im Ruhezustand (FR-010…FR-013).
+  - name: Zustellung
+    description: Zustellprotokoll, tote Zustellungen, Replay, Kennzahlen (FR-024, FR-030…FR-032).
+  - name: Betrieb
+    description: Health, Readiness, Rate-Limit-Zählung, Aufbewahrung (FR-031, FR-033, NFR-006).
+
+security:
+  - bearerAuth: []
+
+# =============================================================================
+# Ausgehender Zustellvertrag (eingefroren)
+# -----------------------------------------------------------------------------
+# Dieser Abschnitt beschreibt den HTTP-Vertrag, den EchoBox gegen die
+# registrierte Empfänger-URL ausübt. Er ist **kein** Teil der eingehenden
+# REST-Schnittstelle, gehört aber in denselben Vertrag: Verfahren und
+# Header-Name der Signatur sowie das Ablehnungssignal dürfen sich danach
+# nicht mehr ändern (FR-020, D-07, D-08).
+# =============================================================================
+x-delivery-protocol:
+  title: Ausgehender Zustellvertrag (Version 1)
+  status: eingefroren
+  applies_to: Jede HTTP-Zustellung an eine registrierte Endpunkt-URL.
+  x-ac-id:
+    - US-009/AC-009-1
+    - US-009/AC-009-2
+    - US-009/AC-009-3
+    - US-009/AC-009-4
+    - US-009/AC-009-5
+    - US-010/AC-010-1
+    - US-010/AC-010-2
+    - US-010/AC-010-3
+    - US-010/AC-010-4
+    - US-014/AC-014-1
+    - US-014/AC-014-2
+    - US-014/AC-014-3
+    - US-014/AC-014-4
+
+  request:
+    method: POST
+    url: "{target_url}"
+    x-ac-id:
+      - US-010/AC-010-1
+    headers:
+      - name: Content-Type
+        required: true
+        value: "application/json"
+        description: "Medientyp der Nutzlast. Entspricht `payload_media_type` des Ereignisses."
+      - name: X-EchoBox-Event-Id
+        required: true
+        value: "<UUID>"
+        description: >-
+          **Ereignis-ID.** Stabil über alle Zustellläufe und alle Endpunkte
+          hinweg. Der Empfänger nutzt sie als fachlichen Deduplizierungsschlüssel
+          (FR-021, D-06).
+        x-ac-id:
+          - US-010/AC-010-1
+          - US-010/AC-010-4
+      - name: X-EchoBox-Delivery-Run-Id
+        required: true
+        value: "<UUID>"
+        description: >-
+          **Zustelllauf-ID.** Über alle Versuche eines Laufs identisch. Ein
+          Replay erzeugt einen **neuen** Zustelllauf mit neuer ID (FR-024, D-06).
+        x-ac-id:
+          - US-010/AC-010-1
+          - US-010/AC-010-2
+          - US-013/AC-013-5
+      - name: X-EchoBox-Attempt-Id
+        required: true
+        value: "<UUID>"
+        description: >-
+          **Versuchs-ID.** Für jeden HTTP-Versuch eindeutig. Zwei Versuche
+          desselben Zustelllaufs haben unterschiedliche Versuchs-IDs, gleiche
+          Ereignis-ID und gleiche Zustelllauf-ID (FR-021, D-06).
+        x-ac-id:
+          - US-010/AC-010-1
+          - US-010/AC-010-2
+      - name: X-EchoBox-Attempt-Number
+        required: true
+        value: "<1-basiert>"
+        description: "Versuchsnummer innerhalb des Zustelllaufs. Beginnt nach einem Replay wieder bei 1 (FR-024)."
+        x-ac-id:
+          - US-010/AC-010-2
+          - US-013/AC-013-1
+      - name: X-EchoBox-Event-Type
+        required: true
+        value: "<Ereignistyp>"
+        description: "Ereignistyp des zugestellten Ereignisses (Filter des Empfängers)."
+      - name: X-EchoBox-Timestamp
+        required: true
+        value: "<ISO-8601 UTC, z. B. 2026-10-21T09:15:22.481Z>"
+        description: >-
+          Zeitpunkt der Zustellung in UTC. **Exakt dieser Wert** geht in die
+          Signier-Eingabe ein. Der Empfänger darf einen Zeitstempel, der mehr
+          als `signature_tolerance_seconds` (Konfiguration, Default 300) von der
+          eigenen Uhr abweicht, ablehnen (Replay-Schutz).
+        x-ac-id:
+          - US-009/AC-009-5
+      - name: X-EchoBox-Signature
+        required: true
+        value: "v1=<hex-lowercase-hmac-sha256>"
+        description: >-
+          **Signatur der Zustellung.** Verfahren und Header-Name sind
+          eingefroren (FR-020, D-07).
+        x-ac-id:
+          - US-009/AC-009-1
+          - US-009/AC-009-2
+          - US-009/AC-009-3
+          - US-009/AC-009-4
+      - name: User-Agent
+        required: true
+        value: "EchoBox-Delivery/1.0"
+        description: "Ermöglicht dem Empfänger, EchoBox-Zustellungen zu erkennen."
+    body:
+      description: >-
+        **Der Request-Body sind exakt die Nutzlastbytes des Ereignisses** —
+        keine Hülle, kein Envelope. Alle Metadaten stehen in den Headern. Das
+        ist zwingend, weil die zugestellten Bytes byteidentisch mit den
+        eingelieferten Klartextbytes sein müssen (AC-007-3) und weil die
+        Signatur über genau diese Bytes berechnet wird (D-07).
+      media_type: "application/json (bzw. payload_media_type des Ereignisses)"
+      x-ac-id:
+        - US-007/AC-007-3
+        - US-008/AC-008-1
+      example: '{"order_id": 4711, "state": "shipped"}'
+
+  signature:
+    algorithm: HMAC-SHA256
+    header_name: X-EchoBox-Signature
+    header_value_format: "v1=<hex-lowercase>"
+    secret: "Das Endpunkt-Secret des Empfängers (Klartext, nie im Klartext ausgegeben)."
+    signing_input: "<timestamp>.<payload_bytes>"
+    signing_input_detail: >-
+      ASCII-Darstellung des exakten `X-EchoBox-Timestamp`-Werts, gefolgt von
+      einem einzelnen Punkt `.`, gefolgt von den **exakt gesendeten Body-Bytes**
+      (UTF-8, ohne weitere Normalisierung). Bei vorverschlüsselten Ereignissen
+      (FR-013) sind die gesendeten Bytes die Chiffre — der Empfänger prüft die
+      Signatur über die empfangenen Bytes und entschlüsselt erst danach.
+    verification: >-
+      Der Empfänger berechnet `hex(HMAC-SHA256(secret, signing_input))` und
+      vergleicht **zeitkonstant** mit dem Hexanteil aus `X-EchoBox-Signature`.
+      Bei Abweichung gilt die Zustellung als **nicht erfolgreich zugestellt**.
+    canonicalisation: "keine — die Bytes werden unverändert signiert."
+    version_marker: >-
+      Der Präfix `v1=` im Headerwert ist Teil der Signier-Eingabe-Konvention.
+      Ein neues Verfahren erhält einen neuen Präfix und eine neue Hauptversion
+      des ausgehenden Vertrags; der alte Präfix bleibt parallel unterstützt.
+    x-ac-id:
+      - US-009/AC-009-1
+      - US-009/AC-009-2
+      - US-009/AC-009-5
+
+  response:
+    description: >-
+      Der Empfänger antwortet mit einem HTTP-Statuscode. Ein Antwort-Body wird
+      nicht ausgewertet.
+    outcomes:
+      - status_range: "2xx"
+        meaning: "Erfolgreich zugestellt. Es erfolgt **kein** weiterer Versuch für dieses Ereignis an diesen Endpunkt."
+        x-ac-id:
+          - US-010/AC-010-3
+          - US-011/AC-011-4
+      - status_code: 410
+        meaning: >-
+          **Ablehnungssignal** (dauerhaft nicht gewünscht). Der Empfänger signalisiert
+          damit ausdrücklich, dass er das Ereignis **nicht** mehr möchte. Die Zustellung
+          wird sofort ohne weitere Versuche aufgegeben, Status `rejected` (FR-025, D-08).
+        required_headers:
+          - name: X-EchoBox-Rejection
+            required: false
+            value: "permanent"
+            description: "Kennzeichnet die Antwort als dauerhafte Ablehnung."
+        body:
+          description: "Das exakte Format des Ablehnungssignals (JSON)."
+          media_type: "application/json"
+          schema:
+            $ref: "#/components/schemas/DeliveryRejection"
+          example:
+            rejection: permanent
+            reason: event_type_not_subscribed
+            message: "Dieser Endpunkt verarbeitet den Ereignistyp order.changed nicht."
+            rejected_event_types:
+              - order.changed
+        x-ac-id:
+          - US-014/AC-014-1
+          - US-014/AC-014-2
+      - status_range: "5xx, 408, 429"
+        meaning: "Wiederholbarer Fehler. Es wird ein weiterer Versuch nach Backoff geplant."
+        x-ac-id:
+          - US-011/AC-011-3
+          - US-014/AC-014-3
+      - status_range: "übrige 4xx (außer 410)"
+        meaning: >-
+          Kein Wiederholen. Die Zustellung wird ohne weitere Versuche aufgegeben und
+          als `rejected` protokolliert (D-08). Der Empfänger bekommt damit eine
+          dauerhafte Absage, auch ohne das ausdrückliche Ablehnungssignal.
+        x-ac-id:
+          - US-014/AC-014-4
+      - transport_error: true
+        meaning: >-
+          Netzwerkfehler, DNS-Fehler, Verbindungs-Timeout, Lese-Timeout. Wird wie
+          ein 5xx behandelt: Wiederholung nach Backoff. Die Summe aus
+          Verbindungs- und Lese-Timeout je Versuch bleibt unter 30 s (Abschnitt 11
+          der Anforderung, ADR-014).
+        x-ac-id:
+          - US-011/AC-011-3
+          - US-014/AC-014-3
+
+  duplicate_handling:
+    guarantee: at-least-once
+    description: >-
+      EchoBox garantiert **at-least-once**: ein Ereignis kann mehrfach beim
+      Empfänger ankommen. Der Dienst garantiert **nicht** at-most-once — ein
+      Timeout, bei dem der Empfänger bereits verarbeitet hat, ist vom Dienst
+      nicht unterscheidbar.
+    receiver_deduplication_key: >-
+      **X-EchoBox-Event-Id** — fachliche Deduplizierung (dasselbe Ereignis).
+      Für die Erkennung einer **Wiederholung desselben Zustelllaufs** (Timeout-
+      Dublette) dienen **X-EchoBox-Delivery-Run-Id** (gleich) und
+      **X-EchoBox-Attempt-Id** / **X-EchoBox-Attempt-Number** (verschieden).
+    x-ac-id:
+      - US-010/AC-010-1
+      - US-010/AC-010-2
+      - US-010/AC-010-4
+
+  retry_policy:
+    description: >-
+      Wiederholung nach fehlgeschlagenem Versuch mit **wachsendem Abstand**
+      (Verdopplung) und **Streuung**, damit nicht alle Endpunkte eines
+      Ausfalls gleichzeitig wieder versucht werden (FR-022). Nach erschöpften
+      Versuchen wird die Zustellung aufgegeben und landet in der Liste der
+      toten Zustellungen (FR-023).
+    configuration:
+      max_attempts: "Konfigurierbar. Ohne die Festlegung aus O-06 wird kein Wert vorbelegt; Vorschlag zur Freigabe bei Gate 1: 8."
+      base_delay: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: 1 Minute."
+      multiplier: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: 2 (Verdopplung)."
+      max_delay: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: 60 Minuten."
+      jitter: "Konfigurierbar. Vorschlag zur Freigabe bei Gate 1: ± 20 %."
+      attempt_timeout:
+        connect_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-014): Default 5 s."
+        read_timeout: "Konfigurierbar. Festlegung der Architektur (ADR-014): Default 10 s."
+    x-ac-id:
+      - US-011/AC-011-1
+      - US-011/AC-011-2
+      - US-011/AC-011-3
+      - US-011/AC-011-5
+      - US-012/AC-012-1
+      - US-012/AC-012-3
+      - US-012/AC-012-4
+
+  rate_limit:
+    description: >-
+      Jeder Endpunkt ist gegen zu viele Zustellversuche in kurzer Zeit
+      geschützt (FR-033). Der Mechanismus ist gebaut und konfigurierbar; der
+      **Grenzwert ist bewusst nicht vorbelegt**, solange O-01 offen ist. Bis zur
+      Festlegung erhebt der Dienst nur die Zählung der Zustellversuche je
+      Endpunkt und Zeitfenster als Datenbasis (D-14).
+    strategy_options:
+      - name: delay
+        meaning: "Der Versuch wird verschoben (nicht verworfen, nicht blockiert). Der Zustelllauf trägt den Zustand `delayed` und einen nächsten Versuchszeitpunkt."
+      - name: block
+        meaning: "Der Versuch wird zurückgestellt, bis das Zeitfenster wieder frei ist. Das Ereignis geht nicht verloren."
+    default_strategy: "delay"
+    default_limit: null
+    observability: >-
+      Die Zählung je Endpunkt und Zeitfenster ist über
+      `GET /api/v1/endpoints/{endpointId}/metrics` im Feld `rate_limit` abrufbar.
+    x-ac-id:
+      - US-018/AC-018-1
+      - US-018/AC-018-2
+      - US-018/AC-018-3
+
+# =============================================================================
+# Pfade
+# =============================================================================
+paths:
+
+  # ------------------------------------------------------------------ Endpunkte
+  /api/v1/endpoints:
+    post:
+      operationId: createEndpoint
+      tags: [Endpunkte]
+      summary: Endpunkt registrieren
+      description: >-
+        Registriert eine Empfänger-URL mit Secret und den gewünschten
+        Ereignistypen (FR-001). Der Endpunkt wird mit dem Status `aktiv`
+        angelegt und dem Mandanten der Identität zugewiesen. Das Secret wird
+        verschlüsselt abgelegt und **nie** im Klartext ausgegeben.
+      x-ac-id:
+        - US-001/AC-001-1
+        - US-001/AC-001-2
+        - US-001/AC-001-3
+        - US-001/AC-001-4
+        - US-001/AC-001-5
+      x-requirement-ids: [FR-001, NFR-004]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndpointCreateRequest"
+            example:
+              target_url: https://orders.example.invalid/hooks/echobox
+              secret: "s3cr3t-rotationswert"
+              event_types:
+                - order.changed
+                - order.cancelled
+      responses:
+        "201":
+          description: Endpunkt angelegt.
+          headers:
+            Location:
+              description: "URL des neu angelegten Endpunkts."
+              schema:
+                type: string
+                format: uri
+                example: https://echobox.example/api/v1/endpoints/8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Endpoint"
+              example:
+                endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                organisation_id: m-1
+                target_url: https://orders.example.invalid/hooks/echobox
+                status: active
+                event_types: [order.changed, order.cancelled]
+                secret_version: 1
+                secret_rotated_at: null
+                paused_at: null
+                created_at: "2026-10-21T09:10:00.000Z"
+                updated_at: "2026-10-21T09:10:00.000Z"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    get:
+      operationId: listEndpoints
+      tags: [Endpunkte]
+      summary: Endpunkte auflisten
+      description: >-
+        Listet die Endpunkte. Ein `receiver_admin` sieht **nur** die Endpunkte
+        seines Mandanten; ein `service_admin` sieht die Endpunkte **aller**
+        Mandanten, jeweils mit dem Mandantenkennzeichen `organisation_id`
+        (FR-004). Mandant ohnehin aus der Identität — ein `organisation_id`-Filter
+        ist nicht Teil des Vertrags (D-01).
+      x-ac-id:
+        - US-004/AC-004-1
+        - US-004/AC-004-2
+      x-requirement-ids: [FR-004]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/StatusFilter"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Endpunktliste (mandantengefiltert).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndpointList"
+              example:
+                items:
+                  - endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                    organisation_id: m-1
+                    target_url: https://orders.example.invalid/hooks/echobox
+                    status: active
+                    event_types: [order.changed, order.cancelled]
+                    secret_version: 1
+                    secret_rotated_at: null
+                    paused_at: null
+                    created_at: "2026-10-21T09:10:00.000Z"
+                    updated_at: "2026-10-21T09:10:00.000Z"
+                page:
+                  limit: 50
+                  has_more: false
+                  next_cursor: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/endpoints/{endpointId}:
+    parameters:
+      - $ref: "#/components/parameters/EndpointId"
+    get:
+      operationId: getEndpoint
+      tags: [Endpunkte]
+      summary: Endpunkt lesen
+      description: >-
+        Liefert einen einzelnen Endpunkt. Ein Endpunkt eines fremden Mandanten
+        wird mit **HTTP 404** beantwortet — die Existenz fremder Objekte wird
+        nicht preisgegeben (D-02). Das Secret wird nie ausgegeben.
+      x-ac-id:
+        - US-004/AC-004-3
+        - US-019/AC-019-1
+      x-requirement-ids: [FR-001, FR-004]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Endpunkt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Endpoint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: updateEndpoint
+      tags: [Endpunkte]
+      summary: Endpunkt aktualisieren
+      description: >-
+        Teilaktualisierung von Ziel-URL und Ereignistypen. Es werden **nur** die
+        mitgeschickten Felder geändert. Das Secret wird **nicht** über diesen
+        Weg geändert — dafür gibt es die Secret-Rotation. Die Validierung der
+        Ziel-URL ist identisch zur Registrierung (https-Pflicht, keine
+        eingebetteten Zugangsdaten) (FR-001).
+      x-ac-id:
+        - US-001/AC-001-2
+        - US-001/AC-001-3
+        - US-019/AC-019-2
+      x-requirement-ids: [FR-001]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndpointUpdateRequest"
+            example:
+              target_url: https://orders.example.invalid/hooks/echobox-v2
+              event_types:
+                - order.changed
+      responses:
+        "200":
+          description: Endpunkt aktualisiert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Endpoint"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/endpoints/{endpointId}/pause:
+    parameters:
+      - $ref: "#/components/parameters/EndpointId"
+    post:
+      operationId: pauseEndpoint
+      tags: [Endpunkte]
+      summary: Endpunkt pausieren
+      description: >-
+        Setzt den Endpunkt auf `pausiert`. Ein pausierter Endpunkt erhält
+        **keine** Zustellung: für Ereignisse, die während der Pause eintreffen,
+        entsteht kein Zustellvorgang und **keine** Warteschlangeneintragung; ein
+        bereits geplanter Wiederholungsvorgang wird abgebrochen (Zustelllauf
+        endet mit `cancelled`). Nach der Reaktivierung wird **nichts**
+        nachgeliefert (FR-002, D-03).
+      x-ac-id:
+        - US-002/AC-002-1
+        - US-002/AC-002-3
+        - US-002/AC-002-4
+        - US-002/AC-002-5
+      x-requirement-ids: [FR-002]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Endpunkt pausiert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Endpoint"
+              example:
+                endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                organisation_id: m-1
+                target_url: https://orders.example.invalid/hooks/echobox
+                status: paused
+                event_types: [order.changed, order.cancelled]
+                secret_version: 1
+                secret_rotated_at: null
+                paused_at: "2026-10-21T11:40:00.000Z"
+                created_at: "2026-10-21T09:10:00.000Z"
+                updated_at: "2026-10-21T11:40:00.000Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/endpoints/{endpointId}/resume:
+    parameters:
+      - $ref: "#/components/parameters/EndpointId"
+    post:
+      operationId: resumeEndpoint
+      tags: [Endpunkte]
+      summary: Endpunkt reaktivieren
+      description: >-
+        Hebt die Pause auf. **Es wird nichts nachgeliefert** — Ereignisse, die
+        während der Pause eingeliefert wurden, erhalten keinen Zustellversuch
+        (FR-002, D-03).
+      x-ac-id:
+        - US-002/AC-002-2
+        - US-002/AC-002-5
+      x-requirement-ids: [FR-002]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Endpunkt reaktiviert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Endpoint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/endpoints/{endpointId}/secret-rotation:
+    parameters:
+      - $ref: "#/components/parameters/EndpointId"
+    post:
+      operationId: rotateEndpointSecret
+      tags: [Endpunkte]
+      summary: Endpunkt-Secret rotieren
+      description: >-
+        Ersetzt das Secret des Endpunkts. Ab dem **nächsten** Zustellversuch
+        gilt ausschließlich das neue Secret; eine Signatur über das alte Secret
+        wird nicht mehr erzeugt. Das alte Secret wird **nicht** im Klartext
+        ausgegeben, die Rotation wird mit Zeitpunkt und auslösender Identität
+        protokolliert (FR-003).
+      x-ac-id:
+        - US-003/AC-003-1
+        - US-003/AC-003-2
+        - US-003/AC-003-3
+        - US-003/AC-003-4
+      x-requirement-ids: [FR-003]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecretRotationRequest"
+            example:
+              secret: "neues-s3cr3t"
+      responses:
+        "200":
+          description: Secret rotiert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecretRotationResponse"
+              example:
+                endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                secret_version: 2
+                rotated_at: "2026-10-21T12:05:11.204Z"
+                rotated_by: "user-42@orders.example.invalid"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ------------------------------------------------------------------- Ereignisse
+  /api/v1/events:
+    post:
+      operationId: submitEvent
+      tags: [Ereignisse]
+      summary: Ereignis einliefern
+      description: >-
+        Nimmt ein Ereignis an (FR-010). Die Annahme ist **asynchron**: die
+        Zustellung startet erst **nach** der Antwort, der Annahme-Request wird
+        nie blockiert (NFR-002, D-10).
+
+        **Idempotenz:** Der Gültigkeitsbereich des Idempotenzschlüssels ist das
+        Paar (Mandant, Schlüssel) (D-05). Eine Wiederholung mit gleicher
+        Nutzlast ist **erfolgreich** (HTTP 202) und liefert die Kennung des
+        **ersten** Ereignisses (`idempotent_replay: true`). Dieselbe Nutzlast wird
+        **nie** überschrieben. Derselbe Schlüssel mit **abweichender** Nutzlast
+        wird mit **HTTP 409** abgelehnt.
+
+        **Größengrenze:** Die Nutzlast ist auf 1.048.576 Byte (1 MB) begrenzt
+        (NFR-001). Gemessen werden die **Nutzlastbytes** — bei vorverschlüsselter
+        Einlieferung also die Chiffre, nicht der Klartext (D-13). 1 Byte darüber
+        → HTTP 413.
+
+        **Verschlüsselung:** Die Nutzlast wird verschlüsselt gespeichert und nur
+        für den Zustellvorgang entschlüsselt (FR-012, NFR-004).
+      x-ac-id:
+        - US-005/AC-005-1
+        - US-005/AC-005-2
+        - US-005/AC-005-3
+        - US-005/AC-005-4
+        - US-005/AC-005-5
+        - US-005/AC-005-6
+        - US-006/AC-006-1
+        - US-006/AC-006-2
+        - US-006/AC-006-3
+        - US-006/AC-006-4
+        - US-008/AC-008-1
+        - US-008/AC-008-2
+        - US-008/AC-008-3
+      x-requirement-ids: [FR-010, FR-011, FR-012, FR-013, NFR-001, NFR-002]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventIntakeRequest"
+            example:
+              event_type: order.changed
+              idempotency_key: order-4711-changed-2026-10-21T09:00:00Z
+              payload:
+                order_id: 4711
+                state: shipped
+              payload_encoding: plaintext
+              payload_media_type: application/json
+      responses:
+        "202":
+          description: >-
+            Ereignis angenommen. Die Zustellung läuft im Hintergrund.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventIntakeResponse"
+              example:
+                event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                event_type: order.changed
+                idempotency_key: order-4711-changed-2026-10-21T09:00:00Z
+                status: accepted
+                idempotent_replay: false
+                subscribed_endpoint_count: 2
+                payload_size_bytes: 34
+                accepted_at: "2026-10-21T09:15:22.481Z"
+        "400":
+          $ref: "#/components/responses/MalformedRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/IdempotencyConflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    get:
+      operationId: listEvents
+      tags: [Ereignisse]
+      summary: Ereignisse auflisten (Metadaten)
+      description: >-
+        Listet die Ereignisse des Mandanten **über ihre Metadaten**. Die
+        Nutzlast wird **nie** ausgegeben — sie ist im Ruhezustand verschlüsselt
+        (FR-012). Eine Suche nach Nutzlastinhalt existiert nicht (D-11).
+      x-ac-id:
+        - US-007/AC-007-5
+      x-requirement-ids: [FR-012, FR-030]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: event_type
+          in: query
+          required: false
+          description: "Filter auf Ereignistyp (Metadatum, kein Inhaltsfilter)."
+          schema:
+            type: string
+            maxLength: 200
+          example: order.changed
+        - name: idempotency_key
+          in: query
+          required: false
+          description: "Filter auf den Idempotenzschlüssel des Ereignisses."
+          schema:
+            type: string
+            maxLength: 200
+        - name: status
+          in: query
+          required: false
+          description: "Filter auf den Ereignisstatus."
+          schema:
+            $ref: "#/components/schemas/EventStatus"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Ereignisliste (mandantengefiltert).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/events/{eventId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: getEvent
+      tags: [Ereignisse]
+      summary: Ereignis lesen (Metadaten)
+      description: >-
+        Liefert die Metadaten eines Ereignisses. Die Nutzlast wird nie
+        ausgegeben. Ein Ereignis eines **fremden** Mandanten wird mit
+        **HTTP 404** beantwortet (D-02).
+      x-ac-id:
+        - US-015/AC-015-3
+        - US-007/AC-007-5
+      x-requirement-ids: [FR-012, FR-030]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Ereignis (Metadaten).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+              example:
+                event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                event_type: order.changed
+                idempotency_key: order-4711-changed-2026-10-21T09:00:00Z
+                status: accepted
+                payload_encoding: plaintext
+                payload_media_type: application/json
+                payload_size_bytes: 34
+                subscribed_endpoint_count: 2
+                accepted_at: "2026-10-21T09:15:22.481Z"
+                created_at: "2026-10-21T09:15:22.481Z"
+                updated_at: "2026-10-21T09:15:22.481Z"
+                deleted_at: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ------------------------------------------------------------------ Zustellung
+  /api/v1/deliveries:
+    get:
+      operationId: listDeliveries
+      tags: [Zustellung]
+      summary: Zustellprotokoll lesen
+      description: >-
+        Liest das Zustellprotokoll (FR-030). Je Eintrag werden **Zustand**,
+        **Anzahl der Versuche**, **Zeitpunkt des letzten Versuchs**,
+        **Antwortcode des Empfängers** und **nächster Versuchszeitpunkt**
+        ausgewiesen. Bei endgültigen Zuständen (`sent`, `abandoned`, `rejected`,
+        `cancelled`) ist `next_attempt_at` **leer** — es wird kein Zeitpunkt in
+        der Vergangenheit oder in der Zukunft angezeigt.
+
+        Die Filter (Endpunkt, Status, Ereignistyp, Ereignis-ID, Zeitraum) sind
+        **kombinierbar** (AC-015-4). Die Liste ist **cursor-basiert
+        paginiert**. Die Suche läuft ausschließlich über Metadaten (D-11).
+
+        Ein Ereignis ohne Abnehmer erscheint mit dem Zustand `no_subscriber` —
+        nichts verschwindet still (D-04).
+      x-ac-id:
+        - US-015/AC-015-1
+        - US-015/AC-015-2
+        - US-015/AC-015-4
+        - US-020/AC-020-1
+        - US-020/AC-020-3
+      x-requirement-ids: [FR-030]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: endpoint_id
+          in: query
+          required: false
+          description: "Filter auf den Endpunkt (UUID)."
+          schema:
+            type: string
+            format: uuid
+        - name: event_id
+          in: query
+          required: false
+          description: "Filter auf die Ereignis-ID (UUID)."
+          schema:
+            type: string
+            format: uuid
+        - name: event_type
+          in: query
+          required: false
+          description: "Filter auf den Ereignistyp."
+          schema:
+            type: string
+            maxLength: 200
+        - name: status
+          in: query
+          required: false
+          description: >-
+            Filter auf den Zustellzustand. Mehrere Werte kommasepariert
+            übergeben (z. B. `failed,scheduled`).
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/DeliveryStatus"
+          style: form
+          explode: false
+          example: "failed,scheduled"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Zustellprotokoll (mandantengefiltert).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryList"
+              example:
+                items:
+                  - delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
+                    event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                    endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                    event_type: order.changed
+                    status: failed
+                    attempt_count: 3
+                    max_attempts: 8
+                    last_attempt_at: "2026-10-21T09:19:04.112Z"
+                    next_attempt_at: "2026-10-21T09:21:04.112Z"
+                    last_response_status: 503
+                    last_error_code: null
+                    rejection_reason: null
+                    created_at: "2026-10-21T09:15:22.481Z"
+                    updated_at: "2026-10-21T09:19:04.112Z"
+                page:
+                  limit: 50
+                  has_more: true
+                  next_cursor: eyJ1cGRhdGVkX2F0IjoiMjAyNi0xMC0yMVQwOToxOTo0NC4xMTJaIn0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/deliveries/{deliveryRunId}:
+    parameters:
+      - name: deliveryRunId
+        in: path
+        required: true
+        description: "Zustelllauf-ID (UUID)."
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getDeliveryRun
+      tags: [Zustellung]
+      summary: Zustelllauf mit allen Versuchen lesen
+      description: >-
+        Liefert einen Zustelllauf **einschließlich aller Versuche** — das
+        Protokoll einer Zustellung über alle Versuche („Lieferung“). Ein
+        Zustelllauf eines fremden Mandanten wird mit **HTTP 404** beantwortet
+        (D-02).
+      x-ac-id:
+        - US-015/AC-015-1
+        - US-012/AC-012-2
+      x-requirement-ids: [FR-030]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Zustelllauf mit Versuchen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryRunDetail"
+              example:
+                delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
+                event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                event_type: order.changed
+                status: failed
+                attempt_count: 2
+                max_attempts: 8
+                last_attempt_at: "2026-10-21T09:19:04.112Z"
+                next_attempt_at: "2026-10-21T09:21:04.112Z"
+                last_response_status: 503
+                last_error_code: null
+                rejection_reason: null
+                created_at: "2026-10-21T09:15:22.481Z"
+                updated_at: "2026-10-21T09:19:04.112Z"
+                attempts:
+                  - attempt_id: b1a2c3d4-1111-4222-8333-444455556666
+                    delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
+                    attempt_number: 1
+                    started_at: "2026-10-21T09:15:23.004Z"
+                    finished_at: "2026-10-21T09:15:23.219Z"
+                    duration_ms: 215
+                    response_status: null
+                    outcome: network_error
+                    error_code: connection_refused
+                    next_attempt_at: "2026-10-21T09:16:23.004Z"
+                  - attempt_id: c2b3d4e5-2222-4333-8444-555566667777
+                    delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
+                    attempt_number: 2
+                    started_at: "2026-10-21T09:16:24.000Z"
+                    finished_at: "2026-10-21T09:16:24.190Z"
+                    duration_ms: 190
+                    response_status: 503
+                    outcome: retryable_failure
+                    error_code: null
+                    next_attempt_at: "2026-10-21T09:21:04.112Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/dead-deliveries:
+    get:
+      operationId: listDeadDeliveries
+      tags: [Zustellung]
+      summary: Tote Zustellungen abholen
+      description: >-
+        Liefert die Liste der **toten Zustellungen** (FR-031) — Zustellungen,
+        die nach erschöpften Versuchen aufgegeben wurden.
+
+        **Nur `service_admin`**: Ein `receiver_admin` erhält HTTP 403. Eine leere
+        Trefferliste ist ein **HTTP 200 mit leerem `items`-Array**, kein Fehler.
+        Die Filter (Endpunkt, Status, Ereignistyp, Zeitraum) sind kombinierbar,
+        die Liste ist seitenweise abrufbar.
+      x-ac-id:
+        - US-016/AC-016-1
+        - US-016/AC-016-2
+        - US-016/AC-016-3
+        - US-016/AC-016-4
+        - US-020/AC-020-2
+        - US-020/AC-020-3
+      x-requirement-ids: [FR-031]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: endpoint_id
+          in: query
+          required: false
+          description: "Filter auf den Endpunkt (UUID)."
+          schema:
+            type: string
+            format: uuid
+        - name: event_type
+          in: query
+          required: false
+          description: "Filter auf den Ereignistyp."
+          schema:
+            type: string
+            maxLength: 200
+        - name: status
+          in: query
+          required: false
+          description: "Filter auf den Zustellzustand (Standard: `abandoned`)."
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/DeliveryStatus"
+          style: form
+          explode: false
+          example: abandoned
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Liste der toten Zustellungen (mandantenübergreifend für `service_admin`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadDeliveryList"
+              example:
+                items:
+                  - delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
+                    event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                    organisation_id: m-1
+                    endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                    endpoint_url: https://orders.example.invalid/hooks/echobox
+                    event_type: order.changed
+                    status: abandoned
+                    attempt_count: 8
+                    last_response_status: 503
+                    last_attempt_at: "2026-10-21T10:22:11.900Z"
+                    abandoned_at: "2026-10-21T10:22:11.900Z"
+                    created_at: "2026-10-21T09:15:22.481Z"
+                page:
+                  limit: 50
+                  has_more: false
+                  next_cursor: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/deliveries/{deliveryRunId}/replay:
+    parameters:
+      - name: deliveryRunId
+        in: path
+        required: true
+        description: "Zustelllauf-ID (UUID) der aufgegebenen Zustellung."
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: replayDelivery
+      tags: [Zustellung]
+      summary: Tote Zustellung erneut auslösen
+      description: >-
+        Löst eine aufgegebene Zustellung erneut aus (FR-024). Es entsteht ein
+        **neuer Zustelllauf** mit **neuer Zustelllauf-ID**, aber **derselben
+        Ereignis-ID**; die Versuchsanzahl beginnt wieder bei 1. Der
+        ursprüngliche Datensatz bleibt im Protokoll **unverändert** erhalten
+        (Historie).
+
+        **Berechtigung:** Bis zur Entscheidung aus O-03 ist ausschließlich der
+        **Empfänger-Admin des betroffenen Endpunkts** berechtigt (D-15). Alle
+        anderen Rollen erhalten HTTP 403.
+
+        **Pause:** Ist der Endpunkt pausiert, startet **kein** Versuch; die
+        Zustellung endet erneut ohne Zustellung (D-03).
+      x-ac-id:
+        - US-013/AC-013-1
+        - US-013/AC-013-2
+        - US-013/AC-013-3
+        - US-013/AC-013-4
+        - US-013/AC-013-5
+      x-requirement-ids: [FR-024]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReplayRequest"
+            example:
+              reason: "Empfänger hat den Ausfall behoben."
+      responses:
+        "202":
+          description: Neuer Zustelllauf gestartet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayResponse"
+              example:
+                previous_delivery_run_id: 7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d
+                delivery_run_id: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
+                event_id: 3c9a7d21-8e4b-4a1f-9c2d-5e6f7a8b9c0d
+                status: scheduled
+                attempt_count: 0
+                next_attempt_at: "2026-10-21T12:30:00.000Z"
+                replayed_at: "2026-10-21T12:29:58.100Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/DeliveryStateConflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/endpoints/{endpointId}/metrics:
+    parameters:
+      - $ref: "#/components/parameters/EndpointId"
+    get:
+      operationId: getEndpointMetrics
+      tags: [Betrieb]
+      summary: Erfolgsquote und Zustelllatenz je Endpunkt
+      description: >-
+        Liefert je Endpunkt die **Erfolgsquote** (erfolgreiche Versuche / alle
+        Versuche) und die **Zustelllatenz** (p95 der Dauer von der Annahme bis
+        zur erfolgreichen Antwort) im Auswertungsfenster (FR-032).
+
+        Ist im Fenster **kein** Zustellvorgang vorhanden, wird `data_available:
+        false` ausgewiesen — **nicht** 0 % und **nicht** 100 %.
+
+        Der Abschnitt `rate_limit` liefert die Zählung der Zustellversuche je
+        Endpunkt und Zeitfenster als Datenbasis für die noch offene Festlegung
+        O-01. Der Grenzwert ist `null`, solange er nicht festgelegt ist (D-14).
+
+        Ein Endpunkt eines **fremden** Mandanten wird mit **HTTP 404**
+        beantwortet (D-02).
+      x-ac-id:
+        - US-017/AC-017-1
+        - US-017/AC-017-2
+        - US-017/AC-017-3
+        - US-017/AC-017-4
+        - US-018/AC-018-4
+      x-requirement-ids: [FR-032, FR-033]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Kennzahlen je Endpunkt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndpointMetrics"
+              example:
+                endpoint_id: 8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+                window:
+                  from: "2026-10-14T00:00:00.000Z"
+                  to: "2026-10-21T00:00:00.000Z"
+                data_available: true
+                attempts_total: 120
+                attempts_successful: 100
+                success_rate: 0.8333
+                delivery_latency_p95_ms: 412
+                rate_limit:
+                  limit: null
+                  window_seconds: 60
+                  strategy: delay
+                  observed_attempts: 12
+                  delayed_attempts: 0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/retention/enforcement:
+    post:
+      operationId: enforceRetention
+      tags: [Betrieb]
+      summary: Aufbewahrung durchsetzen
+      description: >-
+        Erzwingt die Aufbewahrung: Ereignisse, Zustellläufe, Versuche und
+        Protokolleinträge, die älter als die konfigurierte Frist sind, werden
+        gelöscht; jüngere bleiben erhalten (FR-031, D-12).
+
+        Die Frist ist ein **konfigurierbarer Parameter** und wird erst mit der
+        Festlegung aus O-02 belegt. Im Betrieb ohne gesetzte Frist ist dieser
+        Aufruf ein **No-Op** und meldet `deleted_* = 0` — es wird **kein**
+        Fristwert vorbelegt.
+
+        **Nur `service_admin`**. Ein `receiver_admin` erhält HTTP 403.
+      x-ac-id:
+        - US-016/AC-016-5
+      x-requirement-ids: [FR-031]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetentionEnforcementRequest"
+            example:
+              dry_run: true
+      responses:
+        "200":
+          description: Aufbewahrung durchgesetzt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionEnforcementResponse"
+              example:
+                dry_run: true
+                retention_days: 30
+                cutoff: "2026-09-21T00:00:00.000Z"
+                deleted_events: 128
+                deleted_delivery_runs: 640
+                deleted_attempts: 3120
+                executed_at: "2026-10-21T13:00:00.000Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # --------------------------------------------------------------------- Betrieb
+  /health:
+    get:
+      operationId: getHealth
+      tags: [Betrieb]
+      summary: Health (Liveness)
+      description: >-
+        Liveness-Prüfung. Antwortet **ohne** Authentifizierung, damit Container-
+        Runtime und Load-Balancer den Dienst prüfen können (AC-023-1).
+      x-ac-id:
+        - US-023/AC-023-1
+      x-requirement-ids: [NFR-006]
+      security: []
+      responses:
+        "200":
+          description: Dienst läuft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+              example:
+                status: up
+                service: echobox
+                version: 1.0.0
+                checked_at: "2026-10-21T13:05:00.000Z"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /health/ready:
+    get:
+      operationId: getReadiness
+      tags: [Betrieb]
+      summary: Readiness
+      description: >-
+        Readiness-Prüfung: Datenbank erreichbar, Mandantenkontext gesetzt,
+        Hintergrundprozess aktiv. Ohne Authentifizierung, damit der Container
+        erst nach erfolgreicher Bereitschaft Traffic annimmt.
+      x-ac-id:
+        - US-023/AC-023-1
+      x-requirement-ids: [NFR-006]
+      security: []
+      responses:
+        "200":
+          description: Dienst ist bereit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+              example:
+                status: ready
+                checks:
+                  database: ok
+                  delivery_worker: ok
+                  tenant_context: ok
+                checked_at: "2026-10-21T13:05:00.000Z"
+        "503":
+          description: Dienst ist nicht bereit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+              example:
+                status: not_ready
+                checks:
+                  database: ok
+                  delivery_worker: unavailable
+                  tenant_context: ok
+                checked_at: "2026-10-21T13:05:00.000Z"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+# =============================================================================
+# Komponenten
+# =============================================================================
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        JWT mit dem Claim `organisation_id` (Mandant) und den Rollen
+        `developer`, `receiver_admin`, `service_admin`. Der Mandant stammt
+        ausschließlich aus dem Token (D-01).
+
+  parameters:
+    EndpointId:
+      name: endpointId
+      in: path
+      required: true
+      description: "Endpunkt-ID (UUID)."
+      schema:
+        type: string
+        format: uuid
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      description: "Ereignis-ID (UUID)."
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: "Maximale Zahl der Einträge je Seite."
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: >-
+        Opaqer Fortsetzungs-Cursor aus `page.next_cursor` der vorigen Seite.
+        Ein ungültiger Cursor wird mit HTTP 422 abgelehnt.
+      schema:
+        type: string
+        maxLength: 512
+    From:
+      name: from
+      in: query
+      required: false
+      description: "Beginn des Zeitraums (UTC, RFC 3339), inklusive."
+      schema:
+        type: string
+        format: date-time
+    To:
+      name: to
+      in: query
+      required: false
+      description: "Ende des Zeitraums (UTC, RFC 3339), exklusive."
+      schema:
+        type: string
+        format: date-time
+    StatusFilter:
+      name: status
+      in: query
+      required: false
+      description: "Filter auf den Endpunktstatus."
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/EndpointStatus"
+      style: form
+      explode: false
+      example: active
+
+  headers:
+    RetryAfter:
+      description: "Wartezeit in Sekunden bis zum nächsten erlaubten Versuch."
+      schema:
+        type: integer
+        minimum: 1
+
+  responses:
+    MalformedRequest:
+      description: "Syntaxfehler in der Anfrage (z. B. ungültiges JSON)."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/malformed-request
+            title: Malformed request
+            status: 400
+            code: malformed_request
+            detail: "Der Request-Body ist kein gültiges JSON."
+            instance: /api/v1/events
+    Unauthorized:
+      description: "Kein oder ungültiges Token."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/unauthorized
+            title: Unauthorized
+            status: 401
+            code: unauthorized
+            detail: "Das Bearer-Token fehlt oder ist ungültig."
+            instance: /api/v1/endpoints
+    Forbidden:
+      description: "Angemeldet, aber die Rolle oder der Mandant darf die Operation nicht ausführen."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/forbidden
+            title: Forbidden
+            status: 403
+            code: forbidden
+            detail: "Diese Rolle darf die Operation für diesen Mandanten nicht ausführen."
+            instance: /api/v1/dead-deliveries
+    NotFound:
+      description: "Die Ressource existiert nicht oder ist für diesen Mandanten nicht sichtbar (D-02)."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/not-found
+            title: Not found
+            status: 404
+            code: not_found
+            detail: "Die Ressource wurde nicht gefunden."
+            instance: /api/v1/endpoints/8f1c2f0e-2f4a-4a0e-9d5b-6a1c2e3f4a5b
+    IdempotencyConflict:
+      description: >-
+        Der Idempotenzschlüssel existiert im Mandanten bereits, aber mit
+        **abweichender** Nutzlast (D-05).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/idempotency-conflict
+            title: Idempotency conflict
+            status: 409
+            code: idempotency_conflict
+            detail: "Der Idempotenzschlüssel wurde bereits mit einer abweichenden Nutzlast verwendet."
+            instance: /api/v1/events
+    DeliveryStateConflict:
+      description: "Der Zustelllauf ist in einem Zustand, in dem die Operation nicht zulässig ist (z. B. Replay einer nicht aufgegebenen Zustellung)."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/delivery-state-conflict
+            title: Delivery state conflict
+            status: 409
+            code: delivery_state_conflict
+            detail: "Nur aufgegebene Zustellungen können erneut ausgelöst werden."
+            instance: /api/v1/deliveries/7d2b1c9a-5e6f-4a0b-8c7d-1e2f3a4b5c6d/replay
+    PayloadTooLarge:
+      description: "Die Nutzlast überschreitet 1.048.576 Byte (NFR-001, D-13)."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/payload-too-large
+            title: Payload too large
+            status: 413
+            code: payload_too_large
+            detail: "Die Nutzlast beträgt 1048577 Byte; erlaubt sind höchstens 1048576 Byte."
+            instance: /api/v1/events
+    ValidationFailed:
+      description: >-
+        Semantisch ungültige Anfrage. Das schließt einen mitgelieferten
+        **Mandantenparameter** ein — er wird mit HTTP 422 abgelehnt, weil der
+        Mandant ausschließlich aus der Identität stammt (D-01).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/validation-failed
+            title: Validation failed
+            status: 422
+            code: validation_failed
+            detail: "Die Anfrage ist semantisch ungültig."
+            instance: /api/v1/endpoints
+            violations:
+              - field: target_url
+                code: scheme_not_allowed
+                message: "Die Ziel-URL muss das Schema https verwenden."
+    RateLimitExceeded:
+      description: "Das Anfragelimit der API ist überschritten (nicht das Endpunkt-Limit aus FR-033)."
+      headers:
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/rate-limit-exceeded
+            title: Too many requests
+            status: 429
+            code: rate_limit_exceeded
+            detail: "Zu viele Anfragen. Bitte später erneut versuchen."
+            instance: /api/v1/events
+    InternalError:
+      description: "Unerwarteter Fehler. Es werden keine internen Details preisgegeben."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/internal-error
+            title: Internal server error
+            status: 500
+            code: internal_error
+            detail: "Die Anfrage konnte nicht verarbeitet werden."
+            instance: /api/v1/events
+    ServiceUnavailable:
+      description: "Der Dienst ist vorübergehend nicht bereit."
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: https://echobox.example/errors/service-unavailable
+            title: Service unavailable
+            status: 503
+            code: service_unavailable
+            detail: "Der Dienst ist derzeit nicht bereit."
+            instance: /api/v1/events
+
+  schemas:
+
+    # ------------------------------------------------------------- Fehlerformat
+    Problem:
+      type: object
+      description: >-
+        Einheitliches Fehlerschema für **alle** Fehlerantworten
+        (RFC-7807-artig). Das Feld `code` ist der maschinenlesbare
+        Schlüssel; `type` ist die stabile, dokumentierte Fehlerklasse.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: "Stabile URI der Fehlerklasse."
+          example: https://echobox.example/errors/validation-failed
+        title:
+          type: string
+          description: "Kurze, nichttechnische Überschrift."
+          example: Validation failed
+        status:
+          type: integer
+          description: "HTTP-Statuscode, identisch mit dem Response-Status."
+          example: 422
+        code:
+          type: string
+          description: "Maschinenlesbarer Fehlercode."
+          enum:
+            - malformed_request
+            - unauthorized
+            - forbidden
+            - not_found
+            - idempotency_conflict
+            - delivery_state_conflict
+            - payload_too_large
+            - validation_failed
+            - tenant_parameter_rejected
+            - rate_limit_exceeded
+            - internal_error
+            - service_unavailable
+        detail:
+          type: string
+          nullable: true
+          description: "Was zu tun ist — nicht nur, was schiefging."
+          example: "Die Ziel-URL muss das Schema https verwenden."
+        instance:
+          type: string
+          nullable: true
+          description: "Pfad der Anfrage."
+          example: /api/v1/endpoints
+        violations:
+          type: array
+          nullable: true
+          description: "Feldbezogene Verstoesse (nur bei `validation_failed`)."
+          items:
+            $ref: "#/components/schemas/ValidationViolation"
+
+    ValidationViolation:
+      type: object
+      required: [field, code, message]
+      properties:
+        field:
+          type: string
+          description: "JSON-Pointer auf das betroffene Feld."
+          example: target_url
+        code:
+          type: string
+          description: "Maschinenlesbarer Verstoßcode."
+          example: scheme_not_allowed
+        message:
+          type: string
+          description: "Verständliche Meldung für den Aufrufer."
+          example: "Die Ziel-URL muss das Schema https verwenden."
+
+    # ------------------------------------------------------------------- Aufzählungen
+    EndpointStatus:
+      type: string
+      description: "Zustand eines Endpunkts."
+      enum: [active, paused]
+
+    EventStatus:
+      type: string
+      description: >-
+        Zustand eines Ereignisses. `no_subscriber` bedeutet: angenommen und
+        gespeichert, aber **kein** Endpunkt hat den Ereignistyp abonniert — der
+        Zustand ist sichtbar, damit nichts still verschwindet (D-04).
+      enum: [accepted, no_subscriber]
+
+    DeliveryStatus:
+      type: string
+      description: >-
+        Zustand eines Zustelllaufs. `sent` = erfolgreich zugestellt,
+        `abandoned` = nach erschöpften Versuchen aufgegeben (tote Zustellung),
+        `rejected` = vom Empfänger endgültig abgelehnt, `cancelled` = durch
+        Pause abgebrochen, `delayed` = durch das Endpunkt-Limit verschoben,
+        `no_subscriber` = Ereignis ohne Abnehmer.
+      enum:
+        - pending
+        - scheduled
+        - delayed
+        - sent
+        - failed
+        - abandoned
+        - rejected
+        - cancelled
+        - no_subscriber
+
+    AttemptOutcome:
+      type: string
+      description: "Ergebnis eines einzelnen HTTP-Versuchs."
+      enum:
+        - success
+        - retryable_failure
+        - permanent_rejection
+        - client_error
+        - network_error
+        - timeout
+        - cancelled
+
+    RejectionReason:
+      type: string
+      nullable: true
+      description: "Grund der endgültigen Ablehnung."
+      enum:
+        - permanent_rejection
+        - client_error
+        - null
+
+    # ------------------------------------------------------------------- Endpunkt
+    EndpointCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [target_url, secret, event_types]
+      properties:
+        target_url:
+          type: string
+          format: uri
+          maxLength: 2000
+          description: >-
+            Ziel-URL des Empfängers. **Muss** das Schema `https` tragen. Eingebettete
+            Zugangsdaten (`https://user:pass@host/`) sind **verboten** — Zugangsdaten
+            laufen ausschließlich über das Secret.
+          example: https://orders.example.invalid/hooks/echobox
+        secret:
+          type: string
+          minLength: 16
+          maxLength: 512
+          writeOnly: true
+          description: >-
+            Gemeinsames Secret des Endpunkts. Wird verschlüsselt abgelegt und
+            **nie** im Klartext ausgegeben (AC-001-4). Mindestlänge 16 Zeichen.
+          example: s3cr3t-rotationswert
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          description: "Die Ereignistypen, die der Endpunkt abonniert."
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+          example: [order.changed, order.cancelled]
+      x-validation-rules:
+        - id: target_url_https_only
+          description: "Nur `https` ist erlaubt (AC-001-2). Verstoß → HTTP 422."
+        - id: target_url_no_credentials
+          description: "Keine eingebetteten Zugangsdaten (AC-001-3). Verstoß → HTTP 422."
+        - id: no_tenant_parameter
+          description: "Ein `organisation_id` (oder jeder andere Mandantenparameter) im Body wird mit HTTP 422 abgelehnt (AC-001-5, D-01)."
+
+    EndpointUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        target_url:
+          type: string
+          format: uri
+          maxLength: 2000
+          description: "Neue Ziel-URL. Gleiche Validierung wie bei der Registrierung."
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          description: "Neue Liste der abonnierten Ereignistypen."
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+      x-validation-rules:
+        - id: no_tenant_parameter
+          description: "Ein Mandantenparameter wird mit HTTP 422 abgelehnt (D-01)."
+
+    Endpoint:
+      type: object
+      description: >-
+        Ein registrierter Empfänger. Das Secret wird **nie** ausgegeben;
+        `secret_version` und `secret_rotated_at` zeigen nur den Zustand der
+        Rotation (AC-001-4).
+      required:
+        - endpoint_id
+        - target_url
+        - status
+        - event_types
+        - secret_version
+        - created_at
+        - updated_at
+      properties:
+        endpoint_id:
+          type: string
+          format: uuid
+        organisation_id:
+          type: string
+          nullable: true
+          description: >-
+            Mandant des Endpunkts. **Nur** für `service_admin` gefüllt; für
+            andere Rollen ist das Feld `null`, weil der Mandant bereits aus der
+            Identität bekannt ist.
+        target_url:
+          type: string
+          format: uri
+        status:
+          $ref: "#/components/schemas/EndpointStatus"
+        event_types:
+          type: array
+          items:
+            type: string
+        secret_version:
+          type: integer
+          format: int32
+          minimum: 1
+          description: "Nummer der Secret-Generation (Startwert 1)."
+        secret_rotated_at:
+          type: string
+          format: date-time
+          nullable: true
+        paused_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EndpointList:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Endpoint"
+        page:
+          $ref: "#/components/schemas/Page"
+
+    SecretRotationRequest:
+      type: object
+      additionalProperties: false
+      required: [secret]
+      properties:
+        secret:
+          type: string
+          minLength: 16
+          maxLength: 512
+          writeOnly: true
+          description: "Das neue Secret. Ab dem nächsten Zustellversuch gilt ausschließlich dieses Secret."
+          example: neues-s3cr3t
+
+    SecretRotationResponse:
+      type: object
+      required: [endpoint_id, secret_version, rotated_at, rotated_by]
+      properties:
+        endpoint_id:
+          type: string
+          format: uuid
+        secret_version:
+          type: integer
+          format: int32
+          minimum: 2
+        rotated_at:
+          type: string
+          format: date-time
+        rotated_by:
+          type: string
+          description: "Identität der auslösenden Rolle (Audit)."
+
+    # ------------------------------------------------------------------- Ereignis
+    EventIntakeRequest:
+      type: object
+      additionalProperties: false
+      required: [event_type, idempotency_key]
+      description: >-
+        Einlieferung eines Ereignisses. **Genau eine** der Eigenschaften
+        `payload` und `payload_base64` muss gesetzt sein.
+
+        `payload` nimmt einen beliebigen JSON-Wert entgegen; der Dienst
+        materialisiert ihn **kanonisch** (RFC 8785, UTF-8, sortierte
+        Schlüssel, ohne bedeutungslose Leerzeichen) und stellt **genau diese
+        Bytes** zu. `payload_base64` erlaubt eine bytegenaue Übernahme.
+
+        Bei `payload_encoding = pre_encrypted` ist `payload_base64` **Pflicht**
+        und `payload` **verboten** — eine als verschlüsselt gekennzeichnete
+        Einlieferung mit erkennbarer Klartextnutzlast wird mit HTTP 422
+        abgelehnt (AC-008-2).
+      properties:
+        event_type:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: "Ereignistyp. Bestimmt, welche Endpunkte zustellen."
+          example: order.changed
+        idempotency_key:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: >-
+            Idempotenzschlüssel. Gültigkeitsbereich ist das Paar (Mandant,
+            Schlüssel) (D-05).
+          example: order-4711-changed-2026-10-21T09:00:00Z
+        payload:
+          description: >-
+            Nutzlast als JSON-Wert. Nicht gleichzeitig mit `payload_base64`
+            setzen.
+          example:
+            order_id: 4711
+            state: shipped
+        payload_base64:
+          type: string
+          contentEncoding: base64
+          description: >-
+            Nutzlast als Base64 — für bytegenaue Übernahme, insbesondere bei
+            vorverschlüsselten Ereignissen. Nicht gleichzeitig mit `payload`
+            setzen.
+          example: T1AtU0VDUkVULVBBWUxPQURfQkFTRTY0
+        payload_encoding:
+          type: string
+          enum: [plaintext, pre_encrypted]
+          default: plaintext
+          description: >-
+            `plaintext` = der Dienst verschlüsselt die Nutzlast selbst
+            (FR-012). `pre_encrypted` = die Bytes sind bereits verschlüsselt
+            und werden **unverändert** gespeichert und zugestellt; vor der
+            Zustellung findet **kein** Entschlüsseln statt (FR-013).
+        payload_media_type:
+          type: string
+          default: application/json
+          maxLength: 100
+          description: "Medientyp der Nutzlast. Wird als `Content-Type` der Zustellung gesetzt."
+      x-validation-rules:
+        - id: exactly_one_payload
+          description: "Genau eine von `payload` / `payload_base64` muss vorhanden sein. Verstoß → HTTP 422."
+        - id: pre_encrypted_requires_base64
+          description: "`payload_encoding = pre_encrypted` erfordert `payload_base64` und verbietet `payload`. Verstoß → HTTP 422 (AC-008-2)."
+        - id: payload_size_limit
+          description: "Die Nutzlastbytes dürfen höchstens 1048576 Byte betragen. Verstoß → HTTP 413 (AC-005-2, AC-005-3, NFR-001)."
+        - id: no_tenant_parameter
+          description: "Ein Mandantenparameter wird mit HTTP 422 abgelehnt (D-01)."
+
+    EventIntakeResponse:
+      type: object
+      required: [event_id, event_type, idempotency_key, status, idempotent_replay, accepted_at]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+          description: "Kennung des Ereignisses. Bei einer idempotenten Wiederholung die Kennung des **ersten** Ereignisses (AC-006-1)."
+        event_type:
+          type: string
+        idempotency_key:
+          type: string
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        idempotent_replay:
+          type: boolean
+          description: >-
+            `true`, wenn die Einlieferung eine Wiederholung unter demselben
+            Idempotenzschlüssel war. Die erste Nutzlast bleibt unverändert
+            (AC-006-2).
+        subscribed_endpoint_count:
+          type: integer
+          minimum: 0
+          description: "Zahl der Endpunkte, die den Ereignistyp abonniert haben. 0 ⇒ Status `no_subscriber` (D-04)."
+        payload_size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "Größe der eingelieferten Nutzlastbytes."
+        accepted_at:
+          type: string
+          format: date-time
+
+    Event:
+      type: object
+      description: >-
+        Metadaten eines Ereignisses. Die **Nutzlast wird nie ausgegeben** —
+        sie ist im Ruhezustand verschlüsselt (FR-012).
+      required: [event_id, event_type, idempotency_key, status, payload_encoding, payload_size_bytes, accepted_at, created_at, updated_at]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+        idempotency_key:
+          type: string
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        payload_encoding:
+          type: string
+          enum: [plaintext, pre_encrypted]
+        payload_media_type:
+          type: string
+          nullable: true
+        payload_size_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        subscribed_endpoint_count:
+          type: integer
+          minimum: 0
+        accepted_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Gesetzt, wenn das Ereignis durch die Aufbewahrung gelöscht wurde."
+
+    EventList:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        page:
+          $ref: "#/components/schemas/Page"
+
+    # ------------------------------------------------------------------ Zustellung
+    DeliveryRun:
+      type: object
+      description: >-
+        Ein Zustelllauf: das Zustellprotokoll **eines** Ereignisses an
+        **einem** Endpunkt. Die Versuche selbst stehen in
+        `DeliveryRunDetail.attempts`.
+      required:
+        - delivery_run_id
+        - event_id
+        - event_type
+        - status
+        - attempt_count
+        - created_at
+        - updated_at
+      properties:
+        delivery_run_id:
+          type: string
+          format: uuid
+          description: "Zustelllauf-ID. Ein Replay erzeugt eine **neue** ID (D-06)."
+        event_id:
+          type: string
+          format: uuid
+        endpoint_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "`null` bei `no_subscriber` — es gibt keinen Endpunkt."
+        organisation_id:
+          type: string
+          nullable: true
+          description: "Nur für `service_admin` gefüllt."
+        event_type:
+          type: string
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+        attempt_count:
+          type: integer
+          format: int32
+          minimum: 0
+          description: "Anzahl der bereits ausgeführten Versuche (FR-030)."
+        max_attempts:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+          description: "Konfigurierte Versuchsgrenze. `null`, solange O-06 offen ist."
+        last_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Zeitpunkt des letzten Versuchs (FR-030)."
+        next_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Nächster Versuchszeitpunkt. **Leer** bei endgültigen Zuständen
+            (`sent`, `abandoned`, `rejected`, `cancelled`) — es wird kein
+            Zeitpunkt in der Vergangenheit oder in der Zukunft angezeigt
+            (AC-015-2).
+        last_response_status:
+          type: integer
+          nullable: true
+          description: "HTTP-Statuscode der Antwort des Empfängers im letzten Versuch (FR-030)."
+        last_error_code:
+          type: string
+          nullable: true
+          description: "Fehlercode des letzten Versuchs, z. B. `connection_refused`, `read_timeout`."
+        rejection_reason:
+          $ref: "#/components/schemas/RejectionReason"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DeliveryAttempt:
+      type: object
+      required: [attempt_id, delivery_run_id, attempt_number, started_at, outcome]
+      properties:
+        attempt_id:
+          type: string
+          format: uuid
+          description: "Versuchs-ID — für jeden HTTP-Versuch eindeutig (D-06)."
+        delivery_run_id:
+          type: string
+          format: uuid
+        attempt_number:
+          type: integer
+          format: int32
+          minimum: 1
+          description: "Versuchsnummer innerhalb des Zustelllaufs (1-basiert)."
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_ms:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        response_status:
+          type: integer
+          nullable: true
+          description: "HTTP-Statuscode der Antwort des Empfängers, `null` bei Transportfehlern."
+        outcome:
+          $ref: "#/components/schemas/AttemptOutcome"
+        error_code:
+          type: string
+          nullable: true
+          description: "Fehlercode bei Transportfehlern, z. B. `connection_refused`, `read_timeout`, `dns_error`."
+        next_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    DeliveryRejection:
+      type: object
+      description: >-
+        Das exakte Format des **Ablehnungssignals**, mit dem der Empfaenger
+        signalisiert, dass er das Ereignis dauerhaft nicht moechte (FR-025).
+        Der Dienst beendet die Zustellung daraufhin sofort ohne weitere
+        Versuche (D-08).
+      required: [rejection, reason]
+      properties:
+        rejection:
+          type: string
+          enum: [permanent]
+          description: "Kennzeichnet die Ablehnung als dauerhaft."
+          example: permanent
+        reason:
+          type: string
+          maxLength: 100
+          description: "Maschinenlesbarer Ablehnungsgrund."
+          example: event_type_not_subscribed
+        message:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: "Optionaler Klartext fuer das Protokoll."
+        rejected_event_types:
+          type: array
+          nullable: true
+          description: "Ereignistypen, die der Empfaenger abgelehnt hat."
+          items:
+            type: string
+
+    DeliveryRunDetail:
+      allOf:
+        - $ref: "#/components/schemas/DeliveryRun"
+        - type: object
+          required: [attempts]
+          properties:
+            attempts:
+              type: array
+              description: "Alle Versuche dieses Zustelllaufs, chronologisch."
+              items:
+                $ref: "#/components/schemas/DeliveryAttempt"
+
+    DeliveryList:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryRun"
+        page:
+          $ref: "#/components/schemas/Page"
+
+    DeadDelivery:
+      type: object
+      description: "Eine tote Zustellung — aufgegeben nach erschöpften Versuchen (FR-031)."
+      required:
+        - delivery_run_id
+        - event_id
+        - endpoint_id
+        - event_type
+        - status
+        - attempt_count
+        - abandoned_at
+      properties:
+        delivery_run_id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        organisation_id:
+          type: string
+          nullable: true
+          description: "Mandant des Endpunkts — für `service_admin` gefüllt (AC-016-1)."
+        endpoint_id:
+          type: string
+          format: uuid
+        endpoint_url:
+          type: string
+          format: uri
+          nullable: true
+        event_type:
+          type: string
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+        attempt_count:
+          type: integer
+          format: int32
+          minimum: 0
+        last_response_status:
+          type: integer
+          nullable: true
+        last_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        abandoned_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    DeadDeliveryList:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeadDelivery"
+        page:
+          $ref: "#/components/schemas/Page"
+
+    ReplayRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: "Freitextbegründung für das Audit-Protokoll."
+
+    ReplayResponse:
+      type: object
+      required: [previous_delivery_run_id, delivery_run_id, event_id, status, attempt_count]
+      properties:
+        previous_delivery_run_id:
+          type: string
+          format: uuid
+          description: "Der aufgegebene Zustelllauf — bleibt im Protokoll unverändert erhalten (AC-013-2)."
+        delivery_run_id:
+          type: string
+          format: uuid
+          description: "Der **neue** Zustelllauf mit neuer ID und derselben Ereignis-ID (AC-013-5)."
+        event_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+        attempt_count:
+          type: integer
+          format: int32
+          description: "Beginnt wieder bei 0; der erste Versuch hat die Nummer 1 (AC-013-1)."
+        next_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        replayed_at:
+          type: string
+          format: date-time
+
+    # -------------------------------------------------------------------- Kennzahlen
+    EndpointMetrics:
+      type: object
+      required: [endpoint_id, window, data_available]
+      properties:
+        endpoint_id:
+          type: string
+          format: uuid
+        window:
+          $ref: "#/components/schemas/MetricsWindow"
+        data_available:
+          type: boolean
+          description: >-
+            `false`, wenn im Fenster **kein** Zustellvorgang vorhanden ist. Dann
+            sind `success_rate` und `delivery_latency_p95_ms` `null` — **nicht**
+            0 % und **nicht** 100 % (AC-017-3).
+        attempts_total:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        attempts_successful:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        success_rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          nullable: true
+          description: "Erfolgreiche Versuche / alle Versuche im Fenster (FR-032)."
+        delivery_latency_p95_ms:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+          description: "p95 der Dauer von der Annahme bis zur erfolgreichen Antwort (FR-032)."
+        rate_limit:
+          $ref: "#/components/schemas/RateLimitObservation"
+
+    MetricsWindow:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+
+    RateLimitObservation:
+      type: object
+      description: >-
+        Zählung der Zustellversuche je Endpunkt und Zeitfenster als Datenbasis
+        für die noch offene Festlegung O-01 (D-14).
+      required: [limit, window_seconds, strategy, observed_attempts, delayed_attempts]
+      properties:
+        limit:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: >-
+            Der Grenzwert. **Bleibt `null`, solange O-01 offen ist** — es wird kein
+            Wert vorbelegt (AC-018-4).
+        window_seconds:
+          type: integer
+          minimum: 1
+          description: "Länge des Zählfensters in Sekunden."
+        strategy:
+          type: string
+          enum: [delay, block]
+          description: "Angewandte Strategie bei Überschreitung."
+        observed_attempts:
+          type: integer
+          format: int64
+          minimum: 0
+        delayed_attempts:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "Zahl der durch das Limit verschobenen Versuche (AC-018-2)."
+
+    # ----------------------------------------------------------------- Aufbewahrung
+    RetentionEnforcementRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        dry_run:
+          type: boolean
+          default: true
+          description: >-
+            `true` = nur zählen, nichts löschen. `false` = tatsächlich löschen.
+            Standard ist `true`, damit ein versehentlicher Aufruf keine Daten
+            verliert.
+
+    RetentionEnforcementResponse:
+      type: object
+      required: [dry_run, retention_days, executed_at]
+      properties:
+        dry_run:
+          type: boolean
+        retention_days:
+          type: integer
+          format: int32
+          nullable: true
+          description: "Die angewandte Frist in Tagen. `null`, solange keine Frist konfiguriert ist (O-02)."
+        cutoff:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Stichtag: Datensätze **vor** diesem Zeitpunkt werden gelöscht."
+        deleted_events:
+          type: integer
+          format: int64
+          minimum: 0
+        deleted_delivery_runs:
+          type: integer
+          format: int64
+          minimum: 0
+        deleted_attempts:
+          type: integer
+          format: int64
+          minimum: 0
+        executed_at:
+          type: string
+          format: date-time
+
+    # ------------------------------------------------------------------ Betrieb
+    HealthStatus:
+      type: object
+      required: [status, service, version, checked_at]
+      properties:
+        status:
+          type: string
+          enum: [up]
+        service:
+          type: string
+          example: echobox
+        version:
+          type: string
+          example: 1.0.0
+        checked_at:
+          type: string
+          format: date-time
+
+    ReadinessStatus:
+      type: object
+      required: [status, checks, checked_at]
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+        checks:
+          type: object
+          required: [database, delivery_worker, tenant_context]
+          properties:
+            database:
+              type: string
+              enum: [ok, unavailable]
+            delivery_worker:
+              type: string
+              enum: [ok, unavailable]
+            tenant_context:
+              type: string
+              enum: [ok, unavailable]
+        checked_at:
+          type: string
+          format: date-time
+
+    # --------------------------------------------------------------------- Seite
+    Page:
+      type: object
+      description: "Cursor-basierte Seitennavigation."
+      required: [limit, has_more]
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        has_more:
+          type: boolean
+        next_cursor:
+          type: string
+          nullable: true
+          description: "Cursor für die nächste Seite; `null` bei der letzten Seite."
+
+# =============================================================================
+# Abdeckung der Akzeptanzkriterien
+# -----------------------------------------------------------------------------
+# Jedes Akzeptanzkriterium aus docs/requirements/stories/US-0xx.json ist im
+# Vertrag auffindbar: entweder als `x-ac-id` an einer Operation, als `x-ac-id`
+# am ausgehenden Zustellvertrag (x-delivery-protocol) oder in dieser Liste.
+# =============================================================================
+x-acceptance-coverage:
+  note: >-
+    Zuordnung jedes Akzeptanzkriteriums zu dem Ort seiner Realisierung.
+    `contract` = im Vertrag an dieser Stelle festgeschrieben;
+    `non_api` = außerhalb der HTTP-Schnittstelle (Oberfläche, Datenbank,
+    Betrieb) — dort ist der Vertrag die einzige Stelle, an dem die Anforderung
+    dokumentiert wird.
+  entries:
+    - {ac_id: AC-001-1, story: US-001, realized_in: "Operation `createEndpoint` (POST /api/v1/endpoints)"}
+    - {ac_id: AC-001-2, story: US-001, realized_in: "Operation `createEndpoint` (POST /api/v1/endpoints); Operation `updateEndpoint` (PATCH /api/v1/endpoints/{endpointId})"}
+    - {ac_id: AC-001-3, story: US-001, realized_in: "Operation `createEndpoint` (POST /api/v1/endpoints); Operation `updateEndpoint` (PATCH /api/v1/endpoints/{endpointId})"}
+    - {ac_id: AC-001-4, story: US-001, realized_in: "Operation `createEndpoint` (POST /api/v1/endpoints)"}
+    - {ac_id: AC-001-5, story: US-001, realized_in: "Operation `createEndpoint` (POST /api/v1/endpoints)"}
+    - {ac_id: AC-002-1, story: US-002, realized_in: "Operation `pauseEndpoint` (POST /api/v1/endpoints/{endpointId}/pause)"}
+    - {ac_id: AC-002-2, story: US-002, realized_in: "Operation `resumeEndpoint` (POST /api/v1/endpoints/{endpointId}/resume)"}
+    - {ac_id: AC-002-3, story: US-002, realized_in: "Operation `pauseEndpoint` (POST /api/v1/endpoints/{endpointId}/pause)"}
+    - {ac_id: AC-002-4, story: US-002, realized_in: "Operation `pauseEndpoint` (POST /api/v1/endpoints/{endpointId}/pause)"}
+    - {ac_id: AC-002-5, story: US-002, realized_in: "Operation `pauseEndpoint` (POST /api/v1/endpoints/{endpointId}/pause); Operation `resumeEndpoint` (POST /api/v1/endpoints/{endpointId}/resume)"}
+    - {ac_id: AC-003-1, story: US-003, realized_in: "Operation `rotateEndpointSecret` (POST /api/v1/endpoints/{endpointId}/secret-rotation)"}
+    - {ac_id: AC-003-2, story: US-003, realized_in: "Operation `rotateEndpointSecret` (POST /api/v1/endpoints/{endpointId}/secret-rotation)"}
+    - {ac_id: AC-003-3, story: US-003, realized_in: "Operation `rotateEndpointSecret` (POST /api/v1/endpoints/{endpointId}/secret-rotation)"}
+    - {ac_id: AC-003-4, story: US-003, realized_in: "Operation `rotateEndpointSecret` (POST /api/v1/endpoints/{endpointId}/secret-rotation)"}
+    - {ac_id: AC-004-1, story: US-004, realized_in: "Operation `listEndpoints` (GET /api/v1/endpoints)"}
+    - {ac_id: AC-004-2, story: US-004, realized_in: "Operation `listEndpoints` (GET /api/v1/endpoints)"}
+    - {ac_id: AC-004-3, story: US-004, realized_in: "Operation `getEndpoint` (GET /api/v1/endpoints/{endpointId})"}
+    - {ac_id: AC-004-4, story: US-004, realized_in: "Vertragsregel `x-contract-rules.tenant` und `EndpointCreateRequest.x-validation-rules.no_tenant_parameter` — ein Mandantenparameter wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt (D-01)."}
+    - {ac_id: AC-005-1, story: US-005, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-005-2, story: US-005, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-005-3, story: US-005, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-005-4, story: US-005, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-005-5, story: US-005, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-005-6, story: US-005, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-006-1, story: US-006, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-006-2, story: US-006, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-006-3, story: US-006, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-006-4, story: US-006, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-007-1, story: US-007, realized_in: "Schema + Betrieb (ADR-003): die Nutzlast liegt ausschliesslich als Chiffre in `events.payload_ciphertext` — kein Klartext in Tabellen, Indizes oder Journal."}
+    - {ac_id: AC-007-2, story: US-007, realized_in: "Betrieb (ADR-003): Nutzlastklartext wird nie protokolliert; Fehler- und Logformat ohne Nutzlastinhalt."}
+    - {ac_id: AC-007-3, story: US-007, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.request.body`"}
+    - {ac_id: AC-007-4, story: US-007, realized_in: "ADR-003: der Schluessel kommt aus dem Secret-Store; weder Schema, Container-Image noch Konfiguration enthalten ihn."}
+    - {ac_id: AC-007-5, story: US-007, realized_in: "Operation `listEvents` (GET /api/v1/events); Operation `getEvent` (GET /api/v1/events/{eventId})"}
+    - {ac_id: AC-008-1, story: US-008, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-008-2, story: US-008, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-008-3, story: US-008, realized_in: "Operation `submitEvent` (POST /api/v1/events)"}
+    - {ac_id: AC-009-1, story: US-009, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.signature`"}
+    - {ac_id: AC-009-2, story: US-009, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.signature`"}
+    - {ac_id: AC-009-3, story: US-009, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.signature`"}
+    - {ac_id: AC-009-4, story: US-009, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.signature`"}
+    - {ac_id: AC-009-5, story: US-009, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.signature`"}
+    - {ac_id: AC-010-1, story: US-010, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.request.headers`"}
+    - {ac_id: AC-010-2, story: US-010, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.duplicate_handling`"}
+    - {ac_id: AC-010-3, story: US-010, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.response.outcomes`"}
+    - {ac_id: AC-010-4, story: US-010, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.request.headers`"}
+    - {ac_id: AC-011-1, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-011-2, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-011-3, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-011-4, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-011-5, story: US-011, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-012-1, story: US-012, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-012-2, story: US-012, realized_in: "Operation `getDeliveryRun` (GET /api/v1/deliveries/{deliveryRunId})"}
+    - {ac_id: AC-012-3, story: US-012, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-012-4, story: US-012, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.retry_policy`"}
+    - {ac_id: AC-013-1, story: US-013, realized_in: "Operation `replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay)"}
+    - {ac_id: AC-013-2, story: US-013, realized_in: "Operation `replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay)"}
+    - {ac_id: AC-013-3, story: US-013, realized_in: "Operation `replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay)"}
+    - {ac_id: AC-013-4, story: US-013, realized_in: "Operation `replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay)"}
+    - {ac_id: AC-013-5, story: US-013, realized_in: "Operation `replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay)"}
+    - {ac_id: AC-014-1, story: US-014, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.response.outcomes`"}
+    - {ac_id: AC-014-2, story: US-014, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.response.outcomes` + `components.schemas.DeliveryRejection`"}
+    - {ac_id: AC-014-3, story: US-014, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.response.outcomes`"}
+    - {ac_id: AC-014-4, story: US-014, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.response.outcomes`"}
+    - {ac_id: AC-015-1, story: US-015, realized_in: "Operation `listDeliveries` (GET /api/v1/deliveries); Operation `getDeliveryRun` (GET /api/v1/deliveries/{deliveryRunId})"}
+    - {ac_id: AC-015-2, story: US-015, realized_in: "Operation `listDeliveries` (GET /api/v1/deliveries)"}
+    - {ac_id: AC-015-3, story: US-015, realized_in: "Operation `getEvent` (GET /api/v1/events/{eventId})"}
+    - {ac_id: AC-015-4, story: US-015, realized_in: "Operation `listDeliveries` (GET /api/v1/deliveries)"}
+    - {ac_id: AC-016-1, story: US-016, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {ac_id: AC-016-2, story: US-016, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {ac_id: AC-016-3, story: US-016, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {ac_id: AC-016-4, story: US-016, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {ac_id: AC-016-5, story: US-016, realized_in: "Operation `enforceRetention` (POST /api/v1/retention/enforcement)"}
+    - {ac_id: AC-017-1, story: US-017, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
+    - {ac_id: AC-017-2, story: US-017, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
+    - {ac_id: AC-017-3, story: US-017, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
+    - {ac_id: AC-017-4, story: US-017, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
+    - {ac_id: AC-018-1, story: US-018, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.rate_limit`"}
+    - {ac_id: AC-018-2, story: US-018, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.rate_limit` + `components.schemas.DeliveryRun.status`"}
+    - {ac_id: AC-018-3, story: US-018, realized_in: "Ausgehender Zustellvertrag `x-delivery-protocol.rate_limit`"}
+    - {ac_id: AC-018-4, story: US-018, realized_in: "Operation `getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics)"}
+    - {ac_id: AC-019-1, story: US-019, realized_in: "Operation `getEndpoint` (GET /api/v1/endpoints/{endpointId}); Oberflaeche (ADR-018): Endpunktseite mit Status, Ziel-URL ohne Secret und Ereignistypen — Datenquelle `GET /api/v1/endpoints`."}
+    - {ac_id: AC-019-2, story: US-019, realized_in: "Operation `updateEndpoint` (PATCH /api/v1/endpoints/{endpointId}); Oberflaeche (ADR-018): Formularvalidierung mit denselben Fehlercodes und Feldverweisen wie `Problem.violations`."}
+    - {ac_id: AC-019-3, story: US-019, realized_in: "Oberflaeche (ADR-018): sofortiger Statuswechsel — Datenquelle `POST /pause` bzw. `POST /resume`."}
+    - {ac_id: AC-019-4, story: US-019, realized_in: "Oberflaeche (ADR-018): Rotationsbestaetigung ohne Klartext — Datenquelle `POST /secret-rotation`."}
+    - {ac_id: AC-020-1, story: US-020, realized_in: "Operation `listDeliveries` (GET /api/v1/deliveries)"}
+    - {ac_id: AC-020-2, story: US-020, realized_in: "Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {ac_id: AC-020-3, story: US-020, realized_in: "Operation `listDeliveries` (GET /api/v1/deliveries); Operation `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {ac_id: AC-020-4, story: US-020, realized_in: "Oberflaeche (ADR-018): fremde URLs liefern HTTP 404 → Leerzustand statt fremder Daten."}
+    - {ac_id: AC-021-1, story: US-021, realized_in: "Oberflaeche (ADR-018): vollstaendige Tastaturbedienung, sichtbarer Fokus, logische Reihenfolge."}
+    - {ac_id: AC-021-2, story: US-021, realized_in: "Oberflaeche (ADR-018): automatisierter axe-Scan ueber alle drei Seiten."}
+    - {ac_id: AC-021-3, story: US-021, realized_in: "Oberflaeche (ADR-018): Kontrast 4,5:1 (Text) bzw. 3:1 (Bedienelemente)."}
+    - {ac_id: AC-021-4, story: US-021, realized_in: "Oberflaeche (ADR-018): semantische Struktur mit Rolle und Inhalt fuer Liste, Zeilen und Statusmeldungen."}
+    - {ac_id: AC-022-1, story: US-022, realized_in: "Schema (ADR-002): jede mandantenfuehrende Tabelle mit `ENABLE ROW LEVEL SECURITY` und Policy."}
+    - {ac_id: AC-022-2, story: US-022, realized_in: "Schema (ADR-002): die Policy filtert auf `current_setting('app.organisation_id')`."}
+    - {ac_id: AC-022-3, story: US-022, realized_in: "ADR-002: der Mandant wird im Connection-Initializer aus dem JWT gesetzt; ein Parameter aus dem Request-Body wird nicht uebernommen."}
+    - {ac_id: AC-022-4, story: US-022, realized_in: "D-02 und `responses.NotFound`: fremde Ressourcen werden mit HTTP 404 beantwortet."}
+    - {ac_id: AC-023-1, story: US-023, realized_in: "Operation `getHealth` (GET /health); Operation `getReadiness` (GET /health/ready)"}
+    - {ac_id: AC-023-2, story: US-023, realized_in: "ADR-013: Mandanten-Sharding ueber Konfiguration (`echobox.tenant.id`); geteilter Betrieb bleibt Standard."}
+    - {ac_id: AC-023-3, story: US-023, realized_in: "ADR-006: der Worker beansprucht Zustelllaeufe per `FOR UPDATE SKIP LOCKED` — genau eine Instanz fuehrt den Versuch aus."}
+    - {ac_id: AC-023-4, story: US-023, realized_in: "ADR-006: Lease mit Ablaufzeit; ein abgestuerzter Worker gibt den Lauf nach Lease-Ablauf frei, ohne die Versuchszahl sprunghaft zu erhoehen."}
+    - {ac_id: AC-023-5, story: US-023, realized_in: "ADR-013: getrennte Staging-/Produktionskonfiguration und getrennte Secrets je Umgebung."}
+
+# -----------------------------------------------------------------------------
+# Abdeckung der Anforderungen (FR/NFR)
+# =============================================================================
+x-requirement-coverage:
+  note: >-
+    Jede der 24 Anforderungen aus `docs/requirements/PRD.md` ist im Vertrag
+    auffindbar: als `x-requirement-ids` an der Operation, im ausgehenden
+    Zustellvertrag oder — bei Anforderungen, die ausserhalb der HTTP-Schnitt-
+    stelle liegen (Datenbank, Oberflaeche) — als ausdruecklicher Verweis hier.
+  entries:
+    - {requirement_id: FR-001, stories: [US-001, US-019], contract: "`createEndpoint` (POST /api/v1/endpoints); `getEndpoint` (GET /api/v1/endpoints/{endpointId}); `updateEndpoint` (PATCH /api/v1/endpoints/{endpointId})"}
+    - {requirement_id: FR-002, stories: [US-002, US-019], contract: "`pauseEndpoint` (POST /api/v1/endpoints/{endpointId}/pause); `resumeEndpoint` (POST /api/v1/endpoints/{endpointId}/resume)"}
+    - {requirement_id: FR-003, stories: [US-003, US-019], contract: "`rotateEndpointSecret` (POST /api/v1/endpoints/{endpointId}/secret-rotation)"}
+    - {requirement_id: FR-004, stories: [US-004], contract: "`getEndpoint` (GET /api/v1/endpoints/{endpointId}); `listEndpoints` (GET /api/v1/endpoints)"}
+    - {requirement_id: FR-010, stories: [US-005], contract: "`submitEvent` (POST /api/v1/events)"}
+    - {requirement_id: FR-011, stories: [US-006], contract: "`submitEvent` (POST /api/v1/events)"}
+    - {requirement_id: FR-012, stories: [US-007], contract: "`getEvent` (GET /api/v1/events/{eventId}); `listEvents` (GET /api/v1/events); `submitEvent` (POST /api/v1/events)"}
+    - {requirement_id: FR-013, stories: [US-008], contract: "`submitEvent` (POST /api/v1/events)"}
+    - {requirement_id: FR-020, stories: [US-009], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
+    - {requirement_id: FR-021, stories: [US-010], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
+    - {requirement_id: FR-022, stories: [US-011], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
+    - {requirement_id: FR-023, stories: [US-012], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
+    - {requirement_id: FR-024, stories: [US-013], contract: "`replayDelivery` (POST /api/v1/deliveries/{deliveryRunId}/replay)"}
+    - {requirement_id: FR-025, stories: [US-014], contract: "ausgehender Zustellvertrag `x-delivery-protocol`"}
+    - {requirement_id: FR-030, stories: [US-015, US-020], contract: "`getDeliveryRun` (GET /api/v1/deliveries/{deliveryRunId}); `getEvent` (GET /api/v1/events/{eventId}); `listDeliveries` (GET /api/v1/deliveries); `listEvents` (GET /api/v1/events)"}
+    - {requirement_id: FR-031, stories: [US-016, US-020], contract: "`enforceRetention` (POST /api/v1/retention/enforcement); `listDeadDeliveries` (GET /api/v1/dead-deliveries)"}
+    - {requirement_id: FR-032, stories: [US-017], contract: "`getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics) — Kennzahlen je Endpunkt (Erfolgsquote, p95-Latenz, Rate-Limit-Zaehlung)."}
+    - {requirement_id: FR-033, stories: [US-018], contract: "`getEndpointMetrics` (GET /api/v1/endpoints/{endpointId}/metrics) — Rate-Limit-Mechanismus mit konfigurierbarer Strategie; Grenzwert bleibt `null`, solange O-01 offen ist."}
+    - {requirement_id: NFR-001, stories: [US-005], contract: "`submitEvent` (POST /api/v1/events) — 1-MB-Grenze: `EventIntakeRequest.x-validation-rules.payload_size_limit`, Antwort 413 `payload_too_large`."}
+    - {requirement_id: NFR-002, stories: [US-005], contract: "`submitEvent` (POST /api/v1/events) — Asynchronitaet: `POST /api/v1/events` antwortet 202; die Zustellung laeuft im Hintergrundprozess."}
+    - {requirement_id: NFR-003, stories: [US-022], contract: "ausserhalb der HTTP-Schnittstelle — Durchsetzung auf Datenbankebene (Row-Level-Security, ADR-002) — nicht Teil der HTTP-Schnittstelle, aber im Vertrag als Mandantenregel festgeschrieben (`x-contract-rules.tenant`)."}
+    - {requirement_id: NFR-004, stories: [US-007], contract: "`createEndpoint` (POST /api/v1/endpoints) — Verschluesselung im Ruhezustand (ADR-003) — die HTTP-Schnittstelle gibt die Nutzlast nie aus."}
+    - {requirement_id: NFR-005, stories: [US-021], contract: "ausserhalb der HTTP-Schnittstelle — Barrierefreiheit der Oberflaeche (ADR-018) — nicht Teil der HTTP-Schnittstelle."}
+    - {requirement_id: NFR-006, stories: [US-023], contract: "`getHealth` (GET /health); `getReadiness` (GET /health/ready) — Containerbetrieb: `GET /health` und `GET /health/ready`."}
+
+# =============================================================================
+# Vertragsweite Regeln
+# =============================================================================
+x-contract-rules:
+  tenant:
+    - "Der Mandant stammt ausschließlich aus dem JWT-Claim `organisation_id` (D-01)."
+    - "Ein Mandantenparameter im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."
+    - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02)."
+  errors:
+    - "Alle Fehlerantworten nutzen das Schema `Problem` mit `Content-Type: application/problem+json`."
+    - "500-Antworten enthalten weder Stacktrace noch interne Kennungen."
+  idempotency:
+    - "Der Idempotenzschlüssel gilt je (Mandant, Schlüssel) (D-05)."
+    - "Gleiche Nutzlast → HTTP 202 mit `idempotent_replay: true` und der Kennung des ersten Ereignisses."
+    - "Abweichende Nutzlast → HTTP 409 (`idempotency_conflict`)."
+  pagination:
+    - "Alle Listen: `limit` (Default 50, max 200) + `cursor`; Antwort unter `page`."
+    - "Die Filter sind kombinierbar; ein ungültiger Cursor wird mit HTTP 422 abgelehnt."
+  delivery:
+    - "Der ausgehende Zustellvertrag ist in `x-delivery-protocol` beschrieben und eingefroren."
+    - "Änderungen an Signaturverfahren, Header-Namen oder Ablehnungssignal sind breaking changes → neue Hauptversion."

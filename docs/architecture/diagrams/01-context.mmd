@@ -1,0 +1,29 @@
+%% EchoBox — C4 Kontext (Level 1)
+%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur)
+%% Das System im Kontext: welche Akteure und Systeme grenzen es ab?
+
+C4Context
+    title EchoBox — Kontext (C4 Level 1)
+
+    Person(entwickler, "Entwickler", "Erzeugt Ereignisse und liest das Zustellprotokoll.")
+    Person(empfaengerAdmin, "Empfänger-Admin", "Registriert Endpunkte, pausiert, rotiert das Secret, löst tote Zustellungen erneut aus.")
+    Person(serviceAdmin, "Service-Admin", "Plattform-Betrieb: sieht alle Mandanten, holt tote Zustellungen ab, erzwingt Aufbewahrung.")
+
+    System(echobox, "EchoBox", "Ereignis-Briefkasten mit Zustellgarantie. Nimmt Ereignisse an, stellt sie per HTTP an registrierte Empfänger-URLs zu, protokolliert jeden Versuch.")
+
+    System_Ext(idProvider, "Identity Provider", "Stellt JWT mit organisation_id und Rollen aus. Identität und Mandant kommen von außen.")
+
+    System_Ext(endpointSystem, "Empfangendes System", "Zielsystem hinter der registrierten Empfänger-URL. Antwortet 2xx, mit dem Ablehnungssignal 410 oder mit einem Fehlercode.")
+
+    System_Ext(secretStore, "Secret-Store", "Hält den Verschlüsselungsschlüssel und die Endpunkt-Secrets außerhalb der Datenbank (NFR-004).")
+
+    Rel(entwickler, echobox, "Liefert Ereignisse ein; liest Zustellprotokoll", "HTTPS/JSON, JWT")
+    Rel(empfaengerAdmin, echobox, "Verwaltet Endpunkte; löst tote Zustellungen erneut aus", "HTTPS/JSON, JWT")
+    Rel(serviceAdmin, echobox, "Betrieb: Totenliste, Kennzahlen, Aufbewahrung", "HTTPS/JSON, JWT")
+
+    Rel(echobox, idProvider, "Prüft das Bearer-Token und liest organisation_id und die Rollen", "JWKS über HTTPS")
+    Rel(echobox, endpointSystem, "Stellt Ereignisse zu — signiert, at-least-once, mit Zustell-Kennungen", "HTTPS/JSON")
+    Rel(echobox, secretStore, "Liest Schlüssel und Endpunkt-Secrets", "Secret-Injektion")
+
+%% Leitsatz des Dienstes: Nichts verschwindet still — jedes eingelieferte
+%% Ereignis ist über seinen gesamten Weg sichtbar: zugestellt, verworfen oder tot.
