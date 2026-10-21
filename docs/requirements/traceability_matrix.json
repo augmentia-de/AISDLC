@@ -1,0 +1,2075 @@
+{
+  "schema_version": "1.0",
+  "step": "1 - Anforderungserhebung",
+  "agent": "aisdlc-requirements",
+  "source_document": "docs/Anforderung.md",
+  "generated": "2026-10-21",
+  "note": "Zeilen 'tests' und 'code' sind in Schritt 1 Platzhalter. Schritt 5 (Test-Driven Setup) füllt die Testbezüge, Schritt 6 (Implementierung) die Codebezüge. Der Check .agent/tools/traceability_check.py vergleicht die Matrix mit dem Dateisystem.",
+  "epics": [
+    {
+      "id": "E1",
+      "title": "Endpunkte verwalten",
+      "goal": "Endpunkte sicher registrieren und steuern — inklusive Pause, Rotation und Mandantensicht"
+    },
+    {
+      "id": "E2",
+      "title": "Ereignisse einliefern",
+      "goal": "Ereignisse zuverlässig, idempotent und verschlüsselt annehmen — ohne den Aufrufer zu blockieren"
+    },
+    {
+      "id": "E3",
+      "title": "Zustellung und Zustellgarantie",
+      "goal": "Zustellgarantie: signiert, wiederholt, gestreut, nachvollziehbar aufgegeben"
+    },
+    {
+      "id": "E4",
+      "title": "Protokoll und Betrieb",
+      "goal": "Protokoll, Tote-Zustellungen, Kennzahlen und Schutz gegen Überlastung im Betrieb"
+    },
+    {
+      "id": "E5",
+      "title": "Oberfläche",
+      "goal": "Bedienbare, barrierefreie Oberfläche für Endpunkte, Protokoll und Tote Zustellungen"
+    },
+    {
+      "id": "E6",
+      "title": "Mandantentrennung und Betrieb",
+      "goal": "Mandantentrennung auf Datenbankebene, Containerbetrieb und horizontale Skalierung"
+    }
+  ],
+  "story_index": [
+    {
+      "id": "US-001",
+      "epic": "E1",
+      "title": "Endpunkt registrieren",
+      "requirement_ids": [
+        "FR-001"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-001-1",
+        "AC-001-2",
+        "AC-001-3",
+        "AC-001-4",
+        "AC-001-5"
+      ],
+      "feature": "docs/requirements/features/US-001.feature",
+      "story": "docs/requirements/stories/US-001.json"
+    },
+    {
+      "id": "US-002",
+      "epic": "E1",
+      "title": "Endpunkt pausieren und reaktivieren",
+      "requirement_ids": [
+        "FR-002"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-002-1",
+        "AC-002-2",
+        "AC-002-3",
+        "AC-002-4",
+        "AC-002-5"
+      ],
+      "feature": "docs/requirements/features/US-002.feature",
+      "story": "docs/requirements/stories/US-002.json"
+    },
+    {
+      "id": "US-003",
+      "epic": "E1",
+      "title": "Secret rotieren",
+      "requirement_ids": [
+        "FR-003"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-003-1",
+        "AC-003-2",
+        "AC-003-3",
+        "AC-003-4"
+      ],
+      "feature": "docs/requirements/features/US-003.feature",
+      "story": "docs/requirements/stories/US-003.json"
+    },
+    {
+      "id": "US-004",
+      "epic": "E1",
+      "title": "Endpunkte nach Rolle und Mandant sehen",
+      "requirement_ids": [
+        "FR-004"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-004-1",
+        "AC-004-2",
+        "AC-004-3",
+        "AC-004-4"
+      ],
+      "feature": "docs/requirements/features/US-004.feature",
+      "story": "docs/requirements/stories/US-004.json"
+    },
+    {
+      "id": "US-005",
+      "epic": "E2",
+      "title": "Ereignis einliefern",
+      "requirement_ids": [
+        "FR-010",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-005-1",
+        "AC-005-2",
+        "AC-005-3",
+        "AC-005-4",
+        "AC-005-5",
+        "AC-005-6"
+      ],
+      "feature": "docs/requirements/features/US-005.feature",
+      "story": "docs/requirements/stories/US-005.json"
+    },
+    {
+      "id": "US-006",
+      "epic": "E2",
+      "title": "Idempotente Einlieferung",
+      "requirement_ids": [
+        "FR-011"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-006-1",
+        "AC-006-2",
+        "AC-006-3",
+        "AC-006-4"
+      ],
+      "feature": "docs/requirements/features/US-006.feature",
+      "story": "docs/requirements/stories/US-006.json"
+    },
+    {
+      "id": "US-007",
+      "epic": "E2",
+      "title": "Verschlüsselung im Ruhezustand",
+      "requirement_ids": [
+        "FR-012",
+        "NFR-004"
+      ],
+      "open_points": [
+        "O-04"
+      ],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-007-1",
+        "AC-007-2",
+        "AC-007-3",
+        "AC-007-4",
+        "AC-007-5"
+      ],
+      "feature": "docs/requirements/features/US-007.feature",
+      "story": "docs/requirements/stories/US-007.json"
+    },
+    {
+      "id": "US-008",
+      "epic": "E2",
+      "title": "Bereits verschlüsselte Einlieferung",
+      "requirement_ids": [
+        "FR-013"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-008-1",
+        "AC-008-2",
+        "AC-008-3"
+      ],
+      "feature": "docs/requirements/features/US-008.feature",
+      "story": "docs/requirements/stories/US-008.json"
+    },
+    {
+      "id": "US-009",
+      "epic": "E3",
+      "title": "Signierte Zustellung",
+      "requirement_ids": [
+        "FR-020"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-009-1",
+        "AC-009-2",
+        "AC-009-3",
+        "AC-009-4",
+        "AC-009-5"
+      ],
+      "feature": "docs/requirements/features/US-009.feature",
+      "story": "docs/requirements/stories/US-009.json"
+    },
+    {
+      "id": "US-010",
+      "epic": "E3",
+      "title": "Zustellkennungen und at-least-once",
+      "requirement_ids": [
+        "FR-021"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-010-1",
+        "AC-010-2",
+        "AC-010-3",
+        "AC-010-4"
+      ],
+      "feature": "docs/requirements/features/US-010.feature",
+      "story": "docs/requirements/stories/US-010.json"
+    },
+    {
+      "id": "US-011",
+      "epic": "E3",
+      "title": "Wiederholung mit Backoff und Streuung",
+      "requirement_ids": [
+        "FR-022"
+      ],
+      "open_points": [
+        "O-06",
+        "O-07"
+      ],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-011-1",
+        "AC-011-2",
+        "AC-011-3",
+        "AC-011-4",
+        "AC-011-5"
+      ],
+      "feature": "docs/requirements/features/US-011.feature",
+      "story": "docs/requirements/stories/US-011.json"
+    },
+    {
+      "id": "US-012",
+      "epic": "E3",
+      "title": "Aufgabe nach erschöpften Versuchen",
+      "requirement_ids": [
+        "FR-023"
+      ],
+      "open_points": [
+        "O-06"
+      ],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-012-1",
+        "AC-012-2",
+        "AC-012-3",
+        "AC-012-4"
+      ],
+      "feature": "docs/requirements/features/US-012.feature",
+      "story": "docs/requirements/stories/US-012.json"
+    },
+    {
+      "id": "US-013",
+      "epic": "E3",
+      "title": "Tote Zustellung erneut auslösen",
+      "requirement_ids": [
+        "FR-024"
+      ],
+      "open_points": [
+        "O-03"
+      ],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-013-1",
+        "AC-013-2",
+        "AC-013-3",
+        "AC-013-4",
+        "AC-013-5"
+      ],
+      "feature": "docs/requirements/features/US-013.feature",
+      "story": "docs/requirements/stories/US-013.json"
+    },
+    {
+      "id": "US-014",
+      "epic": "E3",
+      "title": "Endgültige Ablehnung des Empfängers",
+      "requirement_ids": [
+        "FR-025"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-014-1",
+        "AC-014-2",
+        "AC-014-3",
+        "AC-014-4"
+      ],
+      "feature": "docs/requirements/features/US-014.feature",
+      "story": "docs/requirements/stories/US-014.json"
+    },
+    {
+      "id": "US-015",
+      "epic": "E4",
+      "title": "Zustellprotokoll einsehen",
+      "requirement_ids": [
+        "FR-030"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-015-1",
+        "AC-015-2",
+        "AC-015-3",
+        "AC-015-4"
+      ],
+      "feature": "docs/requirements/features/US-015.feature",
+      "story": "docs/requirements/stories/US-015.json"
+    },
+    {
+      "id": "US-016",
+      "epic": "E4",
+      "title": "Tote Zustellungen abholen und Aufbewahrung durchsetzen",
+      "requirement_ids": [
+        "FR-031"
+      ],
+      "open_points": [
+        "O-02"
+      ],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-016-1",
+        "AC-016-2",
+        "AC-016-3",
+        "AC-016-4",
+        "AC-016-5"
+      ],
+      "feature": "docs/requirements/features/US-016.feature",
+      "story": "docs/requirements/stories/US-016.json"
+    },
+    {
+      "id": "US-017",
+      "epic": "E4",
+      "title": "Erfolgsquote und Zustelllatenz je Endpunkt",
+      "requirement_ids": [
+        "FR-032"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-017-1",
+        "AC-017-2",
+        "AC-017-3",
+        "AC-017-4"
+      ],
+      "feature": "docs/requirements/features/US-017.feature",
+      "story": "docs/requirements/stories/US-017.json"
+    },
+    {
+      "id": "US-018",
+      "epic": "E4",
+      "title": "Rate-Limit je Endpunkt",
+      "requirement_ids": [
+        "FR-033"
+      ],
+      "open_points": [
+        "O-01"
+      ],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-018-1",
+        "AC-018-2",
+        "AC-018-3",
+        "AC-018-4"
+      ],
+      "feature": "docs/requirements/features/US-018.feature",
+      "story": "docs/requirements/stories/US-018.json"
+    },
+    {
+      "id": "US-019",
+      "epic": "E5",
+      "title": "Endpunktverwaltung in der Oberfläche",
+      "requirement_ids": [
+        "FR-001",
+        "FR-002",
+        "FR-003"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-019-1",
+        "AC-019-2",
+        "AC-019-3",
+        "AC-019-4"
+      ],
+      "feature": "docs/requirements/features/US-019.feature",
+      "story": "docs/requirements/stories/US-019.json"
+    },
+    {
+      "id": "US-020",
+      "epic": "E5",
+      "title": "Oberfläche für Zustellprotokoll und tote Zustellungen",
+      "requirement_ids": [
+        "FR-030",
+        "FR-031"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-020-1",
+        "AC-020-2",
+        "AC-020-3",
+        "AC-020-4"
+      ],
+      "feature": "docs/requirements/features/US-020.feature",
+      "story": "docs/requirements/stories/US-020.json"
+    },
+    {
+      "id": "US-021",
+      "epic": "E5",
+      "title": "Barrierefreiheit der Oberfläche",
+      "requirement_ids": [
+        "NFR-005"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-021-1",
+        "AC-021-2",
+        "AC-021-3",
+        "AC-021-4"
+      ],
+      "feature": "docs/requirements/features/US-021.feature",
+      "story": "docs/requirements/stories/US-021.json"
+    },
+    {
+      "id": "US-022",
+      "epic": "E6",
+      "title": "Mandanttrennung auf Datenbankebene",
+      "requirement_ids": [
+        "NFR-003"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-022-1",
+        "AC-022-2",
+        "AC-022-3",
+        "AC-022-4"
+      ],
+      "feature": "docs/requirements/features/US-022.feature",
+      "story": "docs/requirements/stories/US-022.json"
+    },
+    {
+      "id": "US-023",
+      "epic": "E6",
+      "title": "Containerbetrieb, Mandanteninstanzen und horizontale Skalierung",
+      "requirement_ids": [
+        "NFR-006"
+      ],
+      "open_points": [],
+      "priority": "must-have",
+      "acceptance_criteria": [
+        "AC-023-1",
+        "AC-023-2",
+        "AC-023-3",
+        "AC-023-4",
+        "AC-023-5"
+      ],
+      "feature": "docs/requirements/features/US-023.feature",
+      "story": "docs/requirements/stories/US-023.json"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FR-001",
+      "title": "Endpunkt mit Ziel-URL, Secret und Ereignistypen registrieren; URL muss https sein",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-001",
+        "US-019"
+      ]
+    },
+    {
+      "id": "FR-002",
+      "title": "Endpunkt pausieren und reaktivieren; kein Zwischenspeichern, kein Nachliefern",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-002",
+        "US-019"
+      ]
+    },
+    {
+      "id": "FR-003",
+      "title": "Secret rotieren; nach der Rotation gilt nur das neue Secret",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-003",
+        "US-019"
+      ]
+    },
+    {
+      "id": "FR-004",
+      "title": "Service-Admin sieht alle Endpunkte, Empfänger-Admin nur die eigenen",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-004"
+      ]
+    },
+    {
+      "id": "FR-010",
+      "title": "Entwickler liefert Ereignis ein: Typ, Nutzlast, Idempotenzschlüssel",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "FR-011",
+      "title": "Gleicher Idempotenzschlüssel erzeugt kein zweites Ereignis; ID des ersten wird zurückgeliefert",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-006"
+      ]
+    },
+    {
+      "id": "FR-012",
+      "title": "Nutzlast wird verschlüsselt gespeichert, nur zur Zustellung entschlüsselt",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-007"
+      ]
+    },
+    {
+      "id": "FR-013",
+      "title": "Ereignisse können bereits verschlüsselt eingeliefert werden",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-008"
+      ]
+    },
+    {
+      "id": "FR-020",
+      "title": "Signatur über Zeitstempel und Nutzlast; Verfahren und Header-Name sind Teil des Vertrags",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-009"
+      ]
+    },
+    {
+      "id": "FR-021",
+      "title": "Zustellung ist at-least-once; jede Zustellung trägt eine eigene Zustell-Kennung",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-010"
+      ]
+    },
+    {
+      "id": "FR-022",
+      "title": "Fehlgeschlagene Zustellung wird mit wachsendem Abstand erneut versucht, mit Streuung",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-011"
+      ]
+    },
+    {
+      "id": "FR-023",
+      "title": "Nach fester Anzahl erfolgloser Versuche wird die Zustellung aufgegeben (tote Zustellung)",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-012"
+      ]
+    },
+    {
+      "id": "FR-024",
+      "title": "Empfänger-Admin kann aufgegebenes Ereignis erneut auslösen; Versuchszahl beginnt neu",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-013"
+      ]
+    },
+    {
+      "id": "FR-025",
+      "title": "Empfänger kann dauerhafte Ablehnung angeben; Zustellung sofort aufgeben",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-014"
+      ]
+    },
+    {
+      "id": "FR-030",
+      "title": "Zustellprotokoll zeigt Zustand, Versuche, letzter Versuch, Antwortcode, nächster Versuch",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-015",
+        "US-020"
+      ]
+    },
+    {
+      "id": "FR-031",
+      "title": "Service-Admin kann tote Zustellungen als Liste abholen",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-016",
+        "US-020"
+      ]
+    },
+    {
+      "id": "FR-032",
+      "title": "Je Endpunkt werden Erfolgsquote und Zustelllatenz ausgewiesen",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-017"
+      ]
+    },
+    {
+      "id": "FR-033",
+      "title": "Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (Rate steht aus)",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-018"
+      ]
+    },
+    {
+      "id": "NFR-001",
+      "title": "Nutzlast eines Ereignisses ist auf 1 MB begrenzt",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "NFR-002",
+      "title": "Einliefern antwortet in unter 200 ms (p95); Zustellung ist asynchron",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-005"
+      ]
+    },
+    {
+      "id": "NFR-003",
+      "title": "Mandantentrennung wird auf Datenbankebene erzwiesen",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-022"
+      ]
+    },
+    {
+      "id": "NFR-004",
+      "title": "Verschlüsselung im Ruhezustand; Schlüssel liegt außerhalb der Datenbank",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-007"
+      ]
+    },
+    {
+      "id": "NFR-005",
+      "title": "Oberfläche ohne Maus bedienbar, mit Screenreader nutzbar, WCAG 2.1 AA",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-021"
+      ]
+    },
+    {
+      "id": "NFR-006",
+      "title": "Dienst läuft in Containern, auf eine Instanz je Mandant vorbereitet, skaliert horizontal",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-023"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "requirement_id": "FR-001",
+      "title": "Endpunkt mit Ziel-URL, Secret und Ereignistypen registrieren; URL muss https sein",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-001",
+        "US-019"
+      ],
+      "acceptance_criteria": [
+        "AC-001-1",
+        "AC-001-2",
+        "AC-001-3",
+        "AC-001-4",
+        "AC-001-5",
+        "AC-019-1",
+        "AC-019-2",
+        "AC-019-3",
+        "AC-019-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/endpoint/EndpointRegistrationTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/endpoint/EndpointRegistrationIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/endpoints.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/EndpointsPage.test.tsx",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/endpoint/Endpoint.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/app/endpoints/page.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/endpoints/EndpointForm.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/endpoints/EndpointList.tsx",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-002",
+      "title": "Endpunkt pausieren und reaktivieren; kein Zwischenspeichern, kein Nachliefern",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-002",
+        "US-019"
+      ],
+      "acceptance_criteria": [
+        "AC-002-1",
+        "AC-002-2",
+        "AC-002-3",
+        "AC-002-4",
+        "AC-002-5",
+        "AC-019-1",
+        "AC-019-2",
+        "AC-019-3",
+        "AC-019-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/endpoint/EndpointPauseTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/endpoint/EndpointPauseIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/endpoints.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/EndpointsPage.test.tsx",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/app/endpoints/page.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/endpoints/EndpointForm.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/endpoints/EndpointList.tsx",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-003",
+      "title": "Secret rotieren; nach der Rotation gilt nur das neue Secret",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-003",
+        "US-019"
+      ],
+      "acceptance_criteria": [
+        "AC-003-1",
+        "AC-003-2",
+        "AC-003-3",
+        "AC-003-4",
+        "AC-019-1",
+        "AC-019-2",
+        "AC-019-3",
+        "AC-019-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/endpoint/SecretRotationTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/endpoint/SecretRotationIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/endpoints.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/EndpointsPage.test.tsx",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/crypto/SecretStore.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/app/endpoints/page.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/endpoints/EndpointForm.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/endpoints/EndpointList.tsx",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-004",
+      "title": "Service-Admin sieht alle Endpunkte, Empfänger-Admin nur die eigenen",
+      "source_section": "Anforderung Abschnitt 6",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-004"
+      ],
+      "acceptance_criteria": [
+        "AC-004-1",
+        "AC-004-2",
+        "AC-004-3",
+        "AC-004-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/endpoint/EndpointVisibilityIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointQueryService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/tenant/TenantContext.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-010",
+      "title": "Entwickler liefert Ereignis ein: Typ, Nutzlast, Idempotenzschlüssel",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-005"
+      ],
+      "acceptance_criteria": [
+        "AC-005-1",
+        "AC-005-2",
+        "AC-005-3",
+        "AC-005-4",
+        "AC-005-5",
+        "AC-005-6"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/event/EventIntakeTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/EventIntakeIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/EventIntakePerformanceIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/event/EventController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/EventService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/Event.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-011",
+      "title": "Gleicher Idempotenzschlüssel erzeugt kein zweites Ereignis; ID des ersten wird zurückgeliefert",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-006"
+      ],
+      "acceptance_criteria": [
+        "AC-006-1",
+        "AC-006-2",
+        "AC-006-3",
+        "AC-006-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/event/EventIdempotencyTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/EventIdempotencyIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/event/EventService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/IdempotencyStore.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-012",
+      "title": "Nutzlast wird verschlüsselt gespeichert, nur zur Zustellung entschlüsselt",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-007"
+      ],
+      "acceptance_criteria": [
+        "AC-007-1",
+        "AC-007-2",
+        "AC-007-3",
+        "AC-007-4",
+        "AC-007-5"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/event/PayloadEncryptionAtRestIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/crypto/PayloadCipherTest.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/crypto/PayloadCipher.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/EventRepository.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-013",
+      "title": "Ereignisse können bereits verschlüsselt eingeliefert werden",
+      "source_section": "Anforderung Abschnitt 7",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-008"
+      ],
+      "acceptance_criteria": [
+        "AC-008-1",
+        "AC-008-2",
+        "AC-008-3"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/event/PreEncryptedEventTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/PreEncryptedEventIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/event/EventService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/Event.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/PayloadSource.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-020",
+      "title": "Signatur über Zeitstempel und Nutzlast; Verfahren und Header-Name sind Teil des Vertrags",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-009"
+      ],
+      "acceptance_criteria": [
+        "AC-009-1",
+        "AC-009-2",
+        "AC-009-3",
+        "AC-009-4",
+        "AC-009-5"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/crypto/SignatureTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/delivery/SignedDeliveryIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/contract/openapi_signature_contract_test.yaml",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/crypto/SignatureService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryHttpClient.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-021",
+      "title": "Zustellung ist at-least-once; jede Zustellung trägt eine eigene Zustell-Kennung",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-010"
+      ],
+      "acceptance_criteria": [
+        "AC-010-1",
+        "AC-010-2",
+        "AC-010-3",
+        "AC-010-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/delivery/DeliveryIdentifiersTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/delivery/AtLeastOnceDeliveryIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryHeaders.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryService.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-022",
+      "title": "Fehlgeschlagene Zustellung wird mit wachsendem Abstand erneut versucht, mit Streuung",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-011"
+      ],
+      "acceptance_criteria": [
+        "AC-011-1",
+        "AC-011-2",
+        "AC-011-3",
+        "AC-011-4",
+        "AC-011-5"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/delivery/BackoffPolicyTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/delivery/JitterTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/delivery/RetryDeliveryIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/delivery/BackoffPolicy.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryWorker.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/RetryScheduler.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-023",
+      "title": "Nach fester Anzahl erfolgloser Versuche wird die Zustellung aufgegeben (tote Zustellung)",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-012"
+      ],
+      "acceptance_criteria": [
+        "AC-012-1",
+        "AC-012-2",
+        "AC-012-3",
+        "AC-012-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/delivery/DeadLetterIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/delivery/AttemptLimitTest.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryWorker.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-024",
+      "title": "Empfänger-Admin kann aufgegebenes Ereignis erneut auslösen; Versuchszahl beginnt neu",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-013"
+      ],
+      "acceptance_criteria": [
+        "AC-013-1",
+        "AC-013-2",
+        "AC-013-3",
+        "AC-013-4",
+        "AC-013-5"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/delivery/RedeliveryIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryService.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-025",
+      "title": "Empfänger kann dauerhafte Ablehnung angeben; Zustellung sofort aufgeben",
+      "source_section": "Anforderung Abschnitt 8",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-014"
+      ],
+      "acceptance_criteria": [
+        "AC-014-1",
+        "AC-014-2",
+        "AC-014-3",
+        "AC-014-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/delivery/PermanentRejectionTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/delivery/RejectionDeliveryIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/contract/openapi_rejection_contract_test.yaml",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryHttpClient.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryOutcome.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-030",
+      "title": "Zustellprotokoll zeigt Zustand, Versuche, letzter Versuch, Antwortcode, nächster Versuch",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-015",
+        "US-020"
+      ],
+      "acceptance_criteria": [
+        "AC-015-1",
+        "AC-015-2",
+        "AC-015-3",
+        "AC-015-4",
+        "AC-020-1",
+        "AC-020-2",
+        "AC-020-3",
+        "AC-020-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/protocol/DeliveryProtocolIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/protocol.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/dead-deliveries.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/DeliveryProtocolPage.test.tsx",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/protocol/ProtocolController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/protocol/ProtocolQueryService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/app/deliveries/page.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/app/dead-deliveries/page.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/protocol/DeliveryTable.tsx",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-031",
+      "title": "Service-Admin kann tote Zustellungen als Liste abholen",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-016",
+        "US-020"
+      ],
+      "acceptance_criteria": [
+        "AC-016-1",
+        "AC-016-2",
+        "AC-016-3",
+        "AC-016-4",
+        "AC-016-5",
+        "AC-020-1",
+        "AC-020-2",
+        "AC-020-3",
+        "AC-020-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/protocol/DeadDeliveryListIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/protocol/RetentionEnforcementIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/protocol.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/dead-deliveries.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/DeliveryProtocolPage.test.tsx",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/protocol/ProtocolController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/protocol/DeadDeliveryQueryService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/protocol/RetentionService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/app/deliveries/page.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/app/dead-deliveries/page.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/features/protocol/DeliveryTable.tsx",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-032",
+      "title": "Je Endpunkt werden Erfolgsquote und Zustelllatenz ausgewiesen",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-017"
+      ],
+      "acceptance_criteria": [
+        "AC-017-1",
+        "AC-017-2",
+        "AC-017-3",
+        "AC-017-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/protocol/EndpointMetricsIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/protocol/EndpointMetricsService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/protocol/MetricsController.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "FR-033",
+      "title": "Endpunkt ist gegen zu viele Zustellungen in kurzer Zeit geschützt (Rate steht aus)",
+      "source_section": "Anforderung Abschnitt 9",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-018"
+      ],
+      "acceptance_criteria": [
+        "AC-018-1",
+        "AC-018-2",
+        "AC-018-3",
+        "AC-018-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/delivery/RateLimiterTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/delivery/RateLimitedDeliveryIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/delivery/EndpointRateLimiter.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryWorker.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "NFR-001",
+      "title": "Nutzlast eines Ereignisses ist auf 1 MB begrenzt",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-005"
+      ],
+      "acceptance_criteria": [
+        "AC-005-1",
+        "AC-005-2",
+        "AC-005-3",
+        "AC-005-4",
+        "AC-005-5",
+        "AC-005-6"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/event/EventIntakeTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/EventIntakeIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/EventIntakePerformanceIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/event/EventController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/EventService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/Event.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "NFR-002",
+      "title": "Einliefern antwortet in unter 200 ms (p95); Zustellung ist asynchron",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-005"
+      ],
+      "acceptance_criteria": [
+        "AC-005-1",
+        "AC-005-2",
+        "AC-005-3",
+        "AC-005-4",
+        "AC-005-5",
+        "AC-005-6"
+      ],
+      "tests": [
+        {
+          "path": "tests/unit/event/EventIntakeTest.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/EventIntakeIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/event/EventIntakePerformanceIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/event/EventController.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/EventService.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/Event.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "NFR-003",
+      "title": "Mandantentrennung wird auf Datenbankebene erzwiesen",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-022"
+      ],
+      "acceptance_criteria": [
+        "AC-022-1",
+        "AC-022-2",
+        "AC-022-3",
+        "AC-022-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/tenant/TenantIsolationIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/tenant/RowLevelSecurityIT.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/tenant/TenantContext.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/tenant/TenantConnectionInitializer.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/resources/db/migration/V1__initial_schema.sql",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "NFR-004",
+      "title": "Verschlüsselung im Ruhezustand; Schlüssel liegt außerhalb der Datenbank",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-007"
+      ],
+      "acceptance_criteria": [
+        "AC-007-1",
+        "AC-007-2",
+        "AC-007-3",
+        "AC-007-4",
+        "AC-007-5"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/event/PayloadEncryptionAtRestIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/crypto/PayloadCipherTest.java",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/java/com/echobox/crypto/PayloadCipher.java",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/event/EventRepository.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "NFR-005",
+      "title": "Oberfläche ohne Maus bedienbar, mit Screenreader nutzbar, WCAG 2.1 AA",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-021"
+      ],
+      "acceptance_criteria": [
+        "AC-021-1",
+        "AC-021-2",
+        "AC-021-3",
+        "AC-021-4"
+      ],
+      "tests": [
+        {
+          "path": "tests/e2e/a11y.spec.ts",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/a11y.test.tsx",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "src/main/frontend/src/app/layout.tsx",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/frontend/src/components/DataTable.tsx",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    },
+    {
+      "requirement_id": "NFR-006",
+      "title": "Dienst läuft in Containern, auf eine Instanz je Mandant vorbereitet, skaliert horizontal",
+      "source_section": "Anforderung Abschnitt 10",
+      "priority": "Must-have",
+      "story_ids": [
+        "US-023"
+      ],
+      "acceptance_criteria": [
+        "AC-023-1",
+        "AC-023-2",
+        "AC-023-3",
+        "AC-023-4",
+        "AC-023-5"
+      ],
+      "tests": [
+        {
+          "path": "tests/integration/deployment/ContainerStartupIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/deployment/HorizontalScalingIT.java",
+          "state": "planned",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/health.spec.ts",
+          "state": "planned",
+          "step": "5"
+        }
+      ],
+      "code": [
+        {
+          "path": "Dockerfile",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "docker-compose.yml",
+          "state": "planned",
+          "step": "6"
+        },
+        {
+          "path": "src/main/java/com/echobox/config/TenantInstanceConfiguration.java",
+          "state": "planned",
+          "step": "6"
+        }
+      ],
+      "coverage_state": "seeded",
+      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+    }
+  ],
+  "requirements_without_story": [],
+  "architecture_constraints": [],
+  "open_points": [
+    {
+      "id": "O-01",
+      "topic": "Rate-Limit je Endpunkt: welche Rate, und bei Überschreitung blockieren oder verschieben?",
+      "owner": "Fachbereich / Gate 1",
+      "recommendation": "Startwert 60 Zustellversuche je Endpunkt und Minute; bei Überschreitung verschieben (nicht blockieren, nicht verwerfen).",
+      "affected_requirements": [
+        "FR-033"
+      ],
+      "affected_stories": [
+        "US-018"
+      ],
+      "decision_status": "offen",
+      "blocks_step": false,
+      "architectural_blocker_candidate": false,
+      "source": "Anforderung Abschnitt 13"
+    },
+    {
+      "id": "O-02",
+      "topic": "Aufbewahrung: für welche Daten, welche Frist, ab welchem Zeitpunkt?",
+      "owner": "Fachbereich + Datenschutz / Gate 1",
+      "recommendation": "30 Tage ab dem letzten Zustellversuch, getrennt konfigurierbar für Ereignisse und Zustellprotokolle.",
+      "affected_requirements": [
+        "FR-031"
+      ],
+      "affected_stories": [
+        "US-016"
+      ],
+      "decision_status": "offen",
+      "blocks_step": false,
+      "architectural_blocker_candidate": false,
+      "source": "Anforderung Abschnitt 13"
+    },
+    {
+      "id": "O-03",
+      "topic": "Wer darf ein totes Ereignis erneut auslösen: Empfänger-Admin, Entwickler oder Plattform-Betrieb?",
+      "owner": "Fachbereich / Gate 1",
+      "recommendation": "Empfänger-Admin des betroffenen Endpunkts (entspricht FR-024); Entwickler nur mit Mandantenfreigabe; Plattform-Betrieb nicht.",
+      "affected_requirements": [
+        "FR-024"
+      ],
+      "affected_stories": [
+        "US-013"
+      ],
+      "decision_status": "offen",
+      "blocks_step": false,
+      "architectural_blocker_candidate": false,
+      "source": "Anforderung Abschnitt 13 (im Widerspruch zur Rollentabelle in Abschnitt 3)"
+    },
+    {
+      "id": "O-04",
+      "topic": "Verschlüsselung im Ruhezustand: Muss? Und ist das Zustellprotokoll dann noch durchsuchbar?",
+      "owner": "Fachbereich + Datenschutz (Verfahren: Architektur) / Gate 1",
+      "recommendation": "Verschlüsselung bleibt Muss (FR-012, NFR-004); Verfahren = anerkanntes AEAD mit Schlüssel aus einem Secret-Store; Protokollsuche nur über Metadaten, keine Volltextsuche über Nutzlasten.",
+      "affected_requirements": [
+        "FR-012",
+        "NFR-004"
+      ],
+      "affected_stories": [
+        "US-007",
+        "US-015"
+      ],
+      "decision_status": "offen",
+      "blocks_step": false,
+      "architectural_blocker_candidate": true,
+      "source": "Anforderung Abschnitt 13"
+    },
+    {
+      "id": "O-05",
+      "topic": "Vertrag über die Auftragsverarbeitung: Vertragspartner, Verantwortlicher, AVV vor Livegang?",
+      "owner": "Fachbereich + Recht/Datenschutz / Gate 2",
+      "recommendation": "Kein Software-Blocker, aber Livegang-Bedingung: AVV vor dem produktiven Betrieb klären; technisch Datenminimierung, Mandantentrennung, konfigurierbare Löschfristen.",
+      "affected_requirements": [],
+      "affected_stories": [],
+      "decision_status": "offen",
+      "blocks_step": false,
+      "architectural_blocker_candidate": false,
+      "source": "Anforderung Abschnitt 13"
+    },
+    {
+      "id": "O-06",
+      "topic": "Wie viele Zustellversuche und welcher Backoff? FR-023 nennt keine Zahl.",
+      "owner": "Fachbereich / Gate 1",
+      "recommendation": "8 Versuche, Basisabstand 1 Minute, Verdopplung, Deckel 60 Minuten, Streuung 20 Prozent (Vorschlag - im Code konfigurierbar).",
+      "affected_requirements": [
+        "FR-022",
+        "FR-023"
+      ],
+      "affected_stories": [
+        "US-011",
+        "US-012"
+      ],
+      "decision_status": "offen",
+      "blocks_step": false,
+      "architectural_blocker_candidate": false,
+      "source": "Anforderung Abschnitt 8 (FR-022, FR-023) - Zahlenlücke"
+    },
+    {
+      "id": "O-07",
+      "topic": "Zeitlimit je Zustellversuch: wie lange wartet der Dienst auf einen Empfänger?",
+      "owner": "Architektur / Gate 1",
+      "recommendation": "Verbindungs-Timeout 5 s, Lese-Timeout 10 s (Summe unter 30 s wie in Abschnitt 11 gefordert).",
+      "affected_requirements": [
+        "FR-022"
+      ],
+      "affected_stories": [
+        "US-011",
+        "US-023"
+      ],
+      "decision_status": "offen",
+      "blocks_step": false,
+      "architectural_blocker_candidate": true,
+      "source": "Anforderung Abschnitt 11 - technische Größe"
+    }
+  ],
+  "gaps": []
+}

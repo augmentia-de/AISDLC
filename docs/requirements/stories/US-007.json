@@ -1,0 +1,66 @@
+{
+  "id": "US-007",
+  "epic": "E2",
+  "epic_title": "Ereignisse einliefern",
+  "title": "Verschlüsselung im Ruhezustand",
+  "description": "Als Entwickler möchte ich, dass meine Nutzlast verschlüsselt gespeichert wird, damit sie weder in der Datenbank noch in einem Log im Klartext lesbar ist.",
+  "role": "Entwickler / Service-Admin",
+  "requirement_ids": [
+    "FR-012",
+    "NFR-004"
+  ],
+  "related_requirements": [],
+  "open_points": [
+    "O-04"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-007-1",
+      "given": "ein eingeliefertes Ereignis mit der Klartextmarkierung „TOP-SECRET-PAYLOAD“",
+      "when": "die Datenbank (Tabellen, Indizes, Journal) nach dieser Markierung durchsucht wird",
+      "then": "wird kein Treffer erzielt — die Nutzlast ist im Ruhezustand nicht im Klartext lesbar",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-007-2",
+      "given": "dasselbe Ereignis",
+      "when": "die Anwendungs- und Zugriffsprotokolle nach der Markierung durchsucht werden",
+      "then": "wird kein Treffer erzielt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-007-3",
+      "given": "ein verschlüsselt gespeichertes Ereignis",
+      "when": "der Zustellprozess es entschlüsselt und zustellt",
+      "then": "sind die zugestellten Bytes identisch mit den eingelieferten Klartextbytes",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-007-4",
+      "given": "der Verschlüsselungsschlüssel",
+      "when": "Datenbankschema, Container-Image und Konfigurationsdateien des Projekts geprüft werden",
+      "then": "ist der Schlüssel in keinem dieser Artefakte enthalten; er wird aus einer Secret-Verwaltung injiziert",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-007-5",
+      "given": "ein verschlüsselt gespeichertes Ereignis",
+      "when": "im Zustellprotokoll nach dem Ereignis gesucht wird",
+      "then": "ist die Suche über Metadaten (Ereignis-ID, Typ, Endpunkt, Status, Zeitraum) möglich; eine Suche nach Nutzlastinhalt existiert nicht",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 7 (FR-012), Abschnitt 10 (NFR-004)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/event/PayloadEncryptionAtRestIT.java",
+    "tests/unit/crypto/PayloadCipherTest.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/crypto/PayloadCipher.java",
+    "src/main/java/com/echobox/event/EventRepository.java"
+  ]
+}

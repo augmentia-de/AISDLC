@@ -1,0 +1,50 @@
+{
+  "id": "US-008",
+  "epic": "E2",
+  "epic_title": "Ereignisse einliefern",
+  "title": "Bereits verschlüsselte Einlieferung",
+  "description": "Als Entwickler möchte ich ein bereits verschlüsseltes Ereignis einliefern können, damit der Dienst die Nutzlast nicht entschlüsseln muss, bevor er zustellt.",
+  "role": "Entwickler",
+  "requirement_ids": [
+    "FR-013"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-008-1",
+      "given": "ein Ereignis, das als „bereits verschlüsselt“ eingeliefert wird",
+      "when": "es gespeichert und zugestellt wird",
+      "then": "werden die gelieferten Bytes unverändert gespeichert und beim Zustellen ohne vorheriges Entschlüsseln weitergegeben",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-008-2",
+      "given": "eine Einlieferung mit dem Kennzeichen „bereits verschlüsselt“ und erkennbarer Klartextnutzlast",
+      "when": "sie eingeliefert wird",
+      "then": "antwortet der Dienst mit HTTP 422 und legt kein Ereignis an",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-008-3",
+      "given": "ein als verschlüsselt eingeliefertes Ereignis",
+      "when": "die eingelieferten Bytes die Grenze von 1 MB überschreiten",
+      "then": "gilt dieselbe Grenze wie bei Klartext; der Dienst lehnt mit HTTP 413 ab",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 7 (FR-013)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/event/PreEncryptedEventTest.java",
+    "tests/integration/event/PreEncryptedEventIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/event/EventService.java",
+    "src/main/java/com/echobox/event/Event.java",
+    "src/main/java/com/echobox/delivery/PayloadSource.java"
+  ]
+}

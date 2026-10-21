@@ -1,0 +1,57 @@
+{
+  "id": "US-014",
+  "epic": "E3",
+  "epic_title": "Zustellung und Zustellgarantie",
+  "title": "Endgültige Ablehnung des Empfängers",
+  "description": "Als Empfänger-Admin möchte ich dem Dienst signalisieren können, dass er ein Ereignis dauerhaft nicht möchte, damit er sofort aufhört statt weiter zu versuchen.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-025"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-014-1",
+      "given": "ein Empfänger, der ein Ereignis dauerhaft ablehnt (dokumentiertes Signal im Vertrag)",
+      "when": "die Zustellung bearbeitet wird",
+      "then": "wird die Zustellung sofort aufgegeben, ohne weitere Versuche; das Protokoll zeigt den Status „abgelehnt“ mit dem Antwortcode",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-014-2",
+      "given": "das Ablehnungssignal",
+      "when": "der öffentliche Vertrag geprüft wird",
+      "then": "ist das Signal dort beschrieben und ein Vertragstest schlägt fehl, wenn es fehlt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-014-3",
+      "given": "ein Empfänger, der mit 5xx oder einem Netzwerkfehler antwortet",
+      "when": "die Zustellung bearbeitet wird",
+      "then": "wird sie nicht als dauerhafte Ablehnung behandelt, sondern nach dem Backoff erneut versucht",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-014-4",
+      "given": "ein Empfänger, der mit einem 4xx ohne das dokumentierte Ablehnungssignal antwortet",
+      "when": "die Zustellung bearbeitet wird",
+      "then": "wird die Zustellung ohne weitere Versuche aufgegeben und als „abgelehnt“ protokolliert",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 8 (FR-025)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/delivery/PermanentRejectionTest.java",
+    "tests/integration/delivery/RejectionDeliveryIT.java",
+    "tests/contract/openapi_rejection_contract_test.yaml"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/delivery/DeliveryHttpClient.java",
+    "src/main/java/com/echobox/delivery/DeliveryOutcome.java"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "id": "US-012",
+  "epic": "E3",
+  "epic_title": "Zustellung und Zustellgarantie",
+  "title": "Aufgabe nach erschöpften Versuchen",
+  "description": "Als Service-Admin möchte ich, dass eine Zustellung nach einer festen Anzahl erfolgloser Versuche aufgegeben wird und sichtbar in der Liste der toten Zustellungen landet, damit kein Ereignis still verschwindet.",
+  "role": "Entwickler / Service-Admin",
+  "requirement_ids": [
+    "FR-023"
+  ],
+  "related_requirements": [],
+  "open_points": [
+    "O-06"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-012-1",
+      "given": "ein Endpunkt, der dauerhaft mit 5xx antwortet",
+      "when": "die konfigurierte Anzahl der Versuche (Vorgabewert 8, siehe O-06) erreicht ist",
+      "then": "wird die Zustellung aufgegeben, erscheint sie in der Liste der toten Zustellungen und es erfolgt kein weiterer Versuch",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-012-2",
+      "given": "eine aufgegebene Zustellung",
+      "when": "das Zustellprotokoll gelesen wird",
+      "then": "stehen dort die Anzahl der Versuche, der Zeitpunkt des letzten Versuchs und der Antwortcode des Empfängers",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-012-3",
+      "given": "eine aufgegebene Zustellung",
+      "when": "das Zeitfenster des nächsten Versuchs verstreicht",
+      "then": "bleibt die Versuchsanzahl unverändert — es findet kein automatischer Neuversuch statt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-012-4",
+      "given": "eine Konfiguration mit der Versuchsgrenze 1",
+      "when": "ein Zustellversuch fehlschlägt",
+      "then": "endet die Zustellung nach genau einem Versuch als „aufgegeben“ — die konfigurierte Grenze wird nicht unterlaufen",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 8 (FR-023)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/delivery/DeadLetterIT.java",
+    "tests/unit/delivery/AttemptLimitTest.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/delivery/DeliveryWorker.java",
+    "src/main/java/com/echobox/delivery/DeliveryStateMachine.java"
+  ]
+}

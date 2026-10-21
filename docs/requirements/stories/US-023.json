@@ -1,0 +1,65 @@
+{
+  "id": "US-023",
+  "epic": "E6",
+  "epic_title": "Mandantentrennung und Betrieb",
+  "title": "Containerbetrieb, Mandanteninstanzen und horizontale Skalierung",
+  "description": "Als Service-Admin möchte ich den Dienst als Container betreiben, pro Mandanten konfigurierbar und horizontal skalierbar, damit Ausfälle und Lastspitzen beherrschbar sind.",
+  "role": "Service-Admin",
+  "requirement_ids": [
+    "NFR-006"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-023-1",
+      "given": "das Container-Image",
+      "when": "es gebaut, gestartet und geprüft wird",
+      "then": "startet der Dienst daraus mit einem Gesundheitsendpunkt, enthält es keine Secrets und keine fest verdrahteten Zugangsdaten und läuft er als nicht privilegierter Benutzer",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-023-2",
+      "given": "eine Konfiguration",
+      "when": "sie einem Mandanten zugeordnet wird",
+      "then": "bedient die Instanz nur diesen Mandanten — das Mandanten-Sharding ist vorbereitet",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-023-3",
+      "given": "zwei Instanzen",
+      "when": "beide parallel laufen",
+      "then": "wird ein Zustellversuch für ein Ereignis von genau einer Instanz ausgeführt (keine Doppelzustellung durch konkurrierende Worker)",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-023-4",
+      "given": "eine Instanz, die während eines Zustellversuchs abstürzt",
+      "when": "sie neu startet",
+      "then": "geht das Ereignis nicht verloren — der Zustellvorgang wird fortgesetzt und die Versuchsanzahl steigt nicht sprunghaft",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-023-5",
+      "given": "der Betrieb",
+      "when": "die Pipeline das Image baut und bereitstellt",
+      "then": "werden Staging und Produktion getrennt bereitgestellt und erhalten getrennte Konfigurationen und Secrets",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 10 (NFR-006), Abschnitt 11 (Rahmenbedingungen)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/deployment/ContainerStartupIT.java",
+    "tests/integration/deployment/HorizontalScalingIT.java",
+    "tests/e2e/health.spec.ts"
+  ],
+  "planned_code": [
+    "Dockerfile",
+    "docker-compose.yml",
+    "src/main/java/com/echobox/config/TenantInstanceConfiguration.java"
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "id": "US-002",
+  "epic": "E1",
+  "epic_title": "Endpunkte verwalten",
+  "title": "Endpunkt pausieren und reaktivieren",
+  "description": "Als Empfänger-Admin möchte ich einen Endpunkt pausieren und wieder aktivieren, damit ich die Zustellung kontrolliert aussetze, ohne dass Ereignisse nachgeliefert werden.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-002"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-002-1",
+      "given": "ein aktiver Endpunkt und ein eingeliefertes Ereignis eines seiner Ereignistypen",
+      "when": "der Empfänger-Admin den Endpunkt pausiert",
+      "then": "entsteht für dieses Ereignis kein Zustellversuch und wird für diesen Endpunkt kein Zustellvorgang in eine Warteschlange eingestellt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-002-2",
+      "given": "ein während der Pause eingeliefertes Ereignis",
+      "when": "der Empfänger-Admin den Endpunkt reaktiviert",
+      "then": "wird dieses Ereignis nicht nachgeliefert - es gibt keinen Zustellversuch dafür und keinen nachzutragenden Eintrag",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-002-3",
+      "given": "ein Endpunkt des Mandanten M2",
+      "when": "ein Empfänger-Admin von M1 ihn pausiert",
+      "then": "antwortet der Dienst mit HTTP 404 und der Zustand des Endpunkts bleibt unverändert",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-002-4",
+      "given": "ein Endpunkt mit einem offenen Wiederholungsvorgang",
+      "when": "der Endpunkt pausiert wird",
+      "then": "wird der offene Wiederholungsvorgang abgebrochen (kein weiterer Versuch) und die Zustellung endet mit dem Status „abgebrochen (pausiert)“",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-002-5",
+      "given": "ein pausierter Endpunkt",
+      "when": "die Endpunktliste gelesen wird",
+      "then": "zeigt der Endpunkt den Status „pausiert“, und die Anzahl der Zustellversuche bleibt unverändert",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 6 (FR-002)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/endpoint/EndpointPauseTest.java",
+    "tests/integration/endpoint/EndpointPauseIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/endpoint/EndpointController.java",
+    "src/main/java/com/echobox/endpoint/EndpointService.java",
+    "src/main/java/com/echobox/delivery/DeliveryDispatcher.java"
+  ]
+}

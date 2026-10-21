@@ -1,0 +1,64 @@
+{
+  "id": "US-009",
+  "epic": "E3",
+  "epic_title": "Zustellung und Zustellgarantie",
+  "title": "Signierte Zustellung",
+  "description": "Als Empfänger-Admin möchte ich, dass jede Zustellung über Zeitstempel und Nutzlast signiert ist, damit mein Empfänger die Echtheit des Ereignisses prüfen kann.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-020"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-009-1",
+      "given": "ein Endpunkt mit Secret S",
+      "when": "eine Zustellung erfolgt",
+      "then": "trägt der HTTP-Request eine Signatur, die der Empfänger über Zeitstempel und Nutzlast mit S nachrechnen und bestätigen kann",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-009-2",
+      "given": "eine zugestellte Zustellung",
+      "when": "der Empfänger die Signatur mit einem falschen Secret oder mit veränderter Nutzlast prüft",
+      "then": "schlägt die Prüfung fehl und die Zustellung gilt als nicht erfolgreich zugestellt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-009-3",
+      "given": "der öffentliche Vertrag des Dienstes",
+      "when": "er geprüft wird",
+      "then": "sind Verfahren und Header-Name der Signatur dort benannt; ein Vertragstest schlägt fehl, wenn eines von beiden fehlt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-009-4",
+      "given": "zwei Endpunkte, die dieselbe Ereignisnutzlast erhalten",
+      "when": "die Signaturen der beiden Zustellungen verglichen werden",
+      "then": "sind sie verschieden, weil das Secret des jeweiligen Endpunkts in die Signatur eingeht",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-009-5",
+      "given": "der Zeitstempel einer Zustellung",
+      "when": "die Signatur nachgerechnet wird",
+      "then": "ist der Zeitstempel UTC-basiert und die Signatur über genau die gesendeten Nutzlastbytes berechnet",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 8 (FR-020)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/crypto/SignatureTest.java",
+    "tests/integration/delivery/SignedDeliveryIT.java",
+    "tests/contract/openapi_signature_contract_test.yaml"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/crypto/SignatureService.java",
+    "src/main/java/com/echobox/delivery/DeliveryHttpClient.java"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "id": "US-022",
+  "epic": "E6",
+  "epic_title": "Mandantentrennung und Betrieb",
+  "title": "Mandanttrennung auf Datenbankebene",
+  "description": "Als Service-Admin möchte ich, dass die Mandantentrennung auf Datenbankebene erzwungen wird, damit ein Fehler in der Anwendung niemals ein fremdes Ereignis zeigt.",
+  "role": "Service-Admin",
+  "requirement_ids": [
+    "NFR-003"
+  ],
+  "related_requirements": [
+    "FR-004"
+  ],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-022-1",
+      "given": "eine PostgreSQL-Instanz mit dem produktiven Schema",
+      "when": "alle mandantenführenden Tabellen geprüft werden",
+      "then": "erzwingt jede von ihnen die Mandantentrennung auf Datenbankebene (zum Beispiel Row-Level-Security mit zusätzlicher Policy)",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-022-2",
+      "given": "zwei Mandanten mit je einem Ereignis",
+      "when": "eine Abfrage ohne Mandantenfilter läuft",
+      "then": "liefert sie nur die Zeilen des in der Verbindung gesetzten Mandanten — ein Anwendungsfehler, der den Filter vergisst, zeigt kein fremdes Ereignis",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-022-3",
+      "given": "die Verbindung eines Requests",
+      "when": "sie geöffnet wird",
+      "then": "trägt sie den Mandanten aus der Identität (zum Beispiel als Sitzungsvariable), und ein Mandant aus dem Request-Body wird nicht übernommen",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-022-4",
+      "given": "ein Benutzer ohne Zugriff auf Mandant M2",
+      "when": "er eine Ressource von M2 per ID abruft",
+      "then": "antwortet der Dienst mit HTTP 404",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 10 (NFR-003), Abschnitt 3",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/tenant/TenantIsolationIT.java",
+    "tests/integration/tenant/RowLevelSecurityIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/tenant/TenantContext.java",
+    "src/main/java/com/echobox/tenant/TenantConnectionInitializer.java",
+    "src/main/resources/db/migration/V1__initial_schema.sql"
+  ]
+}

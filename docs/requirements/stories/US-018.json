@@ -1,0 +1,58 @@
+{
+  "id": "US-018",
+  "epic": "E4",
+  "epic_title": "Protokoll und Betrieb",
+  "title": "Rate-Limit je Endpunkt",
+  "description": "Als Service-Admin möchte ich, dass ein Endpunkt gegen zu viele Zustellungen in kurzer Zeit geschützt ist, damit ein schwacher Empfänger nicht die Zustellung für alle anderen blockiert.",
+  "role": "Service-Admin",
+  "requirement_ids": [
+    "FR-033"
+  ],
+  "related_requirements": [],
+  "open_points": [
+    "O-01"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-018-1",
+      "given": "ein Endpunkt",
+      "when": "in einem Zeitfenster mehr Zustellversuche anfallen als der konfigurierte Grenzwert erlaubt",
+      "then": "greift die konfigurierte Strategie (verzögern oder blockieren) und kein Ereignis geht verloren",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-018-2",
+      "given": "eine durch das Limit betroffene Zustellung",
+      "when": "das Zustellprotokoll gelesen wird",
+      "then": "ist die Verzögerung beziehungsweise Blockierung mit Status und nächstem Versuchszeitpunkt erkennbar",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-018-3",
+      "given": "zwei Endpunkte, von denen nur einer das Limit überschreitet",
+      "when": "die Zustellvorgänge beider Endpunkte laufen",
+      "then": "wird die Zustellung des anderen Endpunkts nicht verzögert — die Begrenzung wirkt je Endpunkt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-018-4",
+      "given": "die offene Festlegung O-01",
+      "when": "der Dienst konfiguriert wird",
+      "then": "ist kein Grenzwert vorbelegt; der Dienst erhebt lediglich die Zählung der Zustellversuche je Endpunkt und Zeitfenster als Datenbasis für die Festlegung",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 9 (FR-033), Abschnitt 13 (Rate-Limit)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/delivery/RateLimiterTest.java",
+    "tests/integration/delivery/RateLimitedDeliveryIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/delivery/EndpointRateLimiter.java",
+    "src/main/java/com/echobox/delivery/DeliveryWorker.java"
+  ]
+}

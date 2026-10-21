@@ -1,0 +1,64 @@
+{
+  "id": "US-013",
+  "epic": "E3",
+  "epic_title": "Zustellung und Zustellgarantie",
+  "title": "Tote Zustellung erneut auslösen",
+  "description": "Als Empfänger-Admin möchte ich eine aufgegebene Zustellung erneut auslösen können, damit ich ein nach einem Ausfall verpasstes Ereignis doch noch verarbeiten kann.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-024"
+  ],
+  "related_requirements": [],
+  "open_points": [
+    "O-03"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-013-1",
+      "given": "eine tote Zustellung",
+      "when": "der Empfänger-Admin des betroffenen Endpunkts sie erneut auslöst",
+      "then": "startet ein neuer Zustelllauf mit der Versuchsanzahl 1; beide Läufe sind im Zustellprotokoll getrennt sichtbar",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-013-2",
+      "given": "die tote Zustellung",
+      "when": "sie erneut ausgelöst wird",
+      "then": "bleibt der ursprüngliche Datensatz im Protokoll unverändert erhalten (Historie)",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-013-3",
+      "given": "eine Rolle, die nach O-03 nicht zum erneuten Auslösen berechtigt ist (bis zur Entscheidung: alle außer dem Empfänger-Admin des Endpunkts)",
+      "when": "sie die Auslösung versucht",
+      "then": "antwortet der Dienst mit HTTP 403 und es startet kein Zustelllauf",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-013-4",
+      "given": "eine tote Zustellung zu einem pausierten Endpunkt",
+      "when": "sie erneut ausgelöst wird",
+      "then": "wird kein Versuch gestartet und die Zustellung endet erneut ohne Zustellung — die Pause wirkt auch auf Replays",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-013-5",
+      "given": "ein erfolgreicher Replay",
+      "when": "das Protokoll gelesen wird",
+      "then": "trägt der neue Lauf eine neue Zustelllauf-ID und dieselbe Ereignis-ID",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 8 (FR-024), Abschnitt 13 (Replay-Berechtigung)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/delivery/RedeliveryIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/delivery/DeliveryController.java",
+    "src/main/java/com/echobox/delivery/DeliveryService.java"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "id": "US-020",
+  "epic": "E5",
+  "epic_title": "Oberfläche",
+  "title": "Oberfläche für Zustellprotokoll und tote Zustellungen",
+  "description": "Als Entwickler und als Service-Admin möchte ich Zustellprotokoll und tote Zustellungen in der Oberfläche sehen, damit ich Zustellfragen ohne Datenbankzugriff klären kann.",
+  "role": "Entwickler / Service-Admin",
+  "requirement_ids": [
+    "FR-030",
+    "FR-031"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-020-1",
+      "given": "ein Entwickler",
+      "when": "er die Protokollseite öffnet",
+      "then": "sieht er je Zustellvorgang Zustand, Versuche, letzten Versuch, Antwortcode und nächsten Versuchszeitpunkt und kann nach Endpunkt, Status und Zeitraum filtern",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-020-2",
+      "given": "ein Service-Admin",
+      "when": "er die Seite der toten Zustellungen öffnet",
+      "then": "sieht er die toten Zustellungen aller Mandanten mit den geforderten Feldern",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-020-3",
+      "given": "keine Treffer",
+      "when": "die Liste geladen wird",
+      "then": "wird ein verständlicher Leerzustand angezeigt und keine leere Tabelle ohne Erklärung",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-020-4",
+      "given": "die URL eines fremden Mandanten",
+      "when": "sie direkt aufgerufen wird",
+      "then": "werden keine fremden Daten angezeigt (HTTP 404 beziehungsweise Leerzustand)",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 12 (Nr. 5)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/e2e/protocol.spec.ts",
+    "tests/e2e/dead-deliveries.spec.ts",
+    "tests/unit/frontend/DeliveryProtocolPage.test.tsx"
+  ],
+  "planned_code": [
+    "src/main/frontend/src/app/deliveries/page.tsx",
+    "src/main/frontend/src/app/dead-deliveries/page.tsx",
+    "src/main/frontend/src/features/protocol/DeliveryTable.tsx"
+  ]
+}

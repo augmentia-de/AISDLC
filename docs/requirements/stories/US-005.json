@@ -1,0 +1,75 @@
+{
+  "id": "US-005",
+  "epic": "E2",
+  "epic_title": "Ereignisse einliefern",
+  "title": "Ereignis einliefern",
+  "description": "Als Entwickler möchte ich ein Ereignis mit Typ, Nutzlast und Idempotenzschlüssel einliefern, damit es von unserem zentralen Dienst an die abonnierten Endpunkte zugestellt wird, ohne dass mein Aufruf wartet.",
+  "role": "Entwickler",
+  "requirement_ids": [
+    "FR-010",
+    "NFR-001",
+    "NFR-002"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-005-1",
+      "given": "ein berechtigter Entwickler des Mandanten M1",
+      "when": "er ein Ereignis mit Typ, Nutzlast und Idempotenzschlüssel einliefert",
+      "then": "nimmt der Dienst das Ereignis an, liefert die Ereignis-ID zurück und startet die Zustellung erst nach der Antwort (asynchron)",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-005-2",
+      "given": "eine Nutzlast von exakt 1.048.576 Byte (1 MB)",
+      "when": "sie eingeliefert wird",
+      "then": "wird das Ereignis angenommen",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-005-3",
+      "given": "eine Nutzlast von 1.048.577 Byte",
+      "when": "sie eingeliefert wird",
+      "then": "lehnt der Dienst mit HTTP 413 ab und legt kein Ereignis an",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-005-4",
+      "given": "ein Empfänger, der 30 Sekunden für die Antwort braucht",
+      "when": "das Ereignis eingeliefert wird",
+      "then": "ist die Annahmeantwort bereits gesendet und wird der Annahme-Request nicht blockiert",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-005-5",
+      "given": "1.000 aufeinanderfolgende Einlieferungen im Betrieb",
+      "when": "die Antwortzeiten gemessen werden",
+      "then": "liegt die Annahmeantwort in unter 200 ms (p95)",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-005-6",
+      "given": "eine Einlieferung ohne Ereignistyp oder ohne Idempotenzschlüssel",
+      "when": "sie eingeliefert wird",
+      "then": "antwortet der Dienst mit HTTP 422 und legt kein Ereignis an",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 7 (FR-010), Abschnitt 10 (NFR-001, NFR-002), Abschnitt 11",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/event/EventIntakeTest.java",
+    "tests/integration/event/EventIntakeIT.java",
+    "tests/integration/event/EventIntakePerformanceIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/event/EventController.java",
+    "src/main/java/com/echobox/event/EventService.java",
+    "src/main/java/com/echobox/event/Event.java",
+    "src/main/java/com/echobox/delivery/DeliveryDispatcher.java"
+  ]
+}

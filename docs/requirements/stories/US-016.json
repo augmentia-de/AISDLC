@@ -1,0 +1,66 @@
+{
+  "id": "US-016",
+  "epic": "E4",
+  "epic_title": "Protokoll und Betrieb",
+  "title": "Tote Zustellungen abholen und Aufbewahrung durchsetzen",
+  "description": "Als Service-Admin möchte ich die toten Zustellungen aller Mandanten abholen und die Aufbewahrung der Daten durchsetzen, damit ich den Betrieb überblicke und die Daten nicht unbegrenzt wachsen.",
+  "role": "Service-Admin",
+  "requirement_ids": [
+    "FR-031"
+  ],
+  "related_requirements": [],
+  "open_points": [
+    "O-02"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-016-1",
+      "given": "ein Service-Admin",
+      "when": "er die Liste der toten Zustellungen abruft",
+      "then": "erhält er die toten Zustellungen aller Mandanten mit Ereignis-ID, Endpunkt, Ereignistyp, Anzahl der Versuche, letztem Antwortcode und dem Zeitpunkt der Aufgabe",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-016-2",
+      "given": "ein Empfänger-Admin",
+      "when": "er die mandantenübergreifende Liste der toten Zustellungen abruft",
+      "then": "antwortet der Dienst mit HTTP 403",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-016-3",
+      "given": "eine leere Trefferliste",
+      "when": "die Liste abgerufen wird",
+      "then": "wird eine leere Liste (HTTP 200) geliefert und kein Fehler",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-016-4",
+      "given": "die Liste der toten Zustellungen",
+      "when": "sie mit Endpunkt, Status und Zeitraum gefiltert wird",
+      "then": "sind die Filter kombinierbar und die Liste ist seitenweise abrufbar",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-016-5",
+      "given": "eine konfigurierte Aufbewahrungsfrist (im Test 30 Tage)",
+      "when": "der Dienst die Aufbewahrung durchsetzt",
+      "then": "werden Ereignisse, Zustellvorgänge und Protokolleinträge, die älter als die Frist sind, gelöscht, und jüngere bleiben erhalten; die Frist ist konfigurierbar",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 9 (FR-031), Abschnitt 3 (Rollen), Abschnitt 13 (Aufbewahrung)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/protocol/DeadDeliveryListIT.java",
+    "tests/integration/protocol/RetentionEnforcementIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/protocol/ProtocolController.java",
+    "src/main/java/com/echobox/protocol/DeadDeliveryQueryService.java",
+    "src/main/java/com/echobox/protocol/RetentionService.java"
+  ]
+}

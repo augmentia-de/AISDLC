@@ -1,0 +1,68 @@
+{
+  "id": "US-011",
+  "epic": "E3",
+  "epic_title": "Zustellung und Zustellgarantie",
+  "title": "Wiederholung mit Backoff und Streuung",
+  "description": "Als Service-Admin möchte ich, dass fehlgeschlagene Zustellungen mit wachsendem Abstand erneut versucht werden und die Versuche über die Endpunkte gestreut sind, damit ein Ausfall nicht zu einem Laststurm wird.",
+  "role": "Service-Admin",
+  "requirement_ids": [
+    "FR-022"
+  ],
+  "related_requirements": [],
+  "open_points": [
+    "O-06",
+    "O-07"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-011-1",
+      "given": "ein Zustellversuch, der mit einem 5xx oder einem Netzwerkfehler fehlschlägt",
+      "when": "der nächste Versuch geplant wird",
+      "then": "liegt der Abstand zum vorherigen Versuch mindestens doppelt so hoch wie der vorherige Abstand (Backoff mit Basisabstand; Werte konfigurierbar)",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-011-2",
+      "given": "100 Endpunkte, die gleichzeitig fehlschlagen",
+      "when": "die Zeitpunkte der nächsten Versuche berechnet werden",
+      "then": "sind sie nicht alle identisch — die Streuung (Jitter) wird angewendet",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-011-3",
+      "given": "ein fehlgeschlagener Versuch",
+      "when": "die Wiederholung geplant wird",
+      "then": "läuft der Versuch im Hintergrundprozess und nicht im Request-Thread der Einlieferung",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-011-4",
+      "given": "ein Empfänger, der mit 2xx antwortet",
+      "when": "die Wiederholungsplanung läuft",
+      "then": "wird kein weiterer Versuch geplant",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-011-5",
+      "given": "die konfigurierten Basiswerte des Backoffs",
+      "when": "die geplanten Wartezeiten der ersten fünf Versuche ausgegeben werden",
+      "then": "steigen sie monoton an und kein geplanter Zeitpunkt liegt in der Vergangenheit",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 8 (FR-022)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/delivery/BackoffPolicyTest.java",
+    "tests/unit/delivery/JitterTest.java",
+    "tests/integration/delivery/RetryDeliveryIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/delivery/BackoffPolicy.java",
+    "src/main/java/com/echobox/delivery/DeliveryWorker.java",
+    "src/main/java/com/echobox/delivery/RetryScheduler.java"
+  ]
+}

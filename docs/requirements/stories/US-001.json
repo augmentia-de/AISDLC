@@ -1,0 +1,66 @@
+{
+  "id": "US-001",
+  "epic": "E1",
+  "epic_title": "Endpunkte verwalten",
+  "title": "Endpunkt registrieren",
+  "description": "Als Empfänger-Admin möchte ich einen Endpunkt mit Ziel-URL, Secret und gewünschten Ereignistypen registrieren, damit Ereignisse meines Systems an eine kontrollierte, mandanteneigene URL zugestellt werden.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-001"
+  ],
+  "related_requirements": [
+    "NFR-004"
+  ],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-001-1",
+      "given": "ein angemeldeter Empfänger-Admin des Mandanten M1",
+      "when": "er einen Endpunkt mit https-Ziel-URL, einem Secret und der Liste der gewünschten Ereignistypen registriert",
+      "then": "legt der Dienst den Endpunkt mit dem Status „aktiv“ an, weist ihm M1 aus der Identität zu und liefert die Endpunkt-ID zurück",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-001-2",
+      "given": "dieselbe Anmeldung",
+      "when": "die Ziel-URL kein https-Schema trägt (http, ftp oder file)",
+      "then": "lehnt der Dienst die Registrierung mit HTTP 422 ab und legt keinen Endpunkt an",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-001-3",
+      "given": "eine Ziel-URL mit eingebetteten Zugangsdaten (https://user:pass@host/...)",
+      "when": "der Empfänger-Admin den Endpunkt registriert",
+      "then": "lehnt der Dienst mit HTTP 422 ab, weil Zugangsdaten ausschließlich über das Secret laufen",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-001-4",
+      "given": "ein neu registrierter Endpunkt",
+      "when": "die Registrierungsantwort ausgeliefert wird",
+      "then": "enthält die Antwort das Secret nicht im Klartext; das Secret wird verschlüsselt abgelegt und nur einmalig erfasst",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-001-5",
+      "given": "eine Registrierungsanfrage",
+      "when": "ein Mandantenparameter (z. B. organisation_id) mitgeschickt wird",
+      "then": "lehnt der Dienst mit HTTP 422 ab, weil der Mandant ausschließlich aus der Identität stammt",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 6 (FR-001)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/endpoint/EndpointRegistrationTest.java",
+    "tests/integration/endpoint/EndpointRegistrationIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/endpoint/EndpointController.java",
+    "src/main/java/com/echobox/endpoint/EndpointService.java",
+    "src/main/java/com/echobox/endpoint/Endpoint.java"
+  ]
+}

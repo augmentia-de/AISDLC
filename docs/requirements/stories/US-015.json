@@ -1,0 +1,55 @@
+{
+  "id": "US-015",
+  "epic": "E4",
+  "epic_title": "Protokoll und Betrieb",
+  "title": "Zustellprotokoll einsehen",
+  "description": "Als Entwickler möchte ich je Zustellung Zustand, Versuche, Zeitpunkte und den Antwortcode des Empfängers einsehen, damit ich die Frage „ist das angekommen?“ selbst beantworten kann.",
+  "role": "Entwickler / Empfänger-Admin",
+  "requirement_ids": [
+    "FR-030"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-015-1",
+      "given": "ein Zustellvorgang",
+      "when": "das Zustellprotokoll gelesen wird",
+      "then": "zeigt der Eintrag Zustand, Anzahl der Versuche, Zeitpunkt des letzten Versuchs, Antwortcode des Empfängers und den nächsten Versuchszeitpunkt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-015-2",
+      "given": "eine tote oder abgebrochene Zustellung",
+      "when": "das Protokoll gelesen wird",
+      "then": "ist der nächste Versuchszeitpunkt leer — es wird kein Zeitpunkt in der Vergangenheit oder in der Zukunft angezeigt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-015-3",
+      "given": "ein Entwickler von M1",
+      "when": "er die Ereignis-ID eines Ereignisses von M2 abruft",
+      "then": "antwortet der Dienst mit HTTP 404 und es werden keine fremden Daten ausgegeben",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-015-4",
+      "given": "ein Zeitraum und ein Statusfilter",
+      "when": "das Protokoll gefiltert gelesen wird",
+      "then": "liefert die Liste nur die Zustellvorgänge des eigenen Mandanten im gewählten Zeitraum; die Filter sind kombinierbar",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 9 (FR-030)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/protocol/DeliveryProtocolIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/protocol/ProtocolController.java",
+    "src/main/java/com/echobox/protocol/ProtocolQueryService.java"
+  ]
+}

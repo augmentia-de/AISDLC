@@ -1,0 +1,58 @@
+{
+  "id": "US-004",
+  "epic": "E1",
+  "epic_title": "Endpunkte verwalten",
+  "title": "Endpunkte nach Rolle und Mandant sehen",
+  "description": "Als Empfänger-Admin möchte ich nur die Endpunkte meines Mandanten sehen und als Service-Admin alle Endpunkte aller Mandanten, damit die Mandantentrennung in der Oberfläche genauso gilt wie in der Schnittstelle.",
+  "role": "Empfänger-Admin / Service-Admin",
+  "requirement_ids": [
+    "FR-004"
+  ],
+  "related_requirements": [
+    "NFR-003"
+  ],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-004-1",
+      "given": "die Mandanten M1 und M2 mit je einem Endpunkt",
+      "when": "ein Empfänger-Admin von M1 die Endpunktliste abruft",
+      "then": "enthält die Liste ausschließlich den Endpunkt von M1",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-004-2",
+      "given": "ein Service-Admin",
+      "when": "er die Endpunktliste aller Mandanten abruft",
+      "then": "erhält er die Endpunkte aller Mandanten, jeweils mit dem Mandantenkennzeichen",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-004-3",
+      "given": "ein Empfänger-Admin von M1",
+      "when": "er die Endpunkt-ID eines Endpunkts von M2 direkt abruft",
+      "then": "antwortet der Dienst mit HTTP 404 und es werden keine Daten des fremden Endpunkts ausgegeben",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-004-4",
+      "given": "eine Anfrage mit einem Mandantenparameter",
+      "when": "die Identität einen anderen Mandanten trägt",
+      "then": "wird der Parameter mit HTTP 422 abgelehnt; der Mandant stammt ausschließlich aus der Identität",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 6 (FR-004), Abschnitt 3 (Rollen)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/endpoint/EndpointVisibilityIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/endpoint/EndpointController.java",
+    "src/main/java/com/echobox/endpoint/EndpointQueryService.java",
+    "src/main/java/com/echobox/tenant/TenantContext.java"
+  ]
+}

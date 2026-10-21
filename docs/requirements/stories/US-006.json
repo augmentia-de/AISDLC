@@ -1,0 +1,56 @@
+{
+  "id": "US-006",
+  "epic": "E2",
+  "epic_title": "Ereignisse einliefern",
+  "title": "Idempotente Einlieferung",
+  "description": "Als Entwickler möchte ich, dass eine wiederholte Einlieferung mit demselben Idempotenzschlüssel kein zweites Ereignis erzeugt, damit ein Retry meines Clients keine Doppelzustellung auslöst.",
+  "role": "Entwickler",
+  "requirement_ids": [
+    "FR-011"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-006-1",
+      "given": "ein Ereignis E mit Idempotenzschlüssel K im Mandanten M1",
+      "when": "dasselbe Ereignis erneut mit K eingeliefert wird",
+      "then": "entsteht kein zweites Ereignis; die Antwort ist erfolgreich und liefert die ID von E zurück",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-006-2",
+      "given": "das Ereignis E",
+      "when": "die Wiederholung mit K erfolgt",
+      "then": "bleiben Typ und Nutzlast von E unverändert und die Anzahl der Ereignisse von M1 mit K bleibt bei 1",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-006-3",
+      "given": "ein Ereignis mit K im Mandanten M1",
+      "when": "im Mandanten M2 dasselbe K verwendet wird",
+      "then": "entsteht in M2 ein eigenes Ereignis; die Wiederholung in M1 wird davon nicht berührt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-006-4",
+      "given": "ein Ereignis E mit K",
+      "when": "E mit K, aber abweichender Nutzlast eingeliefert wird",
+      "then": "antwortet der Dienst mit HTTP 409 und E bleibt unverändert",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 7 (FR-011)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/event/EventIdempotencyTest.java",
+    "tests/integration/event/EventIdempotencyIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/event/EventService.java",
+    "src/main/java/com/echobox/event/IdempotencyStore.java"
+  ]
+}

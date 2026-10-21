@@ -1,0 +1,56 @@
+{
+  "id": "US-010",
+  "epic": "E3",
+  "epic_title": "Zustellung und Zustellgarantie",
+  "title": "Zustellkennungen und at-least-once",
+  "description": "Als Empfänger-Admin möchte ich, dass jede Zustellung eigene Kennungen trägt, damit mein Empfänger doppelte Zustellungen erkennen und selbst entscheiden kann.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-021"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-010-1",
+      "given": "ein Ereignis E an einen Endpunkt",
+      "when": "die Zustellung erfolgt",
+      "then": "trägt jeder Zustellversuch (a) die Ereignis-ID, (b) eine Zustelllauf-ID, die über alle Versuche desselben Laufs gleich bleibt, und (c) eine eigene Versuchs-ID",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-010-2",
+      "given": "ein Empfänger, der wegen eines Timeouts nicht geantwortet hat und deshalb eine Wiederholung erhält",
+      "when": "er beide Anfragen vergleicht",
+      "then": "tragen sie dieselbe Zustelllauf-ID und dieselbe Ereignis-ID, aber unterschiedliche Versuchs-IDs — er kann die Dublette erkennen",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-010-3",
+      "given": "ein Empfänger, der mit 2xx antwortet",
+      "when": "der Zustellvorgang abgeschlossen ist",
+      "then": "erfolgt kein weiterer Versuch für dieses Ereignis an diesen Endpunkt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-010-4",
+      "given": "ein Ereignis an zwei Endpunkte",
+      "when": "beide zugestellt werden",
+      "then": "tragen die Zustellläufe verschiedene Zustelllauf-IDs, aber dieselbe Ereignis-ID",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 8 (FR-021), Abschnitt 4 (Fachbegriffe)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/delivery/DeliveryIdentifiersTest.java",
+    "tests/integration/delivery/AtLeastOnceDeliveryIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/delivery/DeliveryHeaders.java",
+    "src/main/java/com/echobox/delivery/DeliveryService.java"
+  ]
+}

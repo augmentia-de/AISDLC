@@ -1,0 +1,56 @@
+{
+  "id": "US-021",
+  "epic": "E5",
+  "epic_title": "Oberfläche",
+  "title": "Barrierefreiheit der Oberfläche",
+  "description": "Als Nutzer mit Hilfsmitteln möchte ich die Oberfläche ohne Maus und mit Screenreader bedienen können, damit ich Endpunkte, Protokoll und Totenliste gleichwertig nutzen kann.",
+  "role": "Entwickler / Empfänger-Admin / Service-Admin",
+  "requirement_ids": [
+    "NFR-005"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-021-1",
+      "given": "die Seiten Endpunkte, Protokoll und tote Zustellungen",
+      "when": "sie ausschließlich mit der Tastatur bedient werden",
+      "then": "sind alle Funktionen erreichbar und auslösbar, ist die Fokussierung sichtbar und ist die Reihenfolge logisch",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-021-2",
+      "given": "ein automatischer WCAG-2.1-AA-Scan (axe) über alle Seiten",
+      "when": "der Scan läuft",
+      "then": "werden keine Verstöße der Schweregrad-Klassen „kritisch“ oder „schwer“ gemeldet",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-021-3",
+      "given": "Text und Bedienelemente der Oberfläche",
+      "when": "die Kontraste geprüft werden",
+      "then": "erreichen Texte mindestens 4,5:1 und Bedienelemente mindestens 3:1",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-021-4",
+      "given": "ein Screenreader-Test der drei Seiten",
+      "when": "der Test durchläuft",
+      "then": "werden Liste, Zeileninhalte und Statusmeldungen mit Rolle und Inhalt ausgegeben",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 10 (NFR-005), Abschnitt 12 (Nr. 5)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/e2e/a11y.spec.ts",
+    "tests/unit/frontend/a11y.test.tsx"
+  ],
+  "planned_code": [
+    "src/main/frontend/src/app/layout.tsx",
+    "src/main/frontend/src/components/DataTable.tsx"
+  ]
+}

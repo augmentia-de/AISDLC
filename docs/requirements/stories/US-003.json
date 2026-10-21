@@ -1,0 +1,59 @@
+{
+  "id": "US-003",
+  "epic": "E1",
+  "epic_title": "Endpunkte verwalten",
+  "title": "Secret rotieren",
+  "description": "Als Empfänger-Admin möchte ich das Secret meines Endpunkts rotieren, damit ein verdächtiges Secret ausgetauscht werden kann, ohne den Endpunkt neu anzulegen.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-003"
+  ],
+  "related_requirements": [
+    "NFR-004"
+  ],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-003-1",
+      "given": "ein Endpunkt mit Secret S1",
+      "when": "der Empfänger-Admin auf Secret S2 rotiert",
+      "then": "verwendet der Dienst ab dem nächsten Zustellversuch ausschließlich S2; eine Zustellung mit einer Signatur über S1 wird nicht mehr erzeugt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-003-2",
+      "given": "eine durchgeführte Rotation",
+      "when": "die Endpunktverlaufshistorie gelesen wird",
+      "then": "ist der Rotationszeitpunkt mit der auslösenden Identität vermerkt; das alte Secret wird nicht im Klartext ausgegeben",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-003-3",
+      "given": "ein Entwickler desselben Mandanten",
+      "when": "er die Rotation auslöst",
+      "then": "antwortet der Dienst mit HTTP 403 und das Secret bleibt unverändert",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-003-4",
+      "given": "ein Endpunkt, dessen Secret S1 gerade rotiert wurde",
+      "when": "eine Zustellung erfolgt",
+      "then": "prüft der Empfänger die Signatur mit S2, so ist die Prüfung erfolgreich; mit S1 schlägt sie fehl",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 6 (FR-003)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/unit/endpoint/SecretRotationTest.java",
+    "tests/integration/endpoint/SecretRotationIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/endpoint/EndpointController.java",
+    "src/main/java/com/echobox/endpoint/EndpointService.java",
+    "src/main/java/com/echobox/crypto/SecretStore.java"
+  ]
+}

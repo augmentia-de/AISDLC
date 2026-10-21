@@ -1,0 +1,61 @@
+{
+  "id": "US-019",
+  "epic": "E5",
+  "epic_title": "Oberfläche",
+  "title": "Endpunktverwaltung in der Oberfläche",
+  "description": "Als Empfänger-Admin möchte ich Endpunkte in einer Oberfläche registrieren, pausieren und rotieren, damit ich die Verwaltung ohne API-Aufrufe erledigen kann.",
+  "role": "Empfänger-Admin",
+  "requirement_ids": [
+    "FR-001",
+    "FR-002",
+    "FR-003"
+  ],
+  "related_requirements": [
+    "FR-004"
+  ],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-019-1",
+      "given": "ein angemeldeter Empfänger-Admin",
+      "when": "er die Endpunktseite öffnet",
+      "then": "sieht er seine Endpunkte mit Status, Ziel-URL (ohne Secret) und den Ereignistypen",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-019-2",
+      "given": "eine ungültige Ziel-URL",
+      "when": "er das Registrierungsformular abschickt",
+      "then": "erscheint eine verständliche Fehlermeldung am Feld und es wird kein Endpunkt angelegt",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-019-3",
+      "given": "ein aktiver Endpunkt",
+      "when": "er ihn pausiert",
+      "then": "wechselt der Status in der Liste sofort auf „pausiert“ und die Aktion „reaktivieren“ wird angeboten",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-019-4",
+      "given": "ein Endpunkt",
+      "when": "er das Secret rotiert",
+      "then": "wird die Änderung übernommen, das neue Secret wird nicht im Klartext angezeigt und die Rotation wird bestätigt",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 12 (Nr. 1 und 5)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/e2e/endpoints.spec.ts",
+    "tests/unit/frontend/EndpointsPage.test.tsx"
+  ],
+  "planned_code": [
+    "src/main/frontend/src/app/endpoints/page.tsx",
+    "src/main/frontend/src/features/endpoints/EndpointForm.tsx",
+    "src/main/frontend/src/features/endpoints/EndpointList.tsx"
+  ]
+}

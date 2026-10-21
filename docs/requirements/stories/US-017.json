@@ -1,0 +1,55 @@
+{
+  "id": "US-017",
+  "epic": "E4",
+  "epic_title": "Protokoll und Betrieb",
+  "title": "Erfolgsquote und Zustelllatenz je Endpunkt",
+  "description": "Als Service-Admin möchte ich je Endpunkt Erfolgsquote und Zustelllatenz ausgewiesen bekommen, damit ich im Betrieb erkennen kann, wo die Zustellung schwächelt.",
+  "role": "Service-Admin",
+  "requirement_ids": [
+    "FR-032"
+  ],
+  "related_requirements": [],
+  "open_points": [],
+  "acceptance_criteria": [
+    {
+      "id": "AC-017-1",
+      "given": "ein Endpunkt mit Zustellvorgängen im Auswertungsfenster",
+      "when": "die Kennzahlen abgerufen werden",
+      "then": "wird die Erfolgsquote (erfolgreiche Versuche / alle Versuche) und die Zustelllatenz (p95 der Dauer von der Annahme bis zur erfolgreichen Antwort) je Endpunkt ausgewiesen",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-017-2",
+      "given": "die Betriebsüberwachung",
+      "when": "die Kennzahlen abgerufen werden",
+      "then": "sind sie über eine dokumentierte Schnittstelle (Metrikendefinition) abrufbar",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-017-3",
+      "given": "ein Endpunkt ohne Zustellvorgänge im Auswertungsfenster",
+      "when": "die Kennzahlen abgerufen werden",
+      "then": "wird „keine Daten“ ausgewiesen — nicht 0 % und nicht 100 %",
+      "kind": "Funktional"
+    },
+    {
+      "id": "AC-017-4",
+      "given": "ein Empfänger-Admin",
+      "when": "er die Kennzahlen eines Endpunkts eines anderen Mandanten abruft",
+      "then": "antwortet der Dienst mit HTTP 404",
+      "kind": "Funktional"
+    }
+  ],
+  "priority": "must-have",
+  "status": "todo",
+  "source": "Abschnitt 9 (FR-032)",
+  "source_document": "docs/Anforderung.md",
+  "notes": "",
+  "planned_tests": [
+    "tests/integration/protocol/EndpointMetricsIT.java"
+  ],
+  "planned_code": [
+    "src/main/java/com/echobox/protocol/EndpointMetricsService.java",
+    "src/main/java/com/echobox/protocol/MetricsController.java"
+  ]
+}
