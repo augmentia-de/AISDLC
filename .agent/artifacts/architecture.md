@@ -2,8 +2,11 @@
 
 > Schritt 3 (**Simplify & Reduktion** nach dem Rücksprung aus Schritt 4) ·
 > **Schritt 2 — Rücksprung 5** (letzter Korrekturdurchgang vor dem Einfrieren:
-> V-39…V-44 entschieden und umgesetzt) · Agent: `aisdlc-architecture` ·
-> Stand: 2026-10-21
+> V-39…V-44 entschieden und umgesetzt) ·
+> **Schritt 4 — dritte Runde** (Delta-Prüfung, `2026-10-21`): der Vertrag ist
+> **einfrierreif**; die zwei neuen Befunde **V-48** und **V-49** stehen in § 8,
+> die drei offenen **V-45…V-47** trägt die Testmatrix (Schritt 5) · Agent:
+> `aisdlc-architecture` · Stand: 2026-10-21
 > Erzählung: `docs/architecture/architecture.md` · Vertrag: `docs/api/openapi.yaml`
 > Schema: `.agent/knowledge/schema.sql` (kanonisch) · **Entscheidungen: `docs/adr/`**
 > Reduktionsbericht: `.agent/artifacts/simplify-report.md`
@@ -149,6 +152,8 @@ Die Zuordnung Story → Vertragsort steht **einmal** in
 | **V-45** | AC-013-3 nennt **403 ohne Mandantbezug** — mit V-39 ist ein Zustelllauf **fremden** Mandanten **404**. Die Testmatrix (Schritt 5) muss „eigener Mandant, falsche Rolle ⇒ 403" und „fremder Mandant ⇒ 404" **trennen**; die **Anforderung** wird **nicht** geändert | **dokumentiert, nicht entschieden** (Bilanz § 11.3) | Schritt 5 (Testmatrix) | **vor dem Freeze** |
 | **V-46** | Optionale, aber als immer vorhanden beschriebene Antwortfelder (`EndpointMetrics.attempts_total`/`attempts_successful`/`success_rate`/`delivery_latency_p95_ms`, `Event.subscribed_endpoint_count`, `EventIntakeResponse.subscribed_endpoint_count`/`payload_size_bytes`) — dieselbe Musterlage wie V-42 | **dokumentiert, nicht entschieden** (Bilanz § 11.3) | Architektur | nach dem Freeze |
 | **V-47** | `updateEndpoint`, `pauseEndpoint`, `resumeEndpoint`, `rotateEndpointSecret` **deklarieren** 404, **nennen** die Fremdmandanten-Regel aber nicht (anders als die vier Lesoperationen) | **dokumentiert, nicht entschieden** (Bilanz § 11.3) | Architektur | nach dem Freeze |
+| **V-48** | ADR-002 §7 (`:82`) nennt `organisation_id` nur für die **mandantenübergreifenden** Antworten — die schwächere V-25-Fassung, die V-26 abgelöst hat; der Vertrag sagt es an 12 Stellen richtig | **dokumentiert, nicht entschieden** (Stresstest 3, § 2.6) — **kein** Widerspruch, nur schwächer; Korrektur ist ein Satz in `docs/adr/` | Architektur | **Gate 1** → Rücksprung zu Schritt 2 |
+| **V-49** | Die **Rollentabelle des Vertrags** (`info.description`, `:50-54`) nennt dem `service_admin` weder die Endpunktverwaltung noch die Ereigniseinlieferung, die **ADR-015 §1** (`:67-68`) gewährt; PRD und Vertrag sagen es **nicht** | **dokumentiert, nicht entschieden** (Stresstest 3, § 2.6) — **kein** AK/FR betroffen; Empfehlung: ADR-015 §1 auf PRD + Vertrag **verschärfen** | Fachbereich + Architektur | **Gate 1** → Rücksprung zu Schritt 2 |
 
 ## 9. Befunde dieses Schritts
 
