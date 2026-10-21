@@ -116,7 +116,9 @@ class AtLeastOnceDeliveryIT extends AbstractApplicationIT {
         assertThat(runs).hasSize(2);
         assertThat(runs.get(0).get("event_id")).isEqualTo(runs.get(1).get("event_id"));
         assertThat(runs.get(0).get("delivery_run_id")).isNotEqualTo(runs.get(1).get("delivery_run_id"));
-        assertThat(runs).allSatisfy(run -> assertThat(run.get("event_id")).isEqualTo(eventId));
+        // Der Treiber liefert eine UUID-Spalte als UUID-Objekt — der Vergleich
+        // mit der Kennung aus der Antwort erfolgt ueber die Zeichenkette.
+        assertThat(runs).allSatisfy(run -> assertThat(String.valueOf(run.get("event_id"))).isEqualTo(eventId));
         assertThat(firstEndpoint).isNotEqualTo(secondEndpoint);
     }
 

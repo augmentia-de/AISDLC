@@ -122,8 +122,17 @@ class DeadDeliveryListIT extends AbstractApplicationIT {
                 .andExpect(jsonPath("$.items.length()").value(0));
     }
 
+    /**
+     * Legt eine aufgegebene Zustellung an und liefert die Endpunkt-ID — sie
+     * ist der Filter der Totenliste.
+     *
+     * @param organisationId der Mandant
+     * @param idempotencyKey der Idempotenzschluessel des Ereignisses
+     * @return die Endpunkt-ID
+     * @throws Exception wenn das Anlegen scheitert
+     */
     private String createAbandonedRun(String organisationId, String idempotencyKey) throws Exception {
-        registerEndpoint(organisationId, TARGET_URL, "order.changed");
+        String endpointId = registerEndpoint(organisationId, TARGET_URL, "order.changed");
         deliveryPort.respondWith(TARGET_URL, 500);
         submitEvent(organisationId, "order.changed", idempotencyKey, "{\"order_id\":1}");
 
@@ -131,7 +140,6 @@ class DeadDeliveryListIT extends AbstractApplicationIT {
             worker.runOnce();
             clock.advance(Duration.ofMinutes(1));
         }
-        return jdbcTemplate.queryForObject(
-                "SELECT delivery_run_id FROM app.delivery_runs ORDER BY created_at DESC LIMIT 1", String.class);
+        return endpointId;
     }
 }

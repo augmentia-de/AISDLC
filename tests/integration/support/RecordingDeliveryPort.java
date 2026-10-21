@@ -116,11 +116,13 @@ public final class RecordingDeliveryPort implements DeliveryPort {
     }
 
     /**
-     * Setzt alle Zaehler zurueck.
+     * Setzt alle Zaehler und die Antwortvorgaben zurueck — der Testdouble
+     * bezieht seinen Zustand damit **je Test** neu.
      */
     public void reset() {
         requests.clear();
         scripted.clear();
+        statusPerUrl.clear();
         responseDelay = Duration.ZERO;
     }
 }

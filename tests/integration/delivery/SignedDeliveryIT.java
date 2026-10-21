@@ -51,6 +51,14 @@ class SignedDeliveryIT extends AbstractApplicationIT {
     private static final String SECRET = "s3cr3t-rotationswert";
     private static final byte[] PAYLOAD = "{\"order_id\":4711,\"state\":\"shipped\"}".getBytes(StandardCharsets.UTF_8);
 
+    /**
+     * Die eingelieferte Nutzlast — sie entspricht byteweise den gesendeten
+     * Bytes {@link #PAYLOAD}. Der Vertrag nennt die zugestellten Bytes
+     * „kanonisch materialisiert“ (RFC 8785, sortierte Schluessel, ohne
+     * Leerzeichen) — genau diese Bytes werden signiert und gesendet.
+     */
+    private static final String SUBMITTED_PAYLOAD = "{\"order_id\":4711,\"state\":\"shipped\"}";
+
     @Autowired
     private DeliveryWorker worker;
 
@@ -79,7 +87,7 @@ class SignedDeliveryIT extends AbstractApplicationIT {
     void the_delivery_carries_a_verifiable_signature() throws Exception {
         registerEndpoint("m-1", TARGET_URL, "order.changed");
         deliveryPort.respondWith(TARGET_URL, 200);
-        submitEvent("m-1", "order.changed", "signed-1", "{\"order_id\":4711}");
+        submitEvent("m-1", "order.changed", "signed-1", SUBMITTED_PAYLOAD);
 
         worker.runOnce();
 
@@ -102,7 +110,7 @@ class SignedDeliveryIT extends AbstractApplicationIT {
     void a_signature_over_a_tampered_payload_fails() throws Exception {
         registerEndpoint("m-1", TARGET_URL, "order.changed");
         deliveryPort.respondWith(TARGET_URL, 200);
-        submitEvent("m-1", "order.changed", "signed-2", "{\"order_id\":4711}");
+        submitEvent("m-1", "order.changed", "signed-2", SUBMITTED_PAYLOAD);
 
         worker.runOnce();
 
@@ -119,12 +127,14 @@ class SignedDeliveryIT extends AbstractApplicationIT {
     @Test
     @DisplayName("AC-009-4: zwei Endpunkte mit derselben Nutzlast erhalten verschiedene Signaturen")
     void two_endpoints_receive_different_signatures() throws Exception {
-        registerEndpoint("m-1", "https://first.example.invalid/hook", "order.changed");
-        registerEndpoint("m-1", "https://second.example.invalid/hook", "order.changed");
+        // AC-009-4 setzt zwei Endpunkte mit **verschiedenen** Secrets voraus
+        // ("weil das Secret des jeweiligen Endpunkts in die Signatur eingeht").
+        registerEndpointWithSecret("m-1", "https://first.example.invalid/hook", "s3cr3t-erstes-endpunkt", "order.changed");
+        registerEndpointWithSecret("m-1", "https://second.example.invalid/hook", "s3cr3t-zweites-endpunkt", "order.changed");
         deliveryPort.respondWith("https://first.example.invalid/hook", 200);
         deliveryPort.respondWith("https://second.example.invalid/hook", 200);
 
-        submitEvent("m-1", "order.changed", "signed-3", "{\"order_id\":4711}");
+        submitEvent("m-1", "order.changed", "signed-3", SUBMITTED_PAYLOAD);
 
         worker.runOnce();
 
@@ -141,7 +151,7 @@ class SignedDeliveryIT extends AbstractApplicationIT {
     void the_timestamp_is_utc_and_the_signature_covers_the_sent_bytes() throws Exception {
         registerEndpoint("m-1", TARGET_URL, "order.changed");
         deliveryPort.respondWith(TARGET_URL, 200);
-        submitEvent("m-1", "order.changed", "signed-4", "{\"order_id\":4711}");
+        submitEvent("m-1", "order.changed", "signed-4", SUBMITTED_PAYLOAD);
 
         worker.runOnce();
 

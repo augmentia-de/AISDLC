@@ -45,12 +45,12 @@ class TenantIsolationIT extends AbstractApplicationIT {
     @Test
     @DisplayName("AC-022-1: jede mandantenfuehrende Tabelle steht unter Row-Level-Security")
     void every_tenant_table_enforces_row_level_security() {
-        List<String> withoutRls = jdbcTemplate.query("""
+        List<String> withoutRls = jdbcTemplate.queryForList("""
                 SELECT c.relname AS table_name
                 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'app' AND c.relkind = 'r' AND NOT c.relrowsecurity
-                ORDER BY c.relname""", (resultSet, rowNum) -> resultSet.getString("table_name"), String.class);
+                ORDER BY c.relname""", String.class);
 
         assertThat(withoutRls)
                 .as("keine mandantenfuehrende Tabelle darf ohne Row-Level-Security auskommen")
@@ -60,7 +60,7 @@ class TenantIsolationIT extends AbstractApplicationIT {
     @Test
     @DisplayName("AC-022-1: jede mandantenfuehrende Tabelle traegt organisation_id")
     void every_tenant_table_carries_the_tenant_column() {
-        List<String> withoutTenant = jdbcTemplate.query("""
+        List<String> withoutTenant = jdbcTemplate.queryForList("""
                 SELECT c.relname AS table_name
                 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -69,7 +69,7 @@ class TenantIsolationIT extends AbstractApplicationIT {
                       SELECT 1 FROM pg_attribute a
                       WHERE a.attrelid = c.oid AND a.attname = 'organisation_id' AND a.attnum > 0
                         AND NOT a.attisdropped)
-                ORDER BY c.relname""", (resultSet, rowNum) -> resultSet.getString("table_name"), String.class);
+                ORDER BY c.relname""", String.class);
 
         assertThat(withoutTenant).isEmpty();
     }
@@ -89,12 +89,14 @@ class TenantIsolationIT extends AbstractApplicationIT {
     @Test
     @DisplayName("AC-022-3: der Mandant stammt aus der Identitaet — ein Parameter aus dem Body wird nicht uebernommen")
     void the_tenant_comes_from_the_identity_and_not_from_the_body() throws Exception {
+        // Eigene Ziel-URL: der Test legt seine Daten selbst an (Teststrategie §2)
+        // und ist damit unabhaengig von den Endpunkten der anderen Testfaelle.
         mockMvc.perform(post("/api/v1/endpoints")
                         .with(Auth.receiverAdmin("m-1", "tester"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "target_url": "https://tenant.example.invalid/hooks/echobox",
+                                  "target_url": "https://tenant-abgelehnt.example.invalid/hooks/echobox",
                                   "secret": "s3cr3t-rotationswert",
                                   "event_types": ["order.changed"],
                                   "organisation_id": "m-2"
@@ -103,9 +105,14 @@ class TenantIsolationIT extends AbstractApplicationIT {
                 .andExpect(jsonPath("$.code").value("tenant_parameter_rejected"));
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT DISTINCT organisation_id FROM app.endpoints");
+                "SELECT DISTINCT organisation_id FROM app.endpoints WHERE target_url = ?",
+                "https://tenant-abgelehnt.example.invalid/hooks/echobox");
 
-        assertThat(rows).extracting(row -> row.get("organisation_id")).containsOnly("m-1");
+        // Der abgelehnte Aufruf hat **keinen** Endpunkt angelegt — der Mandant
+        // aus dem Body wurde nicht uebernommen (D-01, AC-022-3).
+        assertThat(rows)
+                .as("der abgelehnte Aufruf hat keinen Endpunkt angelegt")
+                .isEmpty();
     }
 
     @Test

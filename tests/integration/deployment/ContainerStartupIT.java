@@ -87,15 +87,42 @@ class ContainerStartupIT extends AbstractApplicationIT {
     void the_project_contains_no_hardcoded_secret() throws IOException {
         List<Path> candidates;
         try (Stream<Path> paths = Files.walk(Path.of("src"))) {
-            candidates = paths.filter(Files::isRegularFile).toList();
+            candidates = paths
+                    .filter(Files::isRegularFile)
+                    .filter(ContainerStartupIT::isSourceArtifact)
+                    .toList();
         }
 
         for (Path candidate : candidates) {
-            String content = Files.readString(candidate, StandardCharsets.UTF_8);
+            // ISO-8859-1 bildet jedes Byte auf ein Zeichen ab — der Nachweis
+            // gilt damit auch fuer binaere Dateien, und der Test bricht nicht
+            // an einem Build-Artefakt mit ungueltiger UTF-8-Folge ab.
+            String content = new String(Files.readAllBytes(candidate), StandardCharsets.ISO_8859_1);
             assertThat(content)
                     .as("in %s darf kein Schluessel stehen", candidate)
                     .doesNotContain("BEGIN PRIVATE KEY")
                     .doesNotContain("AES_KEY=");
         }
+    }
+
+    /**
+     * Prueft, ob eine Datei ein Quellartefakt ist.
+     *
+     * <p>Erzeugte Verzeichnisse ({@code node_modules}, {@code .next},
+     * {@code target}) sind keine Projektartefakte im Sinne der Anforderung —
+     * sie werden aus dem Build erzeugt, stehen nicht im Versionsverwaltung
+     * und enthalten keinen Schluessel.
+     *
+     * @param path die Datei
+     * @return true, wenn die Datei geprueft werden soll
+     */
+    private static boolean isSourceArtifact(Path path) {
+        for (Path segment : path) {
+            String name = segment.toString();
+            if ("node_modules".equals(name) || ".next".equals(name) || "target".equals(name)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

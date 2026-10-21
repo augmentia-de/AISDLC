@@ -2,6 +2,7 @@ package com.echobox.testsupport;
 
 import java.nio.charset.StandardCharsets;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,6 +36,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Import(TestDeliveryConfiguration.class)
 public abstract class AbstractApplicationIT {
 
+    /** Das Secret, das die Tests fuer ihre Endpunkte verwenden. */
+    protected static final String DEFAULT_SECRET = "s3cr3t-rotationswert";
+
     @Autowired
     protected MockMvc mockMvc;
 
@@ -58,6 +62,27 @@ public abstract class AbstractApplicationIT {
     @DynamicPropertySource
     protected static void dataSourceProperties(DynamicPropertyRegistry registry) {
         PostgresTestContainer.registerDataSource(registry);
+    }
+
+    /**
+     * Beginnt jeden Testfall mit einem **leeren** Datenbestand und einem
+     * zurueckgesetzten Testdouble.
+     *
+     * <p>Die Teststrategie verlangt: „Keine geteilten Fixtures, keine
+     * Reihenfolgeabhaengigkeit. Jeder Test legt seine Mandanten, seine
+     * Endpunkte und seine Ereignisse selbst an.“ Der Container wird zwar von
+     * allen Testfaellen einer Klasse geteilt, die <strong>Daten</strong> aber
+     * nicht: ohne das Leeren sammeln sich die Zeilen der Testfaelle einer
+     * Klasse, und zaehlende Aussagen (etwa „die Liste enthaelt genau einen
+     * Eintrag“) waeren von der Reihenfolge der Testfaelle abhaengig.
+     */
+    @BeforeEach
+    void beginWithEmptyState() {
+        deliveryPort.reset();
+        jdbcTemplate.execute("TRUNCATE app.events, app.delivery_runs, app.delivery_attempts, "
+                + "app.endpoints, app.endpoint_event_types, app.endpoint_secret_history, "
+                + "app.endpoint_rate_limits, app.endpoint_rate_limit_counters, app.retention_settings, "
+                + "app.audit_log CASCADE");
     }
 
     /**
@@ -89,12 +114,30 @@ public abstract class AbstractApplicationIT {
      * @throws Exception wenn die Registrierung scheitert
      */
     protected String registerEndpoint(String organisationId, String targetUrl, String... eventTypes) throws Exception {
+        return registerEndpointWithSecret(organisationId, targetUrl, DEFAULT_SECRET, eventTypes);
+    }
+
+    /**
+     * Registriert einen Endpunkt mit einem eigenen Secret und liefert dessen ID.
+     *
+     * <p>Der Aufruf mit eigenem Secret ist dort noetig, wo die <strong>verschiedenen</strong>
+     * Secrets zweier Endpunkte Teil der Aussage sind (AC-009-4).
+     *
+     * @param organisationId der Mandant
+     * @param targetUrl      die Ziel-URL
+     * @param secret         das Secret des Endpunkts
+     * @param eventTypes     die abonnierten Ereignistypen
+     * @return die Endpunkt-ID
+     * @throws Exception wenn die Registrierung scheitert
+     */
+    protected String registerEndpointWithSecret(String organisationId, String targetUrl, String secret,
+                                                String... eventTypes) throws Exception {
         String body = """
                 {
                   "target_url": "%s",
-                  "secret": "s3cr3t-rotationswert",
+                  "secret": "%s",
                   "event_types": [%s]
-                }""".formatted(targetUrl, quoted(eventTypes));
+                }""".formatted(targetUrl, secret, quoted(eventTypes));
 
         MvcResult result = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .post("/api/v1/endpoints")

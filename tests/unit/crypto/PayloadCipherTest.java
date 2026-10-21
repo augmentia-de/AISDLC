@@ -95,14 +95,39 @@ class PayloadCipherTest {
                         Stream.of(schema))
                 .flatMap(stream -> stream)
                 .filter(Files::isRegularFile)
+                .filter(PayloadCipherTest::isSourceArtifact)
                 .toList();
 
         for (Path candidate : candidates) {
-            String content = Files.readString(candidate, StandardCharsets.UTF_8);
+            // ISO-8859-1 bildet jedes Byte auf ein Zeichen ab — der Nachweis
+            // gilt damit auch fuer binaere Dateien, und der Test bricht nicht
+            // an einem Build-Artefakt mit ungueltiger UTF-8-Folge ab.
+            String content = new String(Files.readAllBytes(candidate), StandardCharsets.ISO_8859_1);
             assertThat(content)
                     .as("der Schluessel darf in %s nicht stehen", candidate)
                     .doesNotContain("0123456789abcdef0123456789abcdef");
         }
+    }
+
+    /**
+     * Prueft, ob eine Datei ein Quellartefakt ist.
+     *
+     * <p>Erzeugte Verzeichnisse ({@code node_modules}, {@code .next},
+     * {@code target}) sind keine Projektartefakte im Sinne der Anforderung —
+     * sie werden aus dem Build erzeugt, stehen nicht im Versionsverwaltung
+     * und enthalten den Schluessel nicht.
+     *
+     * @param path die Datei
+     * @return true, wenn die Datei geprueft werden soll
+     */
+    private static boolean isSourceArtifact(Path path) {
+        for (Path segment : path) {
+            String name = segment.toString();
+            if ("node_modules".equals(name) || ".next".equals(name) || "target".equals(name)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Test

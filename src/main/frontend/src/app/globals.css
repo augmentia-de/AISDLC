@@ -1,0 +1,381 @@
+/*
+ * Die Gestaltung der EchoBox-Oberflaeche.
+ *
+ * Grundregeln (ADR-018 §2, NFR-005, AC-021-3):
+ *   - Kontrast: Text mindestens 4,5:1, Bedienelemente und Fokusrahmen
+ *     mindestens 3:1. Die Werte unten sind fest und werden nicht zur
+ *     Laufzeit berechnet — ein neuer Farbton muss den Kontrast pruefen.
+ *   - Der Fokus ist immer sichtbar (`:focus-visible`); es wird nirgends
+ *     `outline: none` gesetzt.
+ *   - Der Zustand wird nie allein ueber Farbe transportiert: die Anzeige
+ *     traegt zusaetzlich Text und eine Form (ADR-018 §3).
+ */
+
+/* ------------------------------------------------------------------ Design-Tokens */
+
+:root {
+  --background: #ffffff;
+  --surface: #f3f4f6;
+  --text: #111827;
+  --text-muted: #374151;
+  --accent: #1d4ed8;
+  --accent-text: #ffffff;
+  --border: #6b7280;
+  --focus: #1d4ed8;
+
+  --badge-aktiv-bg: #ecfdf5;
+  --badge-aktiv-text: #065f46;
+  --badge-pausiert-bg: #fef3c7;
+  --badge-pausiert-text: #92400e;
+  --badge-erfolg-bg: #dbeafe;
+  --badge-erfolg-text: #1e3a8a;
+  --badge-fehler-bg: #fee2e2;
+  --badge-fehler-text: #991b1b;
+  --badge-offen-bg: #ede9fe;
+  --badge-offen-text: #5b21b6;
+  --badge-neutral-bg: #f3f4f6;
+  --badge-neutral-text: #374151;
+}
+
+/* --------------------------------------------------------------------- Grundlayout */
+
+html {
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  left: 0;
+  z-index: 10;
+}
+
+.app-header {
+  padding: 1rem 1.5rem 0;
+}
+
+.app-header__brand {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.app-nav {
+  padding: 0.5rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-nav a {
+  color: var(--accent);
+}
+
+.app-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.page__intro {
+  max-width: 60rem;
+  color: var(--text-muted);
+}
+
+h1 {
+  font-size: 1.75rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+.link-list {
+  padding-left: 1.25rem;
+}
+
+.link-list a {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------- Formulare */
+
+.card {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--background);
+}
+
+.form,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.filters {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--surface);
+}
+
+.form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 14rem;
+}
+
+.form__field label {
+  font-weight: 600;
+}
+
+.form__actions {
+  display: flex;
+  align-items: center;
+  min-width: 14rem;
+  padding-top: 1.5rem;
+}
+
+input,
+select {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: var(--background);
+  color: var(--text);
+  font: inherit;
+}
+
+input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--badge-fehler-text);
+}
+
+.button {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.25rem;
+  background: var(--background);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button--primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.button[disabled] {
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------------------- Tabellen */
+
+.data-table {
+  width: 100%;
+  margin: 1.5rem 0;
+  border-collapse: collapse;
+}
+
+.data-table__caption {
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table thead th {
+  background: var(--surface);
+}
+
+.identifier {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.tag-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+/* ------------------------------------------------------------------ Zustandsanzeige */
+
+.badge {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge--aktiv {
+  background: var(--badge-aktiv-bg);
+  color: var(--badge-aktiv-text);
+}
+
+.badge--pausiert {
+  background: var(--badge-pausiert-bg);
+  color: var(--badge-pausiert-text);
+}
+
+.badge--erfolg {
+  background: var(--badge-erfolg-bg);
+  color: var(--badge-erfolg-text);
+}
+
+.badge--fehler {
+  background: var(--badge-fehler-bg);
+  color: var(--badge-fehler-text);
+}
+
+.badge--offen {
+  background: var(--badge-offen-bg);
+  color: var(--badge-offen-text);
+}
+
+.badge--neutral {
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-text);
+}
+
+/* ---------------------------------------------------------------- Meldungen und Zustaende */
+
+.loading,
+.notice,
+.empty-state,
+.error-message {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+}
+
+.loading {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.notice {
+  border: 1px solid var(--accent);
+  background: var(--badge-erfolg-bg);
+  color: var(--badge-erfolg-text);
+}
+
+.empty-state {
+  border: 1px dashed var(--border);
+  background: var(--surface);
+}
+
+.empty-state__title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.empty-state__hint {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+}
+
+.error-message {
+  border: 1px solid var(--badge-fehler-text);
+  background: var(--badge-fehler-bg);
+  color: var(--badge-fehler-text);
+  font-weight: 600;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--badge-fehler-text);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------- Aktionen */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.rotation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.rotation label {
+  font-weight: 600;
+}
+
+.pagination {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.pagination__state {
+  margin: 0;
+  color: var(--text-muted);
+}

@@ -38,14 +38,15 @@ class EndpointVisibilityIT extends AbstractApplicationIT {
     @DisplayName("AC-004-1: die Endpunktliste eines Empfaenger-Admins zeigt nur seinen Mandanten")
     void the_list_of_a_receiver_admin_is_tenant_scoped() throws Exception {
         String own = registerEndpoint("m-1", "https://own.example.invalid/hook", "order.changed");
-        registerEndpoint("m-2", "https://foreign.example.invalid/hook", "order.changed");
+        String foreign = registerEndpoint("m-2", "https://foreign.example.invalid/hook", "order.changed");
 
         mockMvc.perform(get("/api/v1/endpoints")
                         .with(Auth.receiverAdmin("m-1", "tester")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[*].endpoint_id", Matchers.hasItem(own)))
-                .andExpect(jsonPath("$.items[*].endpoint_id", Matchers.not(Matchers.hasItem(
-                        Matchers.not(Matchers.hasItem(own))))))
+                // Der Endpunkt des **fremden** Mandanten darf nicht in der Liste
+                // stehen — die Liste zeigt nur den Mandanten aus der Identitaet.
+                .andExpect(jsonPath("$.items[*].endpoint_id", Matchers.not(Matchers.hasItem(foreign))))
                 .andExpect(jsonPath("$.items[*].organisation_id", Matchers.everyItem(Matchers.is("m-1"))));
     }
 

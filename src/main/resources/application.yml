@@ -1,0 +1,141 @@
+# =============================================================================
+# EchoBox — Betriebskonfiguration
+#
+# Regel: **keine Schluessel im File.** Alle geheimen Werte (Datenbankpasswort,
+# Verschluesselungsschluessel, Signaturschluessel, Cursor-Schluessel) kommen aus
+# der Umgebung ueber die Variablen mit dem Praefix ECHobox_. Die Vorgabewerte
+# hier sind **Betriebswerte** (F-01 bis F-04), keine Geheimnisse.
+#
+# Umgebungsvariablen (Konvention ECHobox_*):
+#   ECHobox_DATABASE_URL, ECHobox_DATABASE_USERNAME, ECHobox_DATABASE_PASSWORD
+#   ECHobox_CRYPTO_KEY             (Base64, 32 Byte — AES-256-GCM-Schluessel)
+#   ECHobox_CRYPTO_FINGERPRINT_KEY (optional, sonst aus ECHobox_CRYPTO_KEY abgeleitet)
+#   ECHobox_CURSOR_KEY             (HMAC-Schluessel der opaken Cursor)
+#   ECHobox_SECURITY_JWK_SET_URI   (JWKS des Identity Providers)
+#   ECHobox_TENANT_ID              (Mandanteninstanz, ADR-013)
+# =============================================================================
+spring:
+  application:
+    name: echobox
+  datasource:
+    url: ${ECHobox_DATABASE_URL:jdbc:postgresql://localhost:5432/echobox}
+    username: ${ECHobox_DATABASE_USERNAME:echobox_app}
+    password: ${ECHobox_DATABASE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${ECHobox_DATABASE_POOL_SIZE:10}
+      pool-name: echobox-pool
+      data-source-properties:
+        # PostgreSQL loest den Typ eines **String**-Parameters aus dem Zielkontext
+        # auf ("unspecified"). Ohne diese Einstellung bindet der Treiber einen
+        # String als `character varying` — der Vergleich einer uuid-Spalte mit
+        # einem String-Parameter scheitert dann an
+        # "operator does not exist: uuid = character varying".
+        stringtype: unspecified
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # B-03: das kanonische Schema enthaelt ein eigenes BEGIN; … COMMIT;.
+    # Flyway wuerde die Transaktion sonst doppelt oeffnen — die Migration
+    # laeuft deshalb transaktionsneutral. Das Schema selbst bleibt unveraendert.
+    execute-in-transaction: false
+  jackson:
+    # Der Vertrag ist snake_case; die Java-Typen sind camelCase.
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: always
+    serialization:
+      # Zeitpunkte als ISO-8601-Zeichenfolge (der Vertrag erwartet `date-time`,
+      # keine Epochenzahl).
+      write-dates-as-timestamps: false
+    deserialization:
+      # Der Vertrag sagt `additionalProperties: false` fuer alle Request-Bodys:
+      # ein unbekanntes Feld ist ein Schemaverstoss (HTTP 422 validation_failed)
+      # und wird **nicht** stillschweigend ignoriert.
+      fail-on-unknown-properties: true
+  mvc:
+    problemdetails:
+      enabled: false
+  threads:
+    virtual:
+      enabled: false
+
+server:
+  port: ${ECHobox_PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+  tomcat:
+    max-swallow-size: ${ECHobox_MAX_SWALLOW_SIZE:4MB}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never
+
+echobox:
+  version: ${ECHobox_VERSION:1.0.0}
+  crypto:
+    # Verschluesselungsschluessel (AES-256-GCM) — kommt aus der Umgebung.
+    # Ist er nicht gesetzt, erzeugt der Dienst einen **ephemeralen** Schluessel
+    # und warnt — im Staging/Produktivbetrieb ist das ein Fehler (key-required).
+    key: ${ECHobox_CRYPTO_KEY:}
+    key-required: false
+    # Schluessel fuer den Nutzlast-Fingerabdruck (ADR-007). Ohne eigenen Wert
+    # wird er aus dem Hauptschluessel abgeleitet.
+    fingerprint-key: ${ECHobox_CRYPTO_FINGERPRINT_KEY:}
+  security:
+    jwk-set-uri: ${ECHobox_SECURITY_JWK_SET_URI:https://idp.example.invalid/.well-known/jwks.json}
+    # HMAC-Schluessel der opaken Cursor. Ohne Wert wird ein ephemerer
+    # Schluessel erzeugt (dann sind Cursor nur innerhalb einer Instanz gueltig).
+    cursor-key: ${ECHobox_CURSOR_KEY:}
+  tenant:
+    # Mandanteninstanz (ADR-013, AC-023-2). Leer = geteilter Betrieb.
+    id: ${ECHobox_TENANT_ID:}
+  delivery:
+    worker:
+      enabled: ${ECHobox_DELIVERY_WORKER_ENABLED:true}
+      poll-interval: ${ECHobox_DELIVERY_WORKER_POLL_INTERVAL:1s}
+      lease-duration: ${ECHobox_DELIVERY_LEASE_DURATION:PT1M}
+      # Zahl der Zustelllaeufe, die je Mandant und Durchlauf beansprucht werden.
+      batch-size: ${ECHobox_DELIVERY_WORKER_BATCH_SIZE:50}
+    backoff:
+      # F-04: 8 Versuche, Basis 1 Minute, Verdopplung, Deckel 60 Minuten, +/- 20 %
+      base-delay: ${ECHobox_DELIVERY_BACKOFF_BASE_DELAY:1m}
+      multiplier: ${ECHobox_DELIVERY_BACKOFF_MULTIPLIER:2.0}
+      max-delay: ${ECHobox_DELIVERY_BACKOFF_MAX_DELAY:60m}
+      jitter: ${ECHobox_DELIVERY_BACKOFF_JITTER:0.2}
+    max-attempts: ${ECHobox_DELIVERY_MAX_ATTEMPTS:8}
+    rate-limit:
+      # F-01: 60 Versuche je Endpunkt und Minute, Strategie delay
+      limit: ${ECHobox_DELIVERY_RATE_LIMIT:60}
+      window-seconds: ${ECHobox_DELIVERY_RATE_LIMIT_WINDOW_SECONDS:60}
+      strategy: ${ECHobox_DELIVERY_RATE_LIMIT_STRATEGY:delay}
+    http:
+      # ADR-008: 5 s Verbindungs-Timeout, 10 s Lese-Timeout
+      connect-timeout: ${ECHobox_DELIVERY_CONNECT_TIMEOUT:5s}
+      read-timeout: ${ECHobox_DELIVERY_READ_TIMEOUT:10s}
+    replay:
+      # ADR-006 §6 / N-20: die Zeitlimits der Replay-Transaktion sind kuerzer
+      # als das HTTP-Timeout — der verlierende Replay antwortet mit 409.
+      lock-timeout: ${ECHobox_DELIVERY_REPLAY_LOCK_TIMEOUT:2s}
+      statement-timeout: ${ECHobox_DELIVERY_REPLAY_STATEMENT_TIMEOUT:5s}
+  retention:
+    # F-02: 30 Tage je Datenart, Fristbeginn = letzter Versuch
+    event-days: ${ECHobox_RETENTION_EVENT_DAYS:30}
+    delivery-days: ${ECHobox_RETENTION_DELIVERY_DAYS:30}
+    # Karenzzeit zwischen Markieren und Purge (E-13 / R-01: **kein** Vorgabewert).
+    # Ohne gesetzten Wert rechnet der Dienst mit 0 Tagen — der Purge erfolgt
+    # dann im naechsten Durchlauf.
+    purge-delay: ${ECHobox_RETENTION_PURGE_DELAY:}
+
+logging:
+  level:
+    root: INFO
+    com.echobox: ${ECHobox_LOG_LEVEL:INFO}
+  # **Kein** Nutzlastinhalt im Protokoll (AC-007-2) — die Anwendung loggt
+  # ausschliesslich Metadaten.

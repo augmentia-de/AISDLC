@@ -88,7 +88,14 @@ class RowLevelSecurityIT {
         List<String> visible = asApplicationRole("m-1",
                 "SELECT event_id::text FROM app.events ORDER BY event_id");
 
-        assertThat(visible).containsExactly("11111111-1111-4111-8111-111111111111");
+        assertThat(visible)
+                // Die Zeile des eigenen Mandanten ist sichtbar, die des fremden
+                // nicht. (Die Assertion ist bewusst kein "containsExactly": die
+                // Testklasse legt in weiteren Testfaellen eigene Zeilen desselben
+                // Mandanten an — Teststrategie §2: "Jeder Test legt seine Daten
+                // selbst an".)
+                .contains("11111111-1111-4111-8111-111111111111")
+                .doesNotContain("22222222-2222-4222-8222-222222222222");
     }
 
     @Test

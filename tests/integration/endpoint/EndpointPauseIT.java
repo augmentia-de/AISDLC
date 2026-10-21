@@ -59,7 +59,10 @@ class EndpointPauseIT extends AbstractApplicationIT {
 
         String eventId = submitEvent("m-1", "order.changed", "pause-2", "{\"order_id\":2}");
 
-        assertThat(countRunsForEvent(eventId)).isZero();
+        // Geprueft wird der Lauf **dieses** Endpunkts: andere Endpunkte des
+        // Mandanten, die denselben Ereignistyp abonniert haben, bekommen
+        // durchaus einen Lauf (D-04).
+        assertThat(countRunsForEndpoint(eventId, endpointId)).isZero();
     }
 
     @Test
@@ -166,6 +169,13 @@ class EndpointPauseIT extends AbstractApplicationIT {
     private long countRunsForEvent(String eventId) {
         Long count = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM app.delivery_runs WHERE event_id = ?", Long.class, eventId);
+        return count == null ? 0L : count;
+    }
+
+    private long countRunsForEndpoint(String eventId, String endpointId) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM app.delivery_runs WHERE event_id = ? AND endpoint_id = ?",
+                Long.class, eventId, endpointId);
         return count == null ? 0L : count;
     }
 

@@ -1,0 +1,30 @@
+# =============================================================================
+# EchoBox — Staging-Konfiguration (AC-023-5)
+#
+# Staging und Produktion nutzen **getrennte Konfigurationen und getrennte
+# Secrets**. Diese Datei enthaelt **keine** Geheimnisse: die Werte kommen aus
+# den Staging-Umgebungsvariablen (Praefix ECHobox_, wie in application.yml).
+#
+# Unterschiede zum Default-Profil:
+#   * der Verschluesselungsschluessel ist **Pflicht** — ohne ihn startet der
+#     Dienst nicht (kein ephemerer Schluessel im Stagingbetrieb),
+#   * der Mandant ist gebunden (ADR-013),
+#   * der Worker laeuft mit dem kurzen Polling-Intervall des Stagingbetriebs.
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: staging
+
+echobox:
+  crypto:
+    key: ${ECHobox_CRYPTO_KEY:}
+    # Im Stagingbetrieb ist der Schluessel Pflicht: ein ephemerer Schluessel
+    # wuerde die Daten nach jedem Neustart unlesbar machen.
+    key-required: true
+  tenant:
+    id: ${ECHobox_TENANT_ID:}
+  delivery:
+    worker:
+      enabled: ${ECHobox_DELIVERY_WORKER_ENABLED:true}
+      poll-interval: ${ECHobox_DELIVERY_WORKER_POLL_INTERVAL:2s}

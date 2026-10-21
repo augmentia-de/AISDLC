@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -139,10 +141,14 @@ class RetentionEnforcementIT extends AbstractApplicationIT {
 
         worker.runOnce();
 
+        // Der PostgreSQL-Treiber kann einen Instant ueber setObject nicht
+        // ableiten — der Zeitpunkt wird deshalb als OffsetDateTime in UTC
+        // gebunden (dieselbe Bindung wie in common/SqlParameters).
+        OffsetDateTime anchor = OffsetDateTime.ofInstant(lastAttemptAt, ZoneOffset.UTC);
         jdbcTemplate.update("UPDATE app.delivery_runs SET last_attempt_at = ?, created_at = ? WHERE event_id = ?",
-                lastAttemptAt, lastAttemptAt, eventId);
+                anchor, anchor, eventId);
         jdbcTemplate.update("UPDATE app.events SET accepted_at = ?, created_at = ? WHERE event_id = ?",
-                lastAttemptAt, lastAttemptAt, eventId);
+                anchor, anchor, eventId);
 
         return eventId;
     }
@@ -153,7 +159,15 @@ class RetentionEnforcementIT extends AbstractApplicationIT {
         if (rows.isEmpty()) {
             return null;
         }
+        // Der Treiber liefert eine Zeitstempelspalte als java.sql.Timestamp —
+        // die Umwandlung in einen Instant gehoert zum Test.
         Object value = rows.get(0).get("deleted_at");
+        if (value instanceof java.sql.Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime.toInstant();
+        }
         return value instanceof Instant instant ? instant : null;
     }
 }

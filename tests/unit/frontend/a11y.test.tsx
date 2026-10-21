@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import axe from 'axe-core';
 
-import EndpointsPage from '../../../src/main/frontend/src/app/endpoints/page';
-import DeliveryProtocolPage from '../../../src/main/frontend/src/app/deliveries/page';
 import DeadDeliveryPage from '../../../src/main/frontend/src/app/dead-deliveries/page';
+import DeliveryProtocolPage from '../../../src/main/frontend/src/app/deliveries/page';
+import EndpointsPage from '../../../src/main/frontend/src/app/endpoints/page';
+import { jsonResponse, searchParams } from './support/actionRunner';
+import { testToken } from './support/token';
 
 /**
  * Unit-Ebene der Oberflaeche — Barrierefreiheit (US-021, NFR-005).
@@ -25,20 +27,34 @@ import DeadDeliveryPage from '../../../src/main/frontend/src/app/dead-deliveries
  * Abgedeckte Akzeptanzkriterien: AC-021-2, AC-021-4.
  */
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return {
-    ok: status < 400,
-    status,
-    json: async () => body,
-    text: async () => JSON.stringify(body),
-  } as unknown as Response;
-}
+const mocks = vi.hoisted(() => ({
+  cookieValue: null as string | null,
+}));
 
-const EMPTY_LIST = { items: [], page: { limit: 50, has_more: false, next_cursor: null } };
+vi.mock('next/headers', () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      name === 'echobox.token' && mocks.cookieValue !== null
+        ? { name, value: mocks.cookieValue }
+        : undefined,
+    set: vi.fn(),
+    delete: vi.fn(),
+  }),
+}));
+
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  redirect: (target: string) => {
+    throw Object.assign(new Error('NEXT_REDIRECT'), { digest: `NEXT_REDIRECT;${target}` });
+  },
+}));
+
+const LEERE_LISTE = { items: [], page: { limit: 50, has_more: false, next_cursor: null } };
 
 describe('Barrierefreiheit der Seiten', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(EMPTY_LIST)));
+    mocks.cookieValue = testToken(['service_admin', 'receiver_admin']);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(LEERE_LISTE)));
   });
 
   afterEach(() => {
@@ -47,11 +63,9 @@ describe('Barrierefreiheit der Seiten', () => {
   });
 
   it('AC-021-2: die Endpunktseite hat keine schweren axe-Verstoesse', async () => {
-    const { container } = render(<EndpointsPage />);
-
-    await waitFor(() => {
-      expect(container).toBeTruthy();
-    });
+    const { container } = render(
+      await EndpointsPage({ searchParams: searchParams({}) }),
+    );
 
     const results = await axe.run(container, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
@@ -65,7 +79,9 @@ describe('Barrierefreiheit der Seiten', () => {
   });
 
   it('AC-021-2: die Protokollseite hat keine schweren axe-Verstoesse', async () => {
-    const { container } = render(<DeliveryProtocolPage />);
+    const { container } = render(
+      await DeliveryProtocolPage({ searchParams: searchParams({}) }),
+    );
 
     const results = await axe.run(container, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
@@ -79,7 +95,9 @@ describe('Barrierefreiheit der Seiten', () => {
   });
 
   it('AC-021-2: die Seite der toten Zustellungen hat keine schweren axe-Verstoesse', async () => {
-    const { container } = render(<DeadDeliveryPage />);
+    const { container } = render(
+      await DeadDeliveryPage({ searchParams: searchParams({}) }),
+    );
 
     const results = await axe.run(container, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
@@ -93,11 +111,9 @@ describe('Barrierefreiheit der Seiten', () => {
   });
 
   it('AC-021-4: Liste, Zeileninhalte und Statusmeldungen tragen Rolle und Inhalt', async () => {
-    const { container } = render(<EndpointsPage />);
-
-    await waitFor(() => {
-      expect(container).toBeTruthy();
-    });
+    const { container } = render(
+      await EndpointsPage({ searchParams: searchParams({}) }),
+    );
 
     const namedRoles = container.querySelectorAll('[role], table, main, nav, h1, h2');
     expect(namedRoles.length).toBeGreaterThan(0);

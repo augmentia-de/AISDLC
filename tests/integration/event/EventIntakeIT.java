@@ -39,6 +39,11 @@ class EventIntakeIT extends AbstractApplicationIT {
     @Test
     @DisplayName("AC-005-1: die Einlieferung wird mit 202 angenommen und liefert die Ereignis-ID")
     void the_event_is_accepted_with_202() throws Exception {
+        // Der Test legt seinen Abnehmer **selbst** an (Teststrategie §2: "Jeder
+        // Test legt seine Endpunkte ... selbst an") — ohne Abnehmer waere das
+        // Ereignis ein `no_subscriber`-Ereignis (D-04), nicht `accepted`.
+        registerEndpoint("m-1", "https://intake.example.invalid/hooks/echobox", "order.changed");
+
         mockMvc.perform(post("/api/v1/events")
                         .with(Auth.developer("m-1", "tester"))
                         .contentType(MediaType.APPLICATION_JSON)

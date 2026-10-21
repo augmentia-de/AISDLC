@@ -1,0 +1,22 @@
+{
+  "name": "echobox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EchoBox — npm-Wurzel des Workspaces. Die Oberflaeche liegt in src/main/frontend; das Backend ist ein Maven-Modul (pom.xml).",
+  "workspaces": [
+    "src/main/frontend"
+  ],
+  "scripts": {
+    "lint": "npm --workspace echobox-frontend run lint",
+    "build": "npm --workspace echobox-frontend run build",
+    "test": "npm --workspace echobox-frontend run test",
+    "test:e2e": "npm --workspace echobox-frontend run test:e2e",
+    "test:a11y": "npm --workspace echobox-frontend run test:a11y",
+    "contract:check": "npm --workspace echobox-frontend run contract:check",
+    "frontend:check": "npm --workspace echobox-frontend run check",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

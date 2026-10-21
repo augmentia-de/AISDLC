@@ -1,0 +1,16 @@
+{
+  "extends": "./src/main/frontend/tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "types": ["node"]
+  },
+  "include": [
+    "src/main/frontend/next-env.d.ts",
+    "src/main/frontend/src/**/*.ts",
+    "src/main/frontend/src/**/*.tsx",
+    "src/main/frontend/*.config.ts",
+    "tests/unit/frontend/**/*.ts",
+    "tests/unit/frontend/**/*.tsx",
+    "tests/e2e/**/*.ts"
+  ]
+}

@@ -1,15 +1,21 @@
 import { expect, test } from '@playwright/test';
 
+import { DIENST } from './support/harness';
+
 /**
  * E2E-Ebene — Gesundheitsendpunkte (US-023, AC-023-1, NFR-006).
  *
  * Die Endpunkte antworten **ohne** Authentifizierung, damit die
  * Container-Runtime und der Load-Balancer pruefen koennen.
  *
+ * <strong>Der Dienst</strong> ist im Standardlauf der Dienst-Doppelgaenger
+ * (`ECHOBOX_API_BASE_URL`); mit gesetzter Umgebungsvariable spricht der Test
+ * den laufenden Dienst an.
+ *
  * Testorakel: `docs/api/openapi.yaml` -> `getHealth`, `getReadiness`.
  */
 
-const BASIS = process.env.ECHOBOX_API_BASE_URL ?? 'http://localhost:8080';
+const BASIS = process.env.ECHOBOX_API_BASE_URL ?? DIENST;
 
 test.describe('Gesundheitsendpunkte', () => {
   test('AC-023-1: der Liveness-Endpunkt antwortet ohne Token', async ({ request }) => {

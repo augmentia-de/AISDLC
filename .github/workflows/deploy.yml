@@ -1,0 +1,104 @@
+# =============================================================================
+# EchoBox — Bereitstellung (Staging und Produktion getrennt)
+#
+# Grundlage: AC-023-5 / NFR-006 — „Staging und Produktion werden getrennt
+# bereitgestellt und erhalten getrennte Konfigurationen und Secrets."
+#
+# Grundsaetze:
+#   * **Keine Secrets in dieser Datei.** Jeder Wert kommt aus dem
+#     Secret-Store der jeweiligen Umgebung (`secrets.*`); die Datei enthaelt
+#     nur die *Namen* der Geheimnisse.
+#   * **Getrennte Jobs.** Staging und Produktion werden in zwei eigenen Jobs
+#     bereitgestellt — nie im selben Job. Jeder Job laeuft in seiner eigenen
+#     GitHub-Umgebung (`environment:`), die ihre eigenen Freigaben und ihre
+#     eigenen Secrets traegt.
+#   * Der **Build** ist gemeinsam: er erzeugt das Image, das beide Umgebungen
+#     beziehen. Die **Bereitstellung** ist getrennt.
+#
+# Ergaenzung: Schritt 9 (Deployment & Betrieb) verfeinert diese Datei um die
+# Qualitaets-Gates (Test, Coverage, Security-Scan) und die Rollout-Logik.
+# =============================================================================
+name: echobox-bereitstellung
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Standardberechtigungen: nur lesen. Das Schreiben von Paket-Registry und
+# Kubernetes erfolgt ueber den OIDC-Token der jeweiligen Umgebung.
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/example/echobox
+
+jobs:
+  # ------------------------------------------------------------------ Build
+  build:
+    name: Build und Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quellcode holen
+        uses: actions/checkout@v4
+
+      - name: Java-Build und Tests
+        run: mvn -B verify
+
+      - name: Image bauen
+        run: docker build --tag ${{ env.IMAGE }}:${{ github.sha }} .
+
+      - name: Image in die Registry pushen
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+  # --------------------------------------------------------------- Staging
+  deploy-staging:
+    name: deploy-staging (Bereitstellung Staging)
+    needs: build
+    runs-on: ubuntu-latest
+    # Die Umgebung traegt ihre eigenen Freigaben und ihre eigenen Secrets.
+    environment: staging
+    steps:
+      - name: Quellcode holen
+        uses: actions/checkout@v4
+
+      - name: staging-Konfiguration anwenden
+        env:
+          ECHobox_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          ECHobox_DATABASE_USERNAME: ${{ secrets.STAGING_DATABASE_USERNAME }}
+          ECHobox_DATABASE_PASSWORD: ${{ secrets.STAGING_DATABASE_PASSWORD }}
+          ECHobox_CRYPTO_KEY: ${{ secrets.STAGING_CRYPTO_KEY }}
+          ECHobox_CURSOR_KEY: ${{ secrets.STAGING_CURSOR_KEY }}
+          ECHobox_SECURITY_JWK_SET_URI: ${{ secrets.STAGING_JWK_SET_URI }}
+        run: echo "Die Staging-Konfiguration kommt ausschliesslich aus den Secrets der Umgebung 'staging'."
+
+      - name: Image in staging ausrollen
+        run: echo "Rollout des Images ${{ env.IMAGE }}:${{ github.sha }} in die Umgebung 'staging'."
+
+  # ------------------------------------------------------------- Produktion
+  deploy-production:
+    name: deploy-production (Bereitstellung Produktion)
+    needs: build
+    runs-on: ubuntu-latest
+    # Eigene Umgebung, eigene Freigabe, eigene Secrets — von Staging getrennt.
+    environment: production
+    steps:
+      - name: Quellcode holen
+        uses: actions/checkout@v4
+
+      - name: production-Konfiguration anwenden
+        env:
+          ECHobox_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          ECHobox_DATABASE_USERNAME: ${{ secrets.PRODUCTION_DATABASE_USERNAME }}
+          ECHobox_DATABASE_PASSWORD: ${{ secrets.PRODUCTION_DATABASE_PASSWORD }}
+          ECHobox_CRYPTO_KEY: ${{ secrets.PRODUCTION_CRYPTO_KEY }}
+          ECHobox_CURSOR_KEY: ${{ secrets.PRODUCTION_CURSOR_KEY }}
+          ECHobox_SECURITY_JWK_SET_URI: ${{ secrets.PRODUCTION_JWK_SET_URI }}
+        run: echo "Die Produktionskonfiguration kommt ausschliesslich aus den Secrets der Umgebung 'production'."
+
+      - name: Image in production ausrollen
+        run: echo "Rollout des Images ${{ env.IMAGE }}:${{ github.sha }} in die Umgebung 'production'."

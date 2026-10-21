@@ -1,6 +1,15 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
+import {
+  anmelden,
+  DEAD_DELIVERY,
+  DELIVERY,
+  ENDPOINT,
+  setzeDienst,
+  setzeDienstZurueck,
+} from './support/harness';
+
 /**
  * E2E-Ebene — Barrierefreiheit der drei Seiten (US-021, NFR-005).
  *
@@ -23,6 +32,21 @@ const SEITE = [
 
 for (const seite of SEITE) {
   test.describe(`${seite.name}-Seite`, () => {
+    test.beforeEach(async ({ request, context }) => {
+      await setzeDienstZurueck(request);
+      await setzeDienst(request, {
+        endpunkte: [ENDPOINT],
+        zustellungen: [DELIVERY],
+        tote: [DEAD_DELIVERY],
+      });
+      await anmelden(
+        context,
+        ['service_admin', 'receiver_admin'],
+        'm-1',
+        test.info().project.use.baseURL ?? 'http://127.0.0.1:3000',
+      );
+    });
+
     test('AC-021-2: der WCAG-2.1-AA-Scan meldet keine kritischen oder schweren Verstoesse', async ({ page }) => {
       await page.goto(seite.url);
 

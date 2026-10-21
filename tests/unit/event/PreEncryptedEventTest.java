@@ -41,7 +41,13 @@ class PreEncryptedEventTest {
         EventPayload payload = EventPayload.preEncrypted(CIPHRE);
 
         assertThat(payload.isPreEncrypted()).isTrue();
-        assertThat(payload.bytes()).doesNotContain("TOP-SECRET-PAYLOAD".getBytes(StandardCharsets.UTF_8));
+        // `doesNotContain(byte[])` prueft, ob **keines** der Einzelbytes
+        // vorkommt — das waere hier nicht erfuellbar, weil der Fixture-Wert
+        // z. B. das Byte 'A' enthaelt. Geprueft wird deshalb, ob die
+        // Klartextmarke **als Zeichenfolge** in den Bytes enthalten ist
+        // (gleiche Messgroesse wie in PayloadCipherTest und PreEncryptedEventIT).
+        assertThat(new String(payload.bytes(), StandardCharsets.ISO_8859_1))
+                .doesNotContain("TOP-SECRET-PAYLOAD");
     }
 
     @Test

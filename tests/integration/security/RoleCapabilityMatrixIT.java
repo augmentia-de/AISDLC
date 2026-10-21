@@ -292,6 +292,8 @@ class RoleCapabilityMatrixIT extends AbstractApplicationIT {
                 "SELECT delivery_run_id FROM app.delivery_runs WHERE status = 'abandoned' "
                         + "AND organisation_id = ? ORDER BY created_at DESC LIMIT 1", organisationId);
 
-        return (String) runs.get(0).get("delivery_run_id");
+        // Der Treiber liefert eine UUID-Spalte als UUID-Objekt — die
+        // Umwandlung in die Zeichenkette gehoert zum Test.
+        return String.valueOf(runs.get(0).get("delivery_run_id"));
     }
 }

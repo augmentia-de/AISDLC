@@ -70,16 +70,20 @@ class RetryDeliveryIT extends AbstractApplicationIT {
 
         worker.runOnce();
 
+        // AC-011-1 spricht vom **geplanten** naechsten Versuch: gemessen wird
+        // deshalb der Zeitpunkt, zu dem der Dienst den Versuch terminiert
+        // (next_attempt_at) — die tatsaechlichen Versuchszeitpunkte folgen der
+        // Testuhr und koennen nicht doppelt so weit auseinanderliegen.
         Instant firstAttempt = lastAttemptAt();
+        Instant firstPlanned = nextAttemptAt();
         Instant secondAttempt = firstAttempt.plus(Duration.ofMinutes(1));
-
         clock.setTo(secondAttempt);
         worker.runOnce();
 
-        Instant thirdAttempt = lastAttemptAt();
+        Instant secondPlanned = nextAttemptAt();
 
-        Duration firstDistance = Duration.between(firstAttempt, secondAttempt);
-        Duration secondDistance = Duration.between(secondAttempt, thirdAttempt);
+        Duration firstDistance = Duration.between(firstAttempt, firstPlanned);
+        Duration secondDistance = Duration.between(secondAttempt, secondPlanned);
 
         assertThat(secondDistance)
                 .as("der Abstand zum vorherigen Versuch ist mindestens doppelt so hoch")

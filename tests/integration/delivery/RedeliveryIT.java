@@ -99,8 +99,12 @@ class RedeliveryIT extends AbstractApplicationIT {
     @Test
     @DisplayName("AC-013-4: der Replay eines pausierten Endpunkts startet keinen Versuch")
     void the_replay_of_a_paused_endpoint_starts_no_attempt() throws Exception {
-        String endpointId = registerEndpoint("m-1", TARGET_URL, "order.changed");
         String runId = createAbandonedRun("replay-4");
+
+        // Der Test pausiert den Endpunkt, zu dem der aufgegebene Lauf gehoert —
+        // sonst hinge die Aussage von der Reihenfolge der Anlage ab.
+        String endpointId = jdbcTemplate.queryForObject(
+                "SELECT endpoint_id FROM app.delivery_runs WHERE delivery_run_id = ?", String.class, runId);
 
         mockMvc.perform(post("/api/v1/endpoints/" + endpointId + "/pause")
                         .with(Auth.receiverAdmin("m-1", "tester")))
@@ -111,9 +115,12 @@ class RedeliveryIT extends AbstractApplicationIT {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("delivery_state_conflict"));
 
+        int requestsBefore = deliveryPort.requestCount();
         worker.runOnce();
 
-        assertThat(deliveryPort.requestCount()).isZero();
+        assertThat(deliveryPort.requestCount())
+                .as("der Replay eines pausierten Endpunkts startet keinen Versuch")
+                .isEqualTo(requestsBefore);
     }
 
     @Test
@@ -131,7 +138,9 @@ class RedeliveryIT extends AbstractApplicationIT {
 
         assertThat(eventIdOf(newRunId)).isEqualTo(eventId);
         assertThat(newRunId).isNotEqualTo(runId);
-        assertThat(replayOf(newRunId)).isEqualTo(runId);
+        // Der Treiber liefert eine UUID-Spalte als UUID-Objekt — der Vergleich
+        // mit der Kennung aus dem Protokoll erfolgt ueber die Zeichenkette.
+        assertThat(String.valueOf(replayOf(newRunId))).isEqualTo(runId);
     }
 
     @Test
