@@ -1,5 +1,5 @@
 %% EchoBox — C4 Komponenten (Level 3) des Zustell-Workers
-%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur)
+%% Quelle: docs/architecture/architecture.md | Stand: Schritt 2 (Konzept & Architektur), korrigiert in Schritt 4 (Mandantenermittlung ergänzt)
 %% Welche Komponenten sitzen hinter dem Container "Zustell-Worker"?
 
 C4Component
@@ -7,7 +7,8 @@ C4Component
 
     System_Boundary(workerBoundary, "Zustell-Worker (Spring Boot, Hintergrundprozess)") {
         Component(scheduler, "Scheduler\n(zeitgesteuerte Schleife)", "Scheduled", "Sucht je Mandant fällige Zustellläufe und stößt die Verarbeitung an (D-10).")
-        Component(claimer, "Claimer\n(Laufzeitbeanspruchung)", "Fachlogik", "Beansprucht fällige Läufe per FOR UPDATE SKIP LOCKED und setzt eine Lease mit Ablaufzeit — genau eine Instanz führt den Versuch aus (AC-023-3, AC-023-4).")
+        Component(tenantResolver, "Mandantenermittlung\n(Worker)", "Fachlogik", "Ermittelt die zu bearbeitenden Mandanten über app.tenant_ids_for_worker() — liefert nur Mandantenkennungen, keine Nutzlast (ADR-002 §5). Ohne diesen Schritt liefert die Beanspruchung mangels gesetztem Mandanten 0 Zeilen (fail-closed).")
+        Component(claimer, "Claimer\n(Laufzeitbeanspruchung)", "Fachlogik", "Setzt je Mandant app.set_tenant() und beansprucht dann fällige Läufe per FOR UPDATE SKIP LOCKED mit Lease — genau eine Instanz führt den Versuch aus (AC-023-3, AC-023-4).")
         Component(dispatcher, "Dispatcher\n(Versand)", "Fachlogik", "Baut den HTTP-Request, signiert ihn, versendet ihn und wertet die Antwort aus (2xx / 410 / 4xx / 5xx / Netzwerkfehler).")
         Component(signer, "Signatur\n(HMAC-SHA256)", "Krypto", "Bildet die Signier-Eingabe timestamp.payload und setzt den Header X-EchoBox-Signature (ADR-004).")
         Component(payloadProvider, "Nutzlastquelle\n(Entschlüsselung)", "Krypto", "Entschlüsselt die Nutzlast für den Versand — oder reicht die Chiffre unverändert weiter (FR-013).")
@@ -22,7 +23,10 @@ C4Component
     System_Ext(secretStore, "Secret-Store", "Endpunkt-Secrets")
 
     Rel(scheduler, claimer, "fordert fällige Läufe an")
-    Rel(claimer, database, "SELECT ... FOR UPDATE SKIP LOCKED, Lease setzen", "JDBC/RLS")
+    Rel(scheduler, tenantResolver, "fragt die zu bearbeitenden Mandanten")
+    Rel(tenantResolver, database, "SELECT organisation_id FROM app.tenant_ids_for_worker()", "JDBC/SECURITY DEFINER")
+    Rel(tenantResolver, claimer, "Mandantenliste")
+    Rel(claimer, database, "SET LOCAL app.organisation_id, dann SELECT ... FOR UPDATE SKIP LOCKED, Lease setzen", "JDBC/RLS")
     Rel(claimer, dispatcher, "übergibt den beanspruchten Lauf")
     Rel(dispatcher, payloadProvider, "Nutlastbytes für den Request")
     Rel(payloadProvider, secretStore, "Schlüssel für die Entschlüsselung")

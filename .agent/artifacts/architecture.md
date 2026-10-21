@@ -48,7 +48,7 @@ sind **Vorgabewerte in der Konfiguration** — kein Wert ist im Code verdrahtet.
 | Schicht | Komponenten | Daten |
 |---|---|---|
 | **Oberfläche** | Endpunkte, Zustellprotokoll, Tote Zustellungen | — |
-| **API-Layer** | Security-Adapter, Mandantenkontext, 4 Controller, 7 Fachservices, Crypto-Service, Fehlerabbildung | `endpoints`, `events`, `delivery_runs`, `delivery_attempts`, `audit_log` |
+| **API-Layer** | Security-Adapter, Mandantenkontext, 5 Controller, 8 Fachservices, Crypto-Service, Fehlerabbildung | `endpoints`, `events`, `delivery_runs`, `delivery_attempts`, `audit_log` |
 | **Zustell-Worker** | Scheduler, Claimer (Lease), Dispatcher, Signatur, Backoff, Endpunkt-Begrenzung, Protokollschreiber, Lease-Rettung | dieselben Tabellen |
 | **Datenbank** | PostgreSQL 16, Schema `app`, RLS auf **allen** 10 fachlichen Tabellen | Zähler, Rate-Limits, Aufbewahrungseinstellungen |
 
@@ -134,6 +134,21 @@ Worker: beansprucht fällige Läufe (SKIP LOCKED + Lease)
 | B-08 | Fehlerschema und ADRs doppelt in `architecture.md` | Redundante Tabellen entfernt, Verweise auf ADR-015 und den Vertrag |
 | B-09 | ADR-014 und ADR-008 variieren dieselbe Entscheidung (fehlgeschlagener Versuch) | In ADR-008 zusammengeführt; ADR-014 bleibt als Verweis |
 
+## 9a. Befunde aus Schritt 4 (Grill-Me-Stresstest)
+
+Vollständig in `.agent/artifacts/stress-test.md`. Kurzfassung:
+
+| # | Befund | Behandlung |
+|---|---|---|
+| S-01 | **„muss“** — `service_admin` soll alle Mandanten sehen, RLS erlaubt genau einen; keine Rolle mit `BYPASSRLS` | **Rücksprung zu Schritt 2** (ADR-002 + Schema) — offen als Entscheidung E-01 |
+| S-02 | **„muss“** — Vertrag nennt `page.nextCursor`/`hasMore`, das Schema `next_cursor`/`has_more` | Vertragsdefekt; die Architekturdateien sind korrigiert |
+| S-03 | **„muss“** — Aufbewahrung: globaler Stichtag statt Anker „letzter Versuch“, Markieren/Purge/Karenzzeit im Vertrag nicht abgebildet | Vertragsdefekt (Schritt 2) |
+| S-04 | **„muss“** — wirksamer Grenzwert: `null` heißt im Vertrag „abgeschaltet“, in ADR-010 „kein Override“ (⇒ 60) | Vertragsdefekt + Schema (`enabled`) — Schritt 2 |
+| S-05 | **„muss“** — „exakt die Nutzlastbytes“ vs. kanonische Materialisierung (RFC 8785) | Vertragsdefekt (Schritt 2) |
+| N-01 | **„muss“** — Mandantenkontext an die *Verbindung* statt an die *Transaktion* gebunden | in `docs/architecture/` korrigiert (Diagramm, Zielstruktur) |
+| N-02 | **„muss“** — Work beansprucht Läufe ohne Mandantenermittlung | in `docs/architecture/` korrigiert (Worker-Diagramm) |
+| — | 18 weitere Befunde (Soll/Optional) | im Stresstest-Bericht mit Fundstelle und Korrekturvorschlag |
+
 ## 10. Geprüft
 
 | Prüfung | Ergebnis |
@@ -165,3 +180,4 @@ Worker: beansprucht fällige Läufe (SKIP LOCKED + Lease)
 | `.agent/artifacts/api-review.md` | Vertragsreview |
 | `.agent/artifacts/adr-index.md` | ADR-Index (Gate-Vorlage) |
 | `.agent/artifacts/simplify-report.md` | **Reduktionsbericht (Schritt 3)** |
+| `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — 22 Vertragsdefekte, 7 „muss“-Befunde, offene Entscheidungen |

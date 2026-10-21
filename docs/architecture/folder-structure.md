@@ -1,6 +1,7 @@
 # Zielstruktur für `src/` — EchoBox
 
-> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (Simplify & Reduktion), korrigiert in Schritt 4 (Grill-Me-Stresstest)
+> · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > **Noch kein Code.** Diese Datei beschreibt, **wo** der Code in Schritt 6
 > entstehen wird. Die Pfade sind mit den in
 > `docs/requirements/traceability_matrix.json` geplanten Test- und Codepfaden
@@ -40,7 +41,8 @@
 │   ├── unit/                          JUnit 5 + Vitest
 │   ├── integration/                   Testcontainers (PostgreSQL 16)
 │   ├── e2e/                           Playwright
-│   └── contract/                      Vertragstests gegen docs/api/openapi.yaml
+│   ├── contract/                      Vertragstests gegen docs/api/openapi.yaml
+│   └── performance/                   Lasttest: NFR-002 (p95 < 200 ms über 1.000 Einlieferungen)
 ├── docs/                              (unverändert, Ergebnisbereiche)
 └── Dockerfile, docker-compose.yml     (Schritt 6)
 ```
@@ -82,7 +84,7 @@
 |---|---|
 | `delivery/DeliveryWorker.java` | Hintergrundprozess: beansprucht fällige Läufe, plant Wiederholungen, beendet Läufe. |
 | `delivery/DeliveryService.java` | Fachlogik des Zustelllaufs: Zustandsautomat, Replay (neuer Lauf, neue ID, Versuchszahl zurückgesetzt). |
-| `delivery/DeliveryController.java` | REST-Adapter: `GET /deliveries`, `GET /deliveries/{id}`, `POST /deliveries/{id}/replay`. |
+| `delivery/DeliveryController.java` | REST-Adapter: `POST /deliveries/{id}/replay` (US-013). |
 | `delivery/DeliveryStateMachine.java` | Die Zustandsübergänge des Zustelllaufs — die einzige Stelle, die Zustände ändert. |
 | `delivery/DeliveryDispatcher.java` | Fächer: nimmt einen beanspruchten Lauf, holt Nutzlast, signiert, versendet, wertet aus. |
 | `delivery/DeliveryHttpClient.java` | HTTP-Adapter (Port `DeliveryPort`): Timeouts (5 s / 10 s), TLS, Antwortauswertung. |
@@ -106,7 +108,7 @@
 
 | Datei | Verantwortung |
 |---|---|
-| `protocol/ProtocolController.java` | REST-Adapter: Protokoll, Totenliste, Replay, Aufbewahrung. |
+| `protocol/ProtocolController.java` | REST-Adapter: **Zustellprotokoll** (`GET /deliveries`, `GET /deliveries/{id}`), **Totenliste** und **Aufbewahrung** erzwingen. Der Replay liegt im `delivery`-Modul (Traceability-Matrix, Schritt 1). |
 | `protocol/ProtocolQueryService.java` | Protokollsuche **nur über Metadaten** (D-11), cursor-basiert paginiert. |
 | `protocol/DeadDeliveryQueryService.java` | Totenliste mandantenübergreifend für `service_admin`. |
 | `protocol/EndpointMetricsService.java` | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false` ohne Daten (FR-032). |
@@ -118,8 +120,17 @@
 | Datei | Verantwortung |
 |---|---|
 | `tenant/TenantContext.java` | Hält `organisation_id` und die Rollen aus dem Token. |
-| `tenant/TenantConnectionInitializer.java` | Setzt je Transaktion `app.set_tenant(...)` über die gebundene JDBC-Verbindung (AC-022-3). |
-| `tenant/TenantFilter.java` | Spring-Interceptor, der den Kontext **vor** dem ersten Repository-Zugriff setzt. |
+| `tenant/TenantConnectionInitializer.java` | Setzt `app.set_tenant(...)` **innerhalb** der Transaktion, auf der die Abfrage läuft (AC-022-3). **Transaktionsgebunden, nicht verbindungsgebunden** — siehe die Konvention „Mandant“ in §4. Der Name ist historisch; die Traceability-Matrix (Schritt 1) nennt ihn so. |
+| `tenant/TenantFilter.java` | Liest **nur** das JWT und füllt `TenantContext` (request-scoped). **Kein** Datenbankzugriff, **kein** `set_tenant()` — der Mandant wird erst in der Transaktion gesetzt, die auch liest. |
+
+> **Warum der Unterschied entscheidend ist:** `app.set_tenant()` nutzt
+> `set_config(…, is_local = true)` — der Wert gilt **nur innerhalb der
+> Transaktion**, die ihn gesetzt hat. In einem Servlet-Filter oder beim
+> Anlegen einer Pool-Verbindung gesetzt, wäre er beim ersten Query entweder
+> schon zurückgesetzt (Autocommit) oder auf einer **anderen** Connection
+> gesetzt — `current_setting('app.organisation_id', true)` liefert dann `NULL`,
+> die RLS-Policy greift **fail-closed** und **jede** Abfrage liefert 0 Zeilen
+> (ADR-002 §2).
 
 ### 2.7 `common` und `config`
 
@@ -127,8 +138,8 @@
 |---|---|
 | `common/Problem.java` | Das einheitliche Fehlerschema (RFC-7807-artig). |
 | `common/ProblemFactory.java` | Erzeugt Fehlerantworten — **eine** Stelle für alle Fehler. |
-| `common/GlobalExceptionHandler.java` | `@RestControllerAdvice`: ordnet Ausnahmen den Statuscodes zu (400/401/403/404/409/413/422/500). |
-| `common/PageResponse.java` | Cursor-Paginierung (`limit`, `hasMore`, `nextCursor`). |
+| `common/GlobalExceptionHandler.java` | `@RestControllerAdvice`: ordnet Ausnahmen den Statuscodes zu (400/401/403/404/409/413/422/**429**/**503**/500). |
+| `common/PageResponse.java` | Cursor-Paginierung (`limit`, `has_more`, `next_cursor`) — Feldnamen **wie im Vertrag** (`components.schemas.Page`). |
 | `common/CursorCodec.java` | Erzeugt und prüft die opaken Cursor (HMAC-signiert, 422 bei ungültigem Cursor). |
 | `common/ClockConfig.java` | Port `ClockPort` — die testbare Uhr. |
 | `common/IdGenerator.java` | Port `IdGenerator` — UUID-v7, damit IDs zeitlich sortierbar bleiben. |
@@ -175,10 +186,11 @@
 | Schichtentrennung | `*Controller` (HTTP) → `*Service` (Fachlogik) → `*Repository` (JDBC). Die Fachlogik kennt **keine** HTTP- und **keine** JDBC-Typen. |
 | Ports | Alle nach außen gerichteten Zugriffe laufen über Ports (`DeliveryPort`, `SecretPort`, `ClockPort`, `IdGenerator`, Repositories). |
 | SQL | **Nur** vorbereitete Statements über `JdbcTemplate` mit benannten Parametern. Kein String-Konkatenieren, kein dynamisch zusammengesetztes SQL. Jede Abfrage trägt den Mandanten. |
+| **Mandant** | `app.set_tenant(...)` wird **innerhalb** der Transaktion ausgeführt, die auch liest, und **immer** vor der ersten Abfrage. Kein Zugriff auf `app.*` außerhalb einer solchen Transaktion, kein `REQUIRES_NEW` nach dem Setzen, kein Autocommit. Der Kontext ist **transaktionsgebunden**, nicht verbindungsgebunden — ein Connection-Pool ändert daran nichts (ADR-002 §2-3). |
 | Fehler | Ausnahmen aus `common` (`TenantParameterException`, `IdempotencyConflictException`, `PayloadTooLargeException`, …); die Abbildung auf HTTP geschieht **ausschließlich** in `GlobalExceptionHandler`. |
 | Kein Klartext | Nutzlast und Secrets erscheinen in **keinem** Log, **keiner** Fehlermeldung und **keinem** `toString()`. |
 | Konfiguration | Alle Zahlenwerte kommen aus `DeliveryProperties` (ENV). Keine Zahl ist im Code verdrahtet. |
-| Tests | Unit-Tests ohne Datenbank (Mocks der Ports); Integrationstests gegen eine **echte** PostgreSQL-16-Instanz (Testcontainers) — die Mandantentrennung ist gegen eine echte Datenbank zu belegen (AC-022-1, AC-022-2). |
+| Tests | Unit-Tests ohne Datenbank (Mocks der Ports); Integrationstests gegen eine **echte** PostgreSQL-16-Instanz (Testcontainers) — die Mandantentrennung ist gegen eine echte Datenbank zu belegen (AC-022-1, AC-022-2). **Parallelbetrieb:** zwei Worker-Instanzen gegen dieselbe Datenbank (AC-023-3) und ein Lease-Ablauf im Test (AC-023-4) brauchen eigene Integrationstests. **Last:** NFR-002 (p95 < 200 ms über 1.000 Einlieferungen) braucht einen Lasttest (`tests/performance/`) — der nicht in die normale Unit-/Integrationstest-Suite gehört. |
 
 ---
 

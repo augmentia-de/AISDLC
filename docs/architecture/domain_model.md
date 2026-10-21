@@ -1,6 +1,7 @@
 # Domänenmodell — EchoBox
 
-> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (Simplify & Reduktion), korrigiert in Schritt 4 (Grill-Me-Stresstest)
+> · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Grundlage: `docs/requirements/PRD.md` (Abschnitt 4 und 6), `docs/Anforderung.md` (Abschnitt 4)
 > Umsetzung: `.agent/knowledge/schema.sql`, `docs/api/openapi.yaml`
 
@@ -35,8 +36,8 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
                     │  organisation_id    │
                     │  target_url         │
                     │  secret_ciphertext  │
-                    │  status (aktiv|     │
-                    │    pausiert)        │
+                    │  status (active|    │
+                    │    paused)          │
                     └─────────┬──────────┘
                               │ 1:n
               ┌───────────────┼───────────────┐
@@ -122,6 +123,14 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | `cancelled` | durch Pause des Endpunkts abgebrochen (D-03) | **ja** | nein |
 | `no_subscriber` | Ereignis ohne Abnehmer (D-04) — es gab nie einen Versuch | **ja** | nein |
 
+> **Der Zustand eines *neuen* Laufs:** Ein Zustelllauf entsteht in `pending`
+> (angelegt, noch kein Versuch ausgeführt) — so steht es auch im Schema
+> (`delivery_runs.status` DEFAULT `'pending'`). `scheduled` heißt: **ein Versuch
+> läuft gerade**. *Offen:* das Beispiel im Vertrag
+> (`ReplayResponse.status: scheduled` bei `attempt_count: 0`) weicht davon ab —
+> Vertrag und Schema sind sich hier uneinsig (Befund S-07 im Stresstest,
+> Schritt 4). Bis zur Entscheidung gilt diese Tabelle.
+
 ### 3.2 Übergänge
 
 ```
@@ -157,9 +166,13 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 
    no_subscriber: Sonderfall ohne jeden Versuch (D-04)
 
-   rejected / cancelled / abandoned  ──(Replay, FR-024)──► neuer Zustelllauf
-                                                          (neue Zustelllauf-ID,
-                                                           Versuchszahl startet bei 1)
+   abandoned ──(Replay, FR-024)──► neuer Zustelllauf
+                                    (neue Zustelllauf-ID,
+                                     Versuchszahl startet bei 1)
+
+   rejected / cancelled: endgültig, aber **nicht** replaybar —
+   replaybar ist nur die aufgegebene Zustellung (Vertrag, GLOSSARY)
+
 ```
 
 ### 3.3 Übergangstabelle
@@ -176,7 +189,7 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | `failed` | Endpunkt-Limit greift | `delayed` | Zähler je Endpunkt/Fenster über dem Grenzwert | FR-033, AC-018-2 |
 | `delayed` | Zeitfenster frei | `scheduled` | — | FR-033 |
 | `failed`/`delayed` | Versuchsgrenze erreicht | `abandoned` | `attempt_count >= max_attempts` | FR-023, AC-012-1 |
-| beliebig endgültig | Replay | **neuer** Lauf in `scheduled` | Empfänger-Admin des Endpunkts, Endpunkt nicht pausiert | FR-024, AC-013-1, AC-013-4 |
+| `abandoned` | Replay | **neuer** Lauf in `pending` | Empfänger-Admin des Endpunkts, Endpunkt nicht pausiert, Vorgängerlauf ist `abandoned` | FR-024, AC-013-1, AC-013-4 |
 | `pending` | Ereignis ohne Abnehmer | `no_subscriber` | kein Endpunkt abonniert den Ereignistyp | D-04 |
 
 ### 3.4 Invarianten

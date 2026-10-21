@@ -2,7 +2,8 @@
 
 > Fachsprache für Code, Doku und Tests. Eine Stelle je Begriff, immer mit der
 > Negation und mit der Quelle. Format nach Skill `aisdlc-glossary-adr`.
-> Stand: Schritt 2 (Konzept & Architektur) · Agent: `aisdlc-architecture`
+> Stand: Schritt 2 (Konzept & Architektur), korrigiert in Schritt 4 (Grill-Me-Stresstest)
+> · Agent: `aisdlc-architecture`
 
 ---
 
@@ -11,7 +12,9 @@
 Eine Registrierung aus Ziel-URL, Secret, abonnierten Ereignistypen und Zustand.
 
 - **Ausprägung:** genau eine `https`-Ziel-URL, genau ein verschlüsselt
-  abgelegtes Secret, mindestens ein Ereignistyp, Status `aktiv` oder `pausiert`.
+  abgelegtes Secret, mindestens ein Ereignistyp, Status `active` oder `paused`
+  (im Deutschen „aktiv“/„pausiert“ — die **Werte** sind englisch, wie im
+  Vertrag und im Schema).
 - **Nicht:** ein Nachrichtenziel, kein Empfänger-*Nutzer*, kein Mandant. Der
   Endpunkt gehört genau einem Mandanten.
 - **Quelle:** FR-001…FR-003, `docs/Anforderung.md` Abschnitt 4

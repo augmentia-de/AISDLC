@@ -1,6 +1,7 @@
 # Architektur — EchoBox (Ereignis-Briefkasten mit Zustellgarantie)
 
-> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (Simplify & Reduktion), korrigiert in Schritt 4 (Grill-Me-Stresstest)
+> · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Quellen: `docs/Anforderung.md`, `docs/requirements/PRD.md`, `docs/requirements/traceability_matrix.json`
 > **Eine Erzählung, keine Doppelführung:** Die Entscheidungen stehen in
 > `docs/adr/`, der Vertrag in `docs/api/openapi.yaml`, die Fachbegriffe in
@@ -188,6 +189,8 @@ Konsequenzen stehen in der genannten ADR:
 | Thema | Festlegung | ADR |
 |---|---|---|
 | **Mandantentrennung** | Drei Ebenen, die sichern: Vertrag (Mandant aus dem JWT, Fremdes ⇒ 404), Anwendung (jede Abfrage trägt den Mandanten), **Datenbank** (RLS auf jeder fachlichen Tabelle, `fail-closed`, keine Rolle mit `BYPASSRLS`) | ADR-002 |
+| **Mandant und Transaktion** | `app.set_tenant(...)` wird **innerhalb** der Transaktion ausgeführt, die auch liest — nie in einem Servlet-Filter, nie beim Anlegen einer Pool-Verbindung, nie nach einem Commit. Der Wert ist transaktionslokal (`set_config(…, is_local = true)`); steht er nicht in derselben Transaktion, liefert `current_setting(…, true)` `NULL` und **jede** Abfrage liefert 0 Zeilen (fail-closed). Jeder Repository-Zugriff braucht deshalb eine Transaktion, die den Mandanten gesetzt hat. | ADR-002 §2-3 |
+| **Mandant im Worker** | Der Worker ermittelt seine Mandanten über `app.tenant_ids_for_worker()` (nur Kennungen, keine Nutzlast) und arbeitet **mandantenweise**: erst `set_tenant`, dann beanspruchen. Ohne diesen Schritt liefert die Beanspruchung 0 Zeilen. | ADR-002 §5, ADR-006 §3 |
 | **Verschlüsselung im Ruhezustand** | AEAD **AES-256-GCM** für Nutzlast und Endpunkt-Secret; Schlüssel aus dem Secret-Store, **außerhalb** der Datenbank; entschlüsselt **nur** zur Zustellung; Suche ausschließlich über Metadaten | ADR-003, ADR-017 |
 | **Idempotenz** | Je **(Mandant, Schlüssel)**; gleiche Nutzlast ⇒ 202 mit erster ID; abweichende Nutzlast ⇒ 409; Vergleich über gezielten HMAC | ADR-007 |
 | **Endpunkt-Begrenzung** | **60 Versuche je Endpunkt und Minute**, Strategie `delay` (F-01) — verschieben, nicht verwerfen; je Endpunkt überschreibbar | ADR-010 |
@@ -273,6 +276,7 @@ O-01, O-02, O-03, O-06 und O-07 sind am 2026-10-21 am Gate 1 entschieden
 | `.agent/knowledge/openapi.yaml` | **Verweis** auf `docs/api/openapi.yaml` |
 | `.agent/artifacts/architecture.md` | Kompakter Katalog |
 | `.agent/artifacts/simplify-report.md` | Reduktionsbericht (Schritt 3) |
+| `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — Befunde, Vertragsdefekte, offene Entscheidungen |
 | `.agent/artifacts/folder-structure.md` | Zielstruktur (Kurzfassung) |
 | `.agent/artifacts/api-review.md` | Vertragsreview: Abdeckung und Lücken |
 | `.agent/artifacts/adr-index.md` | Eine Zeile je ADR |
