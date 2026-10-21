@@ -4,8 +4,10 @@
 > Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Geprüfter Vertrag: `docs/api/openapi.yaml` (OpenAPI 3.0.3, `info.version` 1.0.0)
 > Vertrag ist ein **Entwurf** — er wird **nach Schritt 4** eingefroren.
-> Die 22 Vertragsdefekte des Stresstests sind in diesem Rücksprung **alle**
+> Die 22 Vertragsdefekte des Stresstests sind im Rücksprung **alle**
 > behoben; die Bilanz steht in `.agent/artifacts/ruecksprung-bilanz.md`.
+> Die fünf beim Beheben gefundenen Restbefunde **R-01…R-05** sind in
+> Schritt 3 behandelt (§4b).
 > Die früheren Befund-IDs dieses Reviews heißen jetzt **A-01…A-10**, damit sie
 > nicht mit den Defekt-IDs **V-01…V-22** des Stresstests verwechselt werden.
 
@@ -66,7 +68,7 @@ Details: `.agent/artifacts/simplify-report.md`.
 | Ereignistyp | `X-EchoBox-Event-Type` |
 | Request-Body | **exakt die Nutzlastbytes**, keine Hülle |
 | Ablehnungssignal | HTTP **410**, Header `X-EchoBox-Rejection: permanent`, Body `{rejection, reason, message?, rejected_event_types?}` |
-| Wiederholungsmatrix | 5xx / 408 / 429 / Netzwerkfehler ⇒ wiederholen; 2xx ⇒ fertig; 410 und übrige 4xx ⇒ Ende |
+| Wiederholungsmatrix | 5xx / 408 / 429 / Netzwerkfehler ⇒ wiederholen; 2xx ⇒ fertig; 410 und übrige 4xx ⇒ Ende; **3xx ⇒ Ende** (`rejected` / `client_error`), Redirects werden **nicht** gefolgt (E-08) |
 | Dubletten | at-least-once; Deduplizierung über `X-EchoBox-Event-Id`, Wiederholungserkennung über gleiche `Delivery-Run-Id` + verschiedene `Attempt-Id` |
 | **Vorgabewerte (F-04)** | 8 Versuche, Basis 1 min, ×2, Deckel 60 min, Streuung ± 20 %; Zeitlimit je Versuch 5 s + 10 s = 15 s |
 | **Vorgabewert (F-01)** | 60 Versuche je Endpunkt und Minute, Strategie `delay` |
@@ -139,6 +141,16 @@ Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 | **Operationen** | **17** — keine neue, keine entfernte |
 | A-10 | Ereignisliste ohne Abnehmer (`listEvents`) | entfernt — kein Abnehmer, kein Zweck | entschieden in Schritt 3 |
 
+## 4b. Stand nach Schritt 3 (2026-10-21) — die fünf Restbefunde
+
+| ID | Befund | Stand |
+|---|---|---|
+| **R-03** | `DeadDelivery.abandoned_at` nicht nullable, der Statusfilter der Totenliste ließ `rejected` zu | **behoben**: die Totenliste enthält **ausschließlich aufgegebene** Zustellungen (`abandoned`) — GLOSSARY „Tote Zustellung“, Domain-Modell §3.1, DB-Check `delivery_runs_abandoned_at_ck`. Neues Schema `DeadDeliveryStatus`; `abandoned_at` bleibt Pflicht |
+| **R-04** | Cursor-Semantik der mandantenübergreifenden Listen nicht beschrieben | **behoben**: Abschnitt „Pagination“ im Vertrag — Cursor **über die Mandantgrenzen hinweg**, globale Reihenfolge, Sortierschlüssel + UUID als Tie-Breaker, Keyset statt Offset; `enforceRetention` ist **nicht** paginiert |
+| **R-05** | `tenants[]` unterschied „eigene Frist“ nicht von „Vorgabe“ | **behoben**: `event_retention_source` / `delivery_retention_source` (`tenant` \| `default`); die Beschreibung „`null` = kein Override“ war falsch und ist korrigiert (der Wert ist die **angewandte** Frist) |
+| **R-01** | Karenzzeit ohne beschlossenen Wert; das Beispiel nannte **7 Tage** | **ohne Festlegung**: Beispielwert entfernt, Feld nullable, „kein Vorgabewert“ ausgesprochen. **Bleibt offen** (Fachbereich, Gate 2) |
+| **R-02** | `payload_size_bytes` misst die kanonisch materialisierten Bytes (**35**, nicht 38) | kein Befund — folgt zwingend aus V-04 |
+
 ---
 
 ## 5. Maschinenprüfung
@@ -161,42 +173,25 @@ Alle Fehlerantworten nutzen `application/problem+json` mit dem Schema `Problem`.
 
 ---
 
-## 6. Empfehlung für Schritt 4 (Stresstest)
+## 6. Stand für Schritt 4 (Stresstest)
 
-> **Stand 2026-10-21:** Der Stresstest **ist** gelaufen (`.agent/artifacts/
-> stress-test.md`). Seine 22 Vertragsdefekte und der Architekturbruch S-01 sind
-> im Rücksprung **alle** behoben. Die folgende Liste ist damit **historisch** —
-> sie beschreibt den Auftrag an den Stresstest. Offen für den **zweiten**
-> Stresstest sind die fünf beim Beheben gefundenen Punkte **R-01…R-05**
-> (Bilanz §5) — insbesondere R-03 (nullable `abandoned_at` in der Totenliste).
+> Der Stresstest **ist** gelaufen (`.agent/artifacts/stress-test.md`, Commit
+> `bdb03d3`). Seine 22 Vertragsdefekte und der Architekturbruch S-01 sind im
+> Rücksprung **alle** behoben; die fünf beim Beheben gefundenen Punkte
+> **R-01…R-05** sind in Schritt 3 behandelt (Bilanz §5, §4b hier).
 
-Der Vertrag war **stabil und vollständig**, aber bewusst **nicht eingefroren**.
-Der Stresstest sollte gezielt prüfen:
+**Offen für den zweiten Stresstest** ist damit nur noch **ein** Punkt:
+**R-01** — die Karenzzeit der Aufbewahrung hat keinen beschlossenen
+Vorgabewert. Der Vertrag behauptet seit Schritt 3 **keinen** Wert; die
+Entscheidung liegt beim **Fachbereich** (Gate 2).
 
-1. **Grenzfälle des Idempotenzvergleichs** — zwei Nutzlasten, die sich nur in
-   der Schlüsselreihenfolge unterscheiden (gleicher Fingerprint?) und zwei, die
-   sich in einer Zahl (`1` vs. `1.0`) unterscheiden.
-2. **Die 1-MB-Grenze bei `payload_base64`** — gilt die Grenze für die
-   *dekodierten* Bytes (so im Vertrag festgelegt) oder für die Base64-Länge?
-   Der Vertrag sagt: dekodierte Bytes. Das ist zu bestätigen.
-3. **Der Endzustand `rejected` bei einem 4xx ohne Ablehnungssignal** — die
-   Unterscheidung `client_error` vs. `permanent_rejection` muss in der
-   Oberfläche sichtbar sein.
-4. **`delayed` als sichtbarer Zwischenzustand** — trägt der Vertrag die
-   Zustandsbezeichnung der Oberfläche?
-5. **Der Vertrag bei gleichzeitigen Einlieferungen** — zwei Requests mit
-   demselben Idempotenzschlüssel gleichzeitig: was antwortet der zweite?
-   (Vertrag: 202 mit `idempotent_replay: true`.)
-6. **Der Replay auf einen Endpunkt, der zwischenzeitlich pausiert wurde** —
-   der Vertrag sagt 202; das Verhalten ist aber „kein Versuch, Ende ohne
-   Zustellung“ (D-03). Die Antwortform ist zu präzisieren.
-7. **Die Wirkung der bestätigten Vorgabewerte auf die Antwortfelder** —
-   `rate_limit.limit = 60`, `max_attempts = 8`, zwei Aufbewahrungsfristen:
-   Sind die Felder nullable genug, um „kein Override" und „abgeschaltet"
-   abzubilden?
-8. **Der Weg zum Ereignis, seit die Ereignisliste entfallen ist** — reicht der
-   Filter `event_id` / `event_type` in `GET /api/v1/deliveries`, um alle
-   Betriebsfragen zu beantworten, die die Liste beantwortet hat?
+Die frühere Prüfliste des ersten Stresstests (Grenzfälle des
+Idempotenzvergleichs, 1-MB-Grenze bei `payload_base64`, `delayed` als
+sichtbarer Zwischenzustand, gleichzeitige Einlieferungen, Replay auf einen
+pausierten Endpunkt, Wirkung der Vorgabewerte auf die Antwortfelder, Weg zum
+Ereignis seit Entfernen der Ereignisliste) ist **abgearbeitet** — die
+zugehörigen Befunde V-01…V-22 und die Entscheidungen E-01…E-09 sind in
+`.agent/artifacts/ruecksprung-bilanz.md` einzeln belegt.
 
 ---
 
@@ -206,3 +201,4 @@ Der Stresstest sollte gezielt prüfen:
 |---|---|---|---|
 | O-04 | Verschlüsselung: fachliche Pflicht und Durchsuchbarkeit | Fachbereich + Datenschutz (Verfahren: Architektur, entschieden) | Gate 2 |
 | O-05 | Auftragsverarbeitung / AVV | Fachbereich + Recht | Gate 2 |
+| **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) — kein beschlossener Vorgabewert; der Vertrag behauptet **keinen** | Fachbereich | Gate 2 |

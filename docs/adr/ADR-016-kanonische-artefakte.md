@@ -27,7 +27,14 @@ stammt aus dem Vorlauf und wird hier durch diese ADR abgelöst.
 | **Datenbankschema** | `.agent/knowledge/schema.sql` | `docs/architecture/schema.sql` | **byte-identische Kopie**, versioniert |
 | **Stack-Wissen** | `.agent/knowledge/stack.md` | — (Quelle: ADR-001) | einzige Fassung |
 | **Fachglossar** | `docs/architecture/GLOSSARY.md` | — | einzige Fassung |
-| **ADRs** | `docs/adr/ADR-*.md` | `.agent/artifacts/adr-index.md` | Index, keine Kopie |
+| **ADRs** | `docs/adr/ADR-*.md` | `docs/adr/README.md` (Index) · `.agent/artifacts/adr-index.md` (Gate-Vorlage) | Index **einmal**; die Vorlage enthält **keine** Kopie |
+
+> **Korrektur der Dateibeziehung in Schritt 3 (2026-10-21):** Die Zeile „ADRs“
+> nannte nur `.agent/artifacts/adr-index.md`. Diese Datei hielt einen **zweiten**
+> ADR-Index — und war nach dem Rücksprung **veraltet** (ADR-002 §7 fehlte).
+> Sie ist jetzt die **Gate-Vorlage** (bestätigt / offen) und **verweist** auf den
+> Index in `docs/adr/README.md`. Die **Entscheidung** — ein Ort pro Wahrheit —
+> bleibt unverändert.
 
 ### 2. Vertrag: Verweis statt Kopie
 

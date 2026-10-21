@@ -69,6 +69,31 @@ info:
     ausgewiesen: eine Zählung über die verschlüsselten, zeitlich geordneten
     Zustelltabellen wäre teuer und im Protokoll nicht nötig.
 
+    **Cursor und Sortierung.** Der Cursor ist **opak** (HMAC-signiert) und
+    trägt den **Sortierschlüssel** der Liste; die Position hängt am Schlüssel,
+    nicht an einem Offset — zwischen zwei Seiten geänderte Datensätze werden
+    deshalb **weder doppelt** noch **übersprungen**. Sortiert wird absteigend
+    nach Zeitstempel, mit der **UUID als Tie-Breaker** in derselben Richtung;
+    die Reihenfolge ist damit **total** — zwei Datensätze mit gleichem
+    Zeitstempel wechseln ihre Plätze **nie**, und zwei Seiten teilen sich keine
+    Randzeile. Ändert sich der Sortierschlüssel eines Datensatzes, rutscht er in
+    der Reihenfolge nach vorn und erscheint erst wieder in einer Liste ab
+    Seite 1.
+
+    **Mandantenübergreifende Listen.** Für den `service_admin` laufen
+    `GET /api/v1/endpoints` und `GET /api/v1/dead-deliveries` in **einer**
+    globalen Reihenfolge über **alle** Mandanten: der Cursor läuft **über die
+    Mandantgrenzen hinweg**, es gibt **keine** Seite je Mandant, und eine Seite
+    kann Datensätze verschiedener Mandanten enthalten. Die Sortierschlüssel
+    sind dort `updated_at` (Endpunktliste) und `created_at` (Totenliste). In den
+    mandantenübergreifenden Antworten ist `organisation_id` deshalb **im
+    Datensatz** gefüllt. Ein Cursor gilt nur für **dieselbe** Operation **mit
+    denselben Filtern**; bei geänderten Filtern beginnt die Liste neu.
+
+    `POST /api/v1/retention/enforcement` ist **nicht** paginiert: die Antwort
+    enthält **einen** Eintrag je Mandant in `tenants[]` — ohne Cursor, ohne
+    `page`.
+
     ## Suchbarkeit
 
     Die Protokollsuche läuft **ausschließlich über Metadaten** (Ereignis-ID,
@@ -528,10 +553,10 @@ paths:
         ist nicht Teil des Vertrags (D-01).
 
         **Mandantenübergreifende Sicht:** Sie wird über die schmalen
-        Eigentümerfunktionen des Schemas hergestellt
-        (`app.list_endpoints_cross_tenant`, ADR-002) — **nicht** über eine
-        Laufzeitrolle mit `BYPASSRLS`. In diesem Fall ist `organisation_id` in
-        **jedem** Datensatz gefüllt, damit der Client die Herkunft erkennt.
+        Eigentümerfunktionen des Schemas hergestellt (ADR-002 §7) — **nicht**
+        über eine Laufzeitrolle mit `BYPASSRLS`. In diesem Fall ist
+        `organisation_id` in **jedem** Datensatz gefüllt, damit der Client die
+        Herkunft erkennt.
       x-ac-id:
         - US-004/AC-004-1
         - US-004/AC-004-2
@@ -1166,12 +1191,18 @@ paths:
         Die Filter (Endpunkt, Status, Ereignistyp, Zeitraum) sind kombinierbar,
         die Liste ist seitenweise abrufbar.
 
+        **Inhalt:** Die Totenliste enthält **ausschließlich aufgegebene
+        Zustellungen** — Status `abandoned` mit gesetztem `abandoned_at`
+        (GLOSSARY „Tote Zustellung“). Endgültig beendete, aber **nicht**
+        aufgegebene Zustellungen stehen im Zustellprotokoll
+        (`GET /api/v1/deliveries`). Der Zeitraumfilter bezieht sich auf den
+        **Aufgabezeitpunkt** (`abandoned_at`).
+
         **Mandantenübergreifende Sicht:** Die Liste zeigt die toten Zustellungen
         **aller** Mandanten. Sie wird über die schmale Eigentümerfunktion des
-        Schemas hergestellt (`app.list_dead_deliveries_cross_tenant`, ADR-002) —
-        **nicht** über eine Laufzeitrolle mit `BYPASSRLS`. `organisation_id` ist
-        in **jedem** Datensatz gefüllt, damit der Client die Herkunft erkennt
-        (AC-016-1).
+        Schemas hergestellt (ADR-002 §7) — **nicht** über eine Laufzeitrolle mit
+        `BYPASSRLS`. `organisation_id` ist in **jedem** Datensatz gefüllt, damit
+        der Client die Herkunft erkennt (AC-016-1).
       x-ac-id:
         - US-016/AC-016-1
         - US-016/AC-016-2
@@ -1200,11 +1231,15 @@ paths:
         - name: status
           in: query
           required: false
-          description: "Filter auf den Zustellzustand (Standard: `abandoned`)."
+          description: >-
+            Filter auf den Zustand. Die Totenliste enthält **ausschließlich**
+            aufgegebene Zustellungen — der einzige zulässige Wert ist
+            `abandoned`. Endgültig beendete, aber **nicht** aufgegebene
+            Zustellungen stehen im Zustellprotokoll (`GET /api/v1/deliveries`).
           schema:
             type: array
             items:
-              $ref: "#/components/schemas/DeliveryStatus"
+              $ref: "#/components/schemas/DeadDeliveryStatus"
           style: form
           explode: false
           example: abandoned
@@ -1416,7 +1451,7 @@ paths:
         Mandanten** — die Operation ist mandantenübergreifend; je Mandant gilt
         die für ihn konfigurierte Frist. Die mandantenübergreifende Sicht und
         die Durchsetzung werden über die schmale Eigentümerfunktion des Schemas
-        hergestellt (`app.enforce_retention_cross_tenant`, ADR-002).
+        hergestellt (ADR-002 §7).
 
         **Anker je Datenart:** Die Frist beginnt **je Datensatz**, nicht zu
         einem globalen Stichtag. Der Anker ist der **letzte Zustellversuch**
@@ -1425,8 +1460,11 @@ paths:
 
         **Zwei Stufen:** (1) **Markieren** (`deleted_at` gesetzt) — der Datensatz
         ist sofort unsichtbar; (2) **Purge** — die physische Löschung nach der
-        **Karenzzeit** (`purge_delay_days`). Bei `dry_run: true` wird nichts
-        geändert; die Zähler weisen dann die **vorgemerkten** Mengen aus.
+        **Karenzzeit** (`purge_delay_days`). Die Karenzzeit ist
+        **konfigurierbar** (`echobox.retention.purge-delay`); ein
+        **Vorgabewert ist nicht festgelegt** — der Vertrag behauptet keinen
+        (offener Punkt R-01: Fachbereich, Gate 2). Bei `dry_run: true` wird
+        nichts geändert; die Zähler weisen dann die **vorgemerkten** Mengen aus.
 
         **Kaskade:** Das Löschen eines Ereignisses nimmt seine Zustellläufe und
         Versuche **mit**. Die Protokollfrist gilt deshalb nur für Läufe, deren
@@ -1463,26 +1501,41 @@ paths:
                 dry_run: true
                 scope: all
                 anchor: last_attempt_at
-                purge_delay_days: 7
-                event_retention_days: 30
+                purge_delay_days: null
+                event_retention_days: 14
                 delivery_retention_days: 30
-                event_cutoff: "2026-09-21T00:00:00.000Z"
+                event_cutoff: "2026-10-07T00:00:00.000Z"
                 delivery_cutoff: "2026-09-21T00:00:00.000Z"
-                marked_events: 128
-                marked_delivery_runs: 640
-                marked_attempts: 3120
+                marked_events: 140
+                marked_delivery_runs: 700
+                marked_attempts: 3360
                 purged_events: 0
                 purged_delivery_runs: 0
                 purged_attempts: 0
                 tenants:
                   - organisation_id: m-1
                     event_retention_days: 30
+                    event_retention_source: default
                     delivery_retention_days: 30
+                    delivery_retention_source: default
                     event_cutoff: "2026-09-21T00:00:00.000Z"
                     delivery_cutoff: "2026-09-21T00:00:00.000Z"
                     marked_events: 128
                     marked_delivery_runs: 640
                     marked_attempts: 3120
+                    purged_events: 0
+                    purged_delivery_runs: 0
+                    purged_attempts: 0
+                  - organisation_id: m-2
+                    event_retention_days: 14
+                    event_retention_source: tenant
+                    delivery_retention_days: 30
+                    delivery_retention_source: default
+                    event_cutoff: "2026-10-07T00:00:00.000Z"
+                    delivery_cutoff: "2026-09-21T00:00:00.000Z"
+                    marked_events: 12
+                    marked_delivery_runs: 60
+                    marked_attempts: 240
                     purged_events: 0
                     purged_delivery_runs: 0
                     purged_attempts: 0
@@ -1606,7 +1659,9 @@ components:
       required: false
       description: >-
         Opaqer Fortsetzungs-Cursor aus `page.next_cursor` der vorigen Seite.
-        Ein ungültiger Cursor wird mit HTTP 422 abgelehnt.
+        Er trägt den **Sortierschlüssel** der Liste und gilt nur für dieselbe
+        Operation mit denselben Filtern (siehe Abschnitt „Pagination“ in
+        `info.description`). Ein ungültiger Cursor wird mit HTTP 422 abgelehnt.
       schema:
         type: string
         maxLength: 512
@@ -1976,6 +2031,18 @@ components:
         - rejected
         - cancelled
         - no_subscriber
+
+    DeadDeliveryStatus:
+      type: string
+      description: >-
+        Zustand einer **toten Zustellung**. Die Totenliste enthält
+        **ausschließlich aufgegebene Zustellungen** — einen Zustelllauf, dessen
+        Versuchsgrenze erreicht wurde (`abandoned_at` gesetzt). Endgültig
+        beendete, aber **nicht** aufgegebene Zustellungen (vom Empfänger
+        abgelehnt, durch Pause abgebrochen) sind **keine** toten Zustellungen;
+        sie stehen im Zustellprotokoll (`GET /api/v1/deliveries`).
+      enum:
+        - abandoned
 
     AttemptOutcome:
       type: string
@@ -2528,7 +2595,10 @@ components:
 
     DeadDelivery:
       type: object
-      description: "Eine tote Zustellung — aufgegeben nach erschöpften Versuchen (FR-031)."
+      description: >-
+        Eine tote Zustellung — aufgegeben nach erschöpften Versuchen (FR-031).
+        Sie ist **immer** ein aufgegebener Zustelllauf (`abandoned`); der
+        Zeitpunkt der Aufgabe steht in `abandoned_at`.
       required:
         - delivery_run_id
         - event_id
@@ -2561,7 +2631,7 @@ components:
         event_type:
           type: string
         status:
-          $ref: "#/components/schemas/DeliveryStatus"
+          $ref: "#/components/schemas/DeadDeliveryStatus"
         attempt_count:
           type: integer
           format: int32
@@ -2576,6 +2646,10 @@ components:
         abandoned_at:
           type: string
           format: date-time
+          description: >-
+            Zeitpunkt der **Aufgabe** — der Zeitpunkt, an dem die Versuchsgrenze
+            erreicht wurde. **Immer** gefüllt (die Datenbank erzwingt das für
+            jeden aufgegebenen Lauf).
         created_at:
           type: string
           format: date-time
@@ -2761,6 +2835,9 @@ components:
         Die Fristen und Stichtage auf oberster Ebene sind die **kürzeste**
         angewandte Frist über alle Mandanten (der älteste Stichtag); je Mandant
         stehen die eigenen Fristen, Stichtage und Zählerstände in `tenants`.
+        Ob ein Mandant eine **eigene** Frist hat oder die **Vorgabe** nutzt,
+        steht je Datenart in `tenants[].event_retention_source` und
+        `tenants[].delivery_retention_source`.
       required:
         - dry_run
         - scope
@@ -2798,12 +2875,16 @@ components:
           type: integer
           format: int32
           minimum: 0
+          nullable: true
           description: >-
-            **Karenzzeit** zwischen der Stufe „Markieren" und der Stufe
-            „Purge" in Tagen. Sie kommt aus der Betriebskonfiguration
+            **Karenzzeit** zwischen der Stufe „Markieren" und der Stufe „Purge"
+            in Tagen. Sie kommt aus der Betriebskonfiguration
             (`echobox.retention.purge-delay`) und ist **kein** im Vertrag
-            verdrahteter Wert; der Vertrag weist sie aus, damit ein Aufrufer
-            die Frist einordnen kann (ADR-012 §3).
+            verdrahteter Wert. **Ein Vorgabewert ist nicht festgelegt** — der
+            Vertrag behauptet keinen (offener Punkt R-01: Fachbereich, Gate 2).
+            `null`, wenn die Betriebskonfiguration keinen Wert setzt; wie lange
+            ein markierter Datensatz ungelöscht bleibt, ist damit **nicht** Teil
+            dieses Vertrags (ADR-012 §3, §6).
         event_retention_days:
           type: integer
           format: int32
@@ -2890,10 +2971,16 @@ components:
       description: >-
         Die Aufbewahrung **eines** Mandanten: die angewandten Fristen, die
         zugehörigen Stichtage und die Zählerstände je Stufe.
+
+        Die Fristen sind **angewandte** Werte — der Mandant kann sie selbst
+        gesetzt haben oder die Vorgabe nutzen. Welches von beiden gilt, steht
+        je Datenart in `event_retention_source` und `delivery_retention_source`.
       required:
         - organisation_id
         - event_retention_days
+        - event_retention_source
         - delivery_retention_days
+        - delivery_retention_source
         - event_cutoff
         - delivery_cutoff
         - marked_events
@@ -2911,13 +2998,36 @@ components:
           format: int32
           nullable: true
           minimum: 1
-          description: "Angewandte Frist für Ereignisse in Tagen. `null` = kein Override; es gilt die Vorgabe (30 Tage, F-02)."
+          description: >-
+            Die **angewandte** Frist für Ereignisse in Tagen — der Wert, der
+            tatsächlich gilt (Vorgabe **30** Tage, F-02, je Mandant
+            überschreibbar). `null` bedeutet: es ist **keine** Frist wirksam
+            (kein Override **und** keine Vorgabe) — dann wird nichts gelöscht.
+        event_retention_source:
+          type: string
+          nullable: true
+          enum: [tenant, default]
+          description: >-
+            Woher die angewandte Frist für Ereignisse stammt: `tenant` = der
+            Mandant hat eine **eigene** Frist gesetzt; `default` = es gilt die
+            **Vorgabe** (kein Override des Mandanten). `null`, wenn keine Frist
+            wirksam ist — dann ist auch `event_retention_days` `null`.
         delivery_retention_days:
           type: integer
           format: int32
           nullable: true
           minimum: 1
-          description: "Angewandte Frist für Zustellprotokolle in Tagen. `null` = kein Override; es gilt die Vorgabe (30 Tage, F-02)."
+          description: >-
+            Die **angewandte** Frist für Zustellprotokolle in Tagen (Vorgabe
+            **30** Tage, F-02). `null` bedeutet: es ist **keine** Frist wirksam.
+        delivery_retention_source:
+          type: string
+          nullable: true
+          enum: [tenant, default]
+          description: >-
+            Woher die angewandte Frist für Zustellprotokolle stammt: `tenant` =
+            der Mandant hat eine **eigene** Frist gesetzt; `default` = es gilt
+            die **Vorgabe**. `null`, wenn keine Frist wirksam ist.
         event_cutoff:
           type: string
           format: date-time
@@ -3168,26 +3278,26 @@ x-requirement-coverage:
 # =============================================================================
 x-contract-rules:
   defaults:
-    - "Die Werte F-01 bis F-04 (siehe Abschnitt „Vorgabewerte“ in `info.description`) sind **Vorgaben der Betriebskonfiguration**, keine harten API-Grenzwerte."
-    - "F-01: 60 Zustellversuche je Endpunkt und Minute, Strategie `delay`; je Endpunkt überschreibbar. **Zwei Zustände:** `limit_value IS NULL` = kein Override (⇒ 60), `limit_value = 0` = abgeschaltet (⇒ `limit: 0`, `limited: false`)."
-    - "F-02: 30 Tage, getrennt für Ereignisse und Zustellprotokolle; Fristbeginn **je Datensatz** = letzter Versuch (`last_attempt_at`, für Ereignisse ohne Versuch `accepted_at`); je Mandant überschreibbar. Zwei Stufen: **markieren**, dann **Purge** nach der Karenzzeit (`purge_delay_days`). Das Löschen eines Ereignisses **nimmt seine Zustellläufe und Versuche mit**."
+    - "F-01 bis F-04 sind **Vorgaben der Betriebskonfiguration**, keine harten API-Grenzwerte; die Werte stehen in der Tabelle „Vorgabewerte“ in `info.description`."
+    - "F-01: **zwei** Zustände — `limit_value IS NULL` = kein Override (⇒ es gilt die Vorgabe), `limit_value = 0` = abgeschaltet (⇒ `limit: 0`, `limited: false`); je Endpunkt überschreibbar."
+    - "F-02: Fristbeginn **je Datensatz** = letzter Versuch (`last_attempt_at`, für Ereignisse ohne Versuch `accepted_at`); je Mandant überschreibbar. Zwei Stufen: **markieren**, dann **Purge** nach der Karenzzeit (`purge_delay_days`) — die **Karenzzeit ist konfigurierbar und hat keinen festgelegten Vorgabewert**. Das Löschen eines Ereignisses **nimmt seine Zustellläufe und Versuche mit**."
     - "F-03: Replay nur für den Empfänger-Admin des betroffenen Endpunkts; `developer` und `service_admin` erhalten HTTP 403."
-    - "F-04: 8 Versuche, Basis 1 Minute, Verdopplung, Deckel 60 Minuten, Streuung ± 20 % — Gesamtfenster bis zum letzten Versuch **≈ 2 Stunden**."
+    - "F-04: Verdopplung mit voller Streuung; das Gesamtfenster bis zum letzten Versuch beträgt **≈ 2 Stunden**."
   tenant:
     - "Der Mandant stammt ausschließlich aus dem JWT-Claim `organisation_id` (D-01)."
     - "Ein Mandantenparameter (`organisation_id`) im Body, im Query oder im Header wird mit HTTP 422 (`tenant_parameter_rejected`) abgelehnt."
     - "Fremde Ressourcen werden mit HTTP 404 beantwortet (D-02)."
-    - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002), **nicht** über eine Rolle mit `BYPASSRLS`. In den mandantenübergreifenden Antworten ist `organisation_id` **im Datensatz** gefüllt."
+    - "`service_admin` sieht alle Mandanten — über die schmalen Eigentümerfunktionen des Schemas (ADR-002 §7), **nicht** über eine Rolle mit `BYPASSRLS`. In den mandantenübergreifenden Antworten ist `organisation_id` **im Datensatz** gefüllt."
   errors:
     - "Alle Fehlerantworten nutzen das Schema `Problem` mit `Content-Type: application/problem+json`."
-    - "**400** = *syntaktisch* fehlerhaft (kein gültiges JSON). **422** = *semantisch* ungültig: jede Abweichung vom Schema des Request-Bodys (unbekanntes Feld, falscher Typ, fehlendes Pflichtfeld) ist `validation_failed` mit einem `violations`-Eintrag; ein **Mandantenparameter** ist `tenant_parameter_rejected`."
+    - "Die Grenze zwischen **400** (syntaktisch fehlerhaft) und **422** (semantisch ungültig) sowie die Zuordnung Status → `code` stehen im Abschnitt „Fehlersemantik“ in `info.description`."
     - "500-Antworten enthalten weder Stacktrace noch interne Kennungen."
   idempotency:
     - "Der Idempotenzschlüssel gilt je (Mandant, Schlüssel) (D-05)."
     - "Gleiche Nutzlast → HTTP 202 mit `idempotent_replay: true` und der Kennung des ersten Ereignisses."
     - "Abweichende Nutzlast → HTTP 409 (`idempotency_conflict`)."
   pagination:
-    - "Alle Listen: `limit` (Default 50, max 200) + `cursor`; Antwort unter `page`."
+    - "Alle Listen: `limit` (Default 50, max 200) + `cursor`; Antwort unter `page`. Sortierung, Cursor-Semantik und mandantenübergreifende Listen: siehe Abschnitt „Pagination“ in `info.description`."
     - "Die Filter sind kombinierbar; ein ungültiger Cursor wird mit HTTP 422 abgelehnt."
   delivery:
     - "Der ausgehende Zustellvertrag ist in `x-delivery-protocol` beschrieben und eingefroren."

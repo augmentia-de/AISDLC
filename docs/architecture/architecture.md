@@ -1,6 +1,6 @@
 # Architektur — EchoBox (Ereignis-Briefkasten mit Zustellgarantie)
 
-> Schritt 3 (Simplify & Reduktion), korrigiert in Schritt 4 (Grill-Me-Stresstest)
+> Schritt 3 (Simplify & Reduktion) **nach dem Rücksprung aus Schritt 4**
 > · Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Quellen: `docs/Anforderung.md`, `docs/requirements/PRD.md`, `docs/requirements/traceability_matrix.json`
 > **Eine Erzählung, keine Doppelführung:** Die Entscheidungen stehen in
@@ -193,13 +193,13 @@ Konsequenzen stehen in der genannten ADR:
 | Thema | Festlegung | ADR |
 |---|---|---|
 | **Mandantentrennung** | Drei Ebenen, die sichern: Vertrag (Mandant aus dem JWT, Fremdes ⇒ 404), Anwendung (jede Abfrage trägt den Mandanten), **Datenbank** (RLS auf jeder fachlichen Tabelle, `fail-closed`, keine Rolle mit `BYPASSRLS`) | ADR-002 |
-| **Mandantenübergreifende Sicht** | Der `service_admin` sieht alle Mandanten — über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** des Schemas (`app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`, `app.enforce_retention_cross_tenant`), **nicht** über eine Rolle mit `BYPASSRLS`. Sie liefern nur die benötigte Projektion (kein Nutzlastklartext, keine Chiffre, keine Secrets), sind `fail-closed` ohne die Freigabe `app.cross_tenant = 'service_admin'` und nur der Applikationsrolle freigegeben. | ADR-002 §7, ADR-015 |
+| **Mandantenübergreifende Sicht** | Der `service_admin` sieht alle Mandanten — über **drei schmale `SECURITY DEFINER`-Eigentümerfunktionen** des Schemas, **nicht** über eine Rolle mit `BYPASSRLS`: nur die benötigte Projektion (kein Nutzlastklartext, keine Chiffre, keine Secrets), `fail-closed` ohne die Freigabe, nur der Applikationsrolle freigegeben. Der Cursor dieser Listen läuft **über die Mandantgrenzen hinweg** — eine globale Reihenfolge, keine Seite je Mandant (Vertrag, Abschnitt „Pagination“). | ADR-002 §7, ADR-015 |
 | **Mandant und Transaktion** | `app.set_tenant(...)` wird **innerhalb** der Transaktion ausgeführt, die auch liest — nie in einem Servlet-Filter, nie beim Anlegen einer Pool-Verbindung, nie nach einem Commit. Der Wert ist transaktionslokal (`set_config(…, is_local = true)`); steht er nicht in derselben Transaktion, liefert `current_setting(…, true)` `NULL` und **jede** Abfrage liefert 0 Zeilen (fail-closed). Jeder Repository-Zugriff braucht deshalb eine Transaktion, die den Mandanten gesetzt hat. | ADR-002 §2-3 |
 | **Mandant im Worker** | Der Worker ermittelt seine Mandanten über `app.tenant_ids_for_worker()` (nur Kennungen, keine Nutzlast) und arbeitet **mandantenweise**: Scheduler → Mandantenermittlung → je Mandant `set_tenant` → beanspruchen; je Mandant **eine eigene Transaktion**. Ohne diesen Schritt liefert die Beanspruchung 0 Zeilen — es würde nichts zugestellt. | ADR-002 §5, ADR-006 §3 |
 | **Verschlüsselung im Ruhezustand** | AEAD **AES-256-GCM** für Nutzlast und Endpunkt-Secret; Schlüssel aus dem Secret-Store, **außerhalb** der Datenbank; entschlüsselt **nur** zur Zustellung; Suche ausschließlich über Metadaten | ADR-003, ADR-017 |
 | **Idempotenz** | Je **(Mandant, Schlüssel)**; gleiche Nutzlast ⇒ 202 mit erster ID; abweichende Nutzlast ⇒ 409; Vergleich über gezielten HMAC | ADR-007 |
 | **Endpunkt-Begrenzung** | **60 Versuche je Endpunkt und Minute**, Strategie `delay` (F-01) — verschieben, nicht verwerfen; je Endpunkt überschreibbar. **Zwei Zustände:** `limit_value IS NULL` = kein Override (⇒ 60), `limit_value = 0` = abgeschaltet; im Vertrag `rate_limit.limit` (immer der wirksame Wert) + `rate_limit.limited` | ADR-010 |
-| **Aufbewahrung** | **30 Tage**, getrennt für Ereignisse und Zustellprotokolle, Fristbeginn **je Datensatz** = letzter Versuch (F-02); **Anker** je Datenart, zwei Stufen (markieren, dann Purge nach der **Karenzzeit**), **Kaskade** (das Löschen eines Ereignisses nimmt seine Läufe und Versuche mit), Geltungsbereich **alle Mandanten**; `dry_run` als Default | ADR-012 |
+| **Aufbewahrung** | **30 Tage**, getrennt für Ereignisse und Zustellprotokolle, Fristbeginn **je Datensatz** = letzter Versuch (F-02); **Anker** je Datenart, zwei Stufen (markieren, dann Purge nach der **Karenzzeit** — konfigurierbar, **ohne festgelegten Vorgabewert**, R-01), **Kaskade** (das Löschen eines Ereignisses nimmt seine Läufe und Versuche mit), Geltungsbereich **alle Mandanten**; `dry_run` als Default | ADR-012 |
 | **Betrieb** | Zwei Rollen `api` und `worker` aus einem Image, nicht-privilegiert, keine Secrets im Image, Staging/Produktion getrennt; `/health` + `/health/ready` ohne Authentifizierung | ADR-013 |
 | **Kennzahlen** | Erfolgsquote und p95-Zustelllatenz je Endpunkt; `data_available: false`, wenn keine Daten im Fenster vorliegen | ADR-011 |
 | **Oberfläche** | Next.js 15 App Router; Barrierefreiheit als **Bauregel** (native Bedienelemente, echte `<table>`, Status nie nur über Farbe, axe als CI-Gate) | ADR-018 |
@@ -244,6 +244,7 @@ der Operation, als `x-ac-id` am ausgehenden Zustellvertrag oder als Eintrag in
 |---|---|---|---|---|
 | O-04 | Verschlüsselung im Ruhezustand — **fachliche** Seite: Ist sie Pflicht? | Architekturseite entschieden (ADR-003, ADR-017) | Fachbereich + Datenschutz | Gate 2 |
 | O-05 | Vertrag über die Auftragsverarbeitung (AVV bei Fremddaten) | technisch vorbereitet | Fachbereich + Recht | Gate 2 |
+| R-01 | **Karenzzeit** der Aufbewahrung (Abstand „markiert“ → „gelöscht“) — die Fristen selbst sind entschieden (F-02), die **Karenzzeit** hat **keinen** beschlossenen Vorgabewert | konfigurierbar (`echobox.retention.purge-delay`), **ohne Vorbelegung**; der Vertrag behauptet keinen Wert (ADR-012 §6) | Fachbereich | Gate 2 |
 
 O-01, O-02, O-03, O-06 und O-07 sind am 2026-10-21 am Gate 1 entschieden
 (F-01…F-04); die Werte und ihre Fundstellen stehen in `docs/adr/README.md`.
@@ -282,6 +283,7 @@ O-01, O-02, O-03, O-06 und O-07 sind am 2026-10-21 am Gate 1 entschieden
 | `.agent/artifacts/architecture.md` | Kompakter Katalog |
 | `.agent/artifacts/simplify-report.md` | Reduktionsbericht (Schritt 3) |
 | `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — Befunde, Vertragsdefekte, offene Entscheidungen |
+| `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2)** — Nachweis: 22 Vertragsdefekte, S-01, E-01…E-09, PostgreSQL-Nachweis |
 | `.agent/artifacts/folder-structure.md` | Zielstruktur (Kurzfassung) |
 | `.agent/artifacts/api-review.md` | Vertragsreview: Abdeckung und Lücken |
-| `.agent/artifacts/adr-index.md` | Eine Zeile je ADR |
+| `.agent/artifacts/adr-index.md` | **ADR-Gate-Vorlage** (bestätigt / offen) — der Index selbst steht in `docs/adr/README.md` |

@@ -62,6 +62,7 @@ Mandant änderbar.
 | O-05 | Auftragsverarbeitung / AVV | ADR-012 | **offen** | Fachbereich + Recht (vor Gate 2) |
 | O-06 | Versuchsanzahl und Backoff-Werte | ADR-008 | **entschieden (F-04)** | — |
 | O-07 | Zeitlimit je Zustellversuch | ADR-008 | **entschieden** | — |
+| **R-01** | **Karenzzeit** der Aufbewahrung (Abstand „markiert“ → „gelöscht“) | ADR-012 §6 | **offen** — konfigurierbar, **kein** festgelegter Vorgabewert; der Vertrag behauptet **keinen**. **F-02 bleibt unverändert** | Fachbereich (Gate 2) |
 
 ## Korrekturen aus dem Rücksprung (Schritt 4 → Schritt 2, 2026-10-21)
 

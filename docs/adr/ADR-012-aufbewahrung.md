@@ -105,7 +105,7 @@ Stichtage und die Zahl der betroffenen Datensätze.
 | Frist Ereignisse | `echobox.retention.event-days` | **30** |
 | Frist Zustellprotokolle | `echobox.retention.delivery-days` | **30** |
 | Bezugspunkt | `echobox.retention.anchor` | **`last_attempt_at`** |
-| Karenzzeit | `echobox.retention.purge-delay` | konfigurierbar (der Vorgabewert ist **nicht** entschieden) |
+| Karenzzeit | `echobox.retention.purge-delay` | konfigurierbar (der Vorgabewert ist **nicht** entschieden — offener Punkt **R-01**, Fachbereich, Gate 2) |
 
 - Der Vorgabewert gilt **pro Umgebung**; je Mandant kann `retention_settings`
   beide Fristen überschreiben. `NULL` bedeutet: **kein Override** — es gilt

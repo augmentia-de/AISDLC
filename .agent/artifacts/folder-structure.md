@@ -1,51 +1,32 @@
 # Zielstruktur `src/` — Kurzfassung
 
-> Schritt 3 (Simplify & Reduktion) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
-> **Wahrheit:** `docs/architecture/folder-structure.md` (dort stehen die
-> Dateien und ihre Zuständigkeiten je Modul, die Konventionen und der
-> Planungsauftrag). Diese Datei ist die Kurzfassung.
+> Schritt 3 (Simplify & Reduktion, nach dem Rücksprung) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> **Wahrheit:** `docs/architecture/folder-structure.md` — dort stehen die
+> **Dateien** und ihre Zuständigkeiten je Modul, die **Konventionen** und der
+> **Planungsauftrag**. Diese Datei ist die Kurzfassung: sie nennt nur die
+> **Module**, sonst würde sie eine zweite Dateiliste pflegen.
 > **Noch kein Code** — die Pfade sind die Zielstruktur für Schritt 6.
 
 ```
 src/
 ├── main/
 │   ├── java/com/echobox/
-│   │   ├── endpoint/      EndpointController, EndpointService, Endpoint, EndpointQueryService, EndpointRepository
-│   │   ├── event/         EventController, EventService, Event, EventRepository, IdempotencyStore
-│   │   ├── delivery/      DeliveryWorker, DeliveryService, DeliveryController, DeliveryStateMachine,
-│   │   │                  DeliveryDispatcher, DeliveryHttpClient, DeliveryHeaders, DeliveryOutcome,
-│   │   │                  BackoffPolicy, RetryScheduler, PayloadSource, EndpointRateLimiter, DeliveryRepository
-│   │   ├── crypto/        PayloadCipher, SignatureService, SecretStore
-│   │   ├── protocol/      ProtocolController, ProtocolQueryService, DeadDeliveryQueryService,
-│   │   │                  EndpointMetricsService, MetricsController, RetentionService
-│   │   ├── tenant/        TenantContext, TenantConnectionInitializer, TenantFilter
-│   │   ├── config/        TenantInstanceConfiguration, DeliveryProperties, SecurityConfiguration
-│   │   └── common/        Problem, ProblemFactory, GlobalExceptionHandler, PageResponse, CursorCodec,
-│   │                      ClockConfig, IdGenerator
-│   ├── resources/
-│   │   ├── application.yml, application-staging.yml
-│   │   └── db/migration/V1__initial_schema.sql   ← Kopie von .agent/knowledge/schema.sql
-│   └── frontend/src/
-│       ├── app/           layout.tsx, endpoints/page.tsx, deliveries/page.tsx, dead-deliveries/page.tsx
-│       ├── features/      endpoints/{EndpointList,EndpointForm}.tsx, protocol/{DeliveryTable,DeliveryFilters}.tsx,
-│       │                  dead/DeadDeliveryTable.tsx
-│       ├── components/    DataTable.tsx, StatusBadge.tsx, EmptyState.tsx, FieldError.tsx
-│       ├── lib/           apiClient.ts, cursor.ts
-│       └── types/         api.ts   ← aus dem Vertrag abgeleitet
+│   │   ├── endpoint/      Endpunkte verwalten
+│   │   ├── event/         Ereignisse einliefern
+│   │   ├── delivery/      Zustellung und Zustellgarantie (Hintergrundprozess)
+│   │   ├── crypto/        Krypto (Signatur, Verschlüsselung, Secret-Store)
+│   │   ├── protocol/      Zustellprotokoll, Totenliste, Kennzahlen, Aufbewahrung
+│   │   ├── tenant/        Mandantenkontext — inkl. CrossTenantScope (ADR-002 §7)
+│   │   ├── config/        Konfiguration (Spring beans)
+│   │   └── common/        Fehlerbild, Cursor, Zeit, IDs
+│   ├── resources/         application.yml, application-staging.yml, db/migration/
+│   └── frontend/src/      Oberfläche: app/, features/, components/, lib/, types/
 └── test/                  → Tests liegen unter tests/, nicht unter src/test
 ```
 
-## Konventionen
-
-| Thema | Regel |
-|---|---|
-| Schichten | `*Controller` (HTTP) → `*Service` (Fachlogik) → `*Repository` (JDBC). Die Fachlogik kennt keine HTTP- und keine JDBC-Typen. |
-| Ports | `DeliveryPort`, `SecretPort`, `ClockPort`, `IdGenerator`, Repositories — alle nach außen gerichteten Zugriffe laufen über Ports. |
-| SQL | Nur vorbereitete Statements über `JdbcTemplate` mit benannten Parametern. Kein String-Konkatenieren, kein dynamisches SQL. Jede Abfrage trägt den Mandanten. |
-| Fehler | Ausnahmen aus `common`; die Abbildung auf HTTP geschieht **ausschließlich** in `GlobalExceptionHandler`. |
-| Kein Klartext | Nutzlast und Secrets erscheinen in **keinem** Log, **keiner** Fehlermeldung, **keinem** `toString()`. |
-| Konfiguration | Alle Zahlenwerte kommen aus `DeliveryProperties` (ENV). **Keine** Zahl ist im Code verdrahtet. |
-| Tests | Unit ohne Datenbank; Integration gegen **echte** PostgreSQL 16 (Testcontainers); E2E mit Playwright; axe-Scan für die Barrierefreiheit. |
+**Konventionen** (Schichtentrennung, Ports, SQL, Mandant, Fehler, Klartext,
+Konfiguration, Tests) stehen in `docs/architecture/folder-structure.md` §4 —
+**einmal**, nicht hier wiederholt.
 
 ## Planungsauftrag an OpenCode (Schritt 6)
 

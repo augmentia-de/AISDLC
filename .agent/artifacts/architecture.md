@@ -1,10 +1,12 @@
 # Architektur — EchoBox (kompakter Katalog)
 
-> Schritt 2 (**Rücksprung** aus Schritt 4) · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (**Simplify & Reduktion** nach dem Rücksprung aus Schritt 4) ·
+> Agent: `aisdlc-architecture` · Stand: 2026-10-21
 > Erzählung: `docs/architecture/architecture.md` · Vertrag: `docs/api/openapi.yaml`
 > Schema: `.agent/knowledge/schema.sql` (kanonisch) · **Entscheidungen: `docs/adr/`**
 > Reduktionsbericht: `.agent/artifacts/simplify-report.md`
 > **Nachweis des Rücksprungs: `.agent/artifacts/ruecksprung-bilanz.md`**
+> (ein **Vorgangsprotokoll** — kein lebender Wahrheitsort)
 >
 > Dieser Katalog ist eine **Übersicht**, keine zweite Wahrheit: die
 > Entscheidungen stehen in den ADRs, die Fachbegriffe im Glossar, das
@@ -50,7 +52,7 @@ sind **Vorgabewerte in der Konfiguration** — kein Wert ist im Code verdrahtet.
 |---|---|---|
 | **Oberfläche** | Endpunkte, Zustellprotokoll, Tote Zustellungen | — |
 | **API-Layer** | Security-Adapter, Mandantenkontext, 5 Controller, 8 Fachservices, Crypto-Service, Fehlerabbildung | `endpoints`, `events`, `delivery_runs`, `delivery_attempts`, `audit_log` |
-| **Mandantenübergreifende Sicht** (Ausnahme, ADR-002 §7) | `app.list_endpoints_cross_tenant`, `app.list_dead_deliveries_cross_tenant`, `app.enforce_retention_cross_tenant` — `SECURITY DEFINER`, `search_path` verdrahtet, `EXECUTE` nur für `echobox_app`, fail-closed ohne `app.cross_tenant = 'service_admin'`, **nur** Projektionen (kein Klartext, keine Chiffre, keine Secrets) | dieselben Tabellen, ohne RLS (Eigner) |
+| **Mandantenübergreifende Sicht** (Ausnahme, ADR-002 §7) | drei schmale `SECURITY DEFINER`-Eigentümerfunktionen — `search_path` verdrahtet, `EXECUTE` nur für `echobox_app`, fail-closed, **nur** Projektionen (kein Klartext, keine Chiffre, keine Secrets); Cursor läuft **über die Mandantgrenzen hinweg** | dieselben Tabellen, ohne RLS (Eigner) |
 | **Zustell-Worker** | Scheduler, Claimer (Lease), Dispatcher, Signatur, Backoff, Endpunkt-Begrenzung, Protokollschreiber, Lease-Rettung | dieselben Tabellen |
 | **Datenbank** | PostgreSQL 16, Schema `app`, RLS auf **allen** 10 fachlichen Tabellen | Zähler, Rate-Limits, Aufbewahrungseinstellungen |
 
@@ -75,6 +77,10 @@ Worker: Scheduler → app.tenant_ids_for_worker() → je Mandant:
 ```
 
 ## 5. Risiken und Gegenmaßnahmen
+
+> **IDs aus der Anforderungserhebung** (Risikoregister, Schritt 1) — **nicht**
+> verwechseln mit den **Befund**-IDs R-01…R-05 in §9 (Rücksprung aus Schritt 4).
+> Beide heißen „R-xx“, meinen aber **verschiedene** Dinge.
 
 | Risiko | Gegenmaßnahme | Wo |
 |---|---|---|
@@ -105,13 +111,16 @@ Worker: Scheduler → app.tenant_ids_for_worker() → je Mandant:
 
 ## 7. Abdeckung der 23 Stories
 
-| Epic | Stories | Wo im Vertrag |
+Die Zuordnung Story → Vertragsort steht **einmal** in
+`docs/architecture/architecture.md` §6; dieser Katalog nennt nur die Zahlen.
+
+| Epic | Stories | Kurz |
 |---|---|---|
-| E1 | US-001…US-004 | `POST/GET/PATCH /endpoints`, `pause`, `resume`, `secret-rotation` |
-| E2 | US-005…US-008 | `POST /events` (202/409/413/422), `GET /events/{id}` |
-| E3 | US-009…US-014 | `x-delivery-protocol` (Signatur, Kennungen, Retry, Ablehnung), `POST /deliveries/{id}/replay` |
-| E4 | US-015…US-018 | `GET /deliveries`, `GET /deliveries/{id}`, `GET /dead-deliveries`, `GET /endpoints/{id}/metrics`, `POST /retention/enforcement` |
-| E5 | US-019…US-021 | Datenquellen der drei Seiten; ADR-018 |
+| E1 | US-001…US-004 | Endpunkte: anlegen, lesen, ändern, pausieren, reaktivieren, Secret rotieren |
+| E2 | US-005…US-008 | Ereignis einliefern (202/409/413/422), Ereignis lesen |
+| E3 | US-009…US-014 | ausgehender Zustellvertrag (`x-delivery-protocol`), Replay |
+| E4 | US-015…US-018 | Zustellprotokoll, Totenliste, Kennzahlen, Aufbewahrung |
+| E5 | US-019…US-021 | Oberfläche: Datenquellen und Barrierefreiheit (ADR-018) |
 | E6 | US-022, US-023 | RLS (ADR-002), `/health` + `/health/ready`, Mandanten-Sharding (ADR-013) |
 
 ## 8. Offene Punkte — bewusst **nicht** entschieden
@@ -125,8 +134,12 @@ Worker: Scheduler → app.tenant_ids_for_worker() → je Mandant:
 | O-05 | AVV | technisch vorbereitet | Fachbereich + Recht | Gate 2 |
 | O-06 | Versuche/Backoff | **entschieden (F-04)**: 8 Versuche, 1 min Basis, ×2, 60 min Deckel, ± 20 % | — | erledigt |
 | O-07 | Zeitlimit je Versuch | **entschieden** (ADR-008): 5 s + 10 s = 15 s | — | erledigt |
+| **R-01** | **Karenzzeit** der Aufbewahrung („markiert“ → „gelöscht“) | **kein beschlossener Vorgabewert**; konfigurierbar (`echobox.retention.purge-delay`), **ohne Vorbelegung**; der Vertrag behauptet keinen Wert (ADR-012 §6). **F-02 bleibt unverändert** (30 Tage je Datenart, Anker letzter Versuch, Kaskade) | Fachbereich | **Gate 2** |
 
 ## 9. Befunde dieses Schritts
+
+> **IDs aus dem Rücksprung (Schritt 2)** — **nicht** verwechseln mit den
+> **Risiko**-IDs R-01…R-13 in §5 (Anforderungserhebung).
 
 | ID | Befund | Behandlung |
 |---|---|---|
@@ -139,6 +152,10 @@ Worker: Scheduler → app.tenant_ids_for_worker() → je Mandant:
 | B-07 | `GET /api/v1/events` trug keine Story, kein NFR, keinen Akzeptanzpunkt | **entfallen** (Schritt 3) — Metadatensuche läuft über `GET /deliveries` |
 | B-08 | Fehlerschema und ADRs doppelt in `architecture.md` | Redundante Tabellen entfernt, Verweise auf ADR-015 und den Vertrag |
 | B-09 | ADR-014 und ADR-008 variieren dieselbe Entscheidung (fehlgeschlagener Versuch) | In ADR-008 zusammengeführt; ADR-014 bleibt als Verweis |
+| **R-03** | `DeadDelivery.abandoned_at` nicht nullable, der Statusfilter der Totenliste ließ aber `rejected` zu | **behoben** (Schritt 3): die Totenliste enthält **ausschließlich aufgegebene** Zustellungen (`abandoned`) — GLOSSARY „Tote Zustellung“, Domain-Modell §3.1, DB-Check `delivery_runs_abandoned_at_ck`. Der Filter lässt nur `abandoned` zu (`DeadDeliveryStatus`); `abandoned_at` bleibt Pflicht |
+| **R-04** | Cursor-Semantik der mandantenübergreifenden Funktionen im Vertrag nicht beschrieben | **behoben** (Schritt 3): Abschnitt „Pagination“ im Vertrag — Cursor **über die Mandantgrenzen hinweg**, globale Reihenfolge, Sortierschlüssel + UUID als Tie-Breaker, Keyset statt Offset, `enforceRetention` **ohne** Paginierung |
+| **R-05** | `RetentionEnforcementResponse.tenants[]` unterschied „eigene Frist“ nicht von „Vorgabe“ | **behoben** (Schritt 3): `event_retention_source` / `delivery_retention_source` (`tenant` \| `default`); die falsche Beschreibung „`null` = kein Override“ korrigiert (der Wert ist die **angewandte** Frist) |
+| **R-01** | Karenzzeit ohne beschlossenen Wert, im Vertragsbeispiel stand **7 Tage** | **ohne Wert festgelegt**: Beispielwert entfernt, Feld nullable, „kein Vorgabewert“ ausgesprochen; **bleibt offen** (Fachbereich, Gate 2) — siehe §8 |
 
 ## 9a. Befunde aus Schritt 4 (Grill-Me-Stresstest) — **alle behandelt**
 
@@ -157,6 +174,7 @@ Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 | N-08 | **„soll“** — Schema-Kommentare behaupten den Stand vor F-01/F-02 | **behoben** |
 | S-04…S-23 | 18 weitere Vertragsdefekte (Soll/Optional) | **alle 22 Vertragsdefekte behoben** (V-01…V-22) |
 | E-01…E-09 | offene Entscheidungen | **alle 9 entschieden und umgesetzt** (E-06 in Schritt 1, E-07 in Schritt 5) |
+| R-01…R-05 | beim Beheben gefundene Befunde des Rücksprungs | **R-03, R-04, R-05 in Schritt 3 behoben**; **R-01 bleibt offen** (Fachbereich, Gate 2) — siehe §8 und §9 |
 
 ## 10. Geprüft
 
@@ -164,11 +182,13 @@ Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 |---|---|
 | OpenAPI: YAML gültig, 17 Operationen, alle `$ref` auflösbar, kein ungenutztes Schema | **ok** |
 | OpenAPI: 23 Stories, 101 AKs, 24 Anforderungen auffindbar | **ok** |
+| OpenAPI: jedes Beispiel gegen sein Schema geprüft (Pflichtfelder) | **ok** |
+| OpenAPI: je Operation `operationId`, `x-ac-id`, `x-requirement-ids` | **ok** |
 | Schema: angewendet gegen **PostgreSQL 16** (Rücksprung aus Schritt 4) | **ok** (10 Tabellen, 10 Policies, 33 Indizes, 3 `SECURITY DEFINER`-Funktionen) |
 | Schema: RLS-Verhalten (ohne Kontext 0 Zeilen, je Mandant nur eigene Zeilen) | **ok** |
 | Schema: mandantenübergreifende Sicht (fail-closed ohne Freigabe, 2 Mandanten über die Funktionen, Worker ohne Recht, kein Klartext/Secret in der Projektion) | **ok** — belegt in `.agent/artifacts/ruecksprung-bilanz.md` §4 |
 | Schema: `UNIQUE (replay_of)` — zweites Replay ⇒ `unique_violation` | **ok** |
-| Schema-Spiegel: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** |
+| Schema-Spiegel: `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** (in diesem Schritt **nicht** angefasst) |
 | `python3 .agent/tools/traceability_check.py` | **grün** |
 | `knowledge/openapi.yaml` ist ein Verweis | **ok** |
 
@@ -187,9 +207,9 @@ Defekt in `.agent/artifacts/ruecksprung-bilanz.md`.
 | `.agent/knowledge/schema.sql` | Kanonisches Schema |
 | `.agent/knowledge/stack.md` | Stack-Entscheidung |
 | `.agent/knowledge/openapi.yaml` | Verweis auf den Vertrag |
-| `.agent/artifacts/folder-structure.md` | Zielstruktur (Kurzfassung) |
+| `.agent/artifacts/folder-structure.md` | Zielstruktur — **Kurzfassung** (Module; die Dateiliste steht in `docs/architecture/folder-structure.md`) |
 | `.agent/artifacts/api-review.md` | Vertragsreview |
-| `.agent/artifacts/adr-index.md` | ADR-Index (Gate-Vorlage) |
+| `.agent/artifacts/adr-index.md` | **ADR-Gate-Vorlage** (bestätigt / offen) — der Index selbst steht in `docs/adr/README.md` |
 | `.agent/artifacts/simplify-report.md` | **Reduktionsbericht (Schritt 3)** |
 | `.agent/artifacts/stress-test.md` | **Stresstest-Bericht (Schritt 4)** — 22 Vertragsdefekte, 7 „muss“-Befunde, offene Entscheidungen |
 | `.agent/artifacts/ruecksprung-bilanz.md` | **Rücksprung-Bilanz (Schritt 2)** — Defektbilanz V-01…V-22, S-01, N-01/N-02/N-08, E-01…E-09, PostgreSQL-Nachweis |

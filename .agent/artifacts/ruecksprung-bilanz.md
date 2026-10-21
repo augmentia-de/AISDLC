@@ -1,5 +1,10 @@
 # Rücksprung-Bilanz — Schritt 2 (Konzept & Architektur)
 
+> **Vorgangsprotokoll** — der Nachweis, dass kein Befund des Stresstests liegen
+> geblieben ist. **Kein lebender Wahrheitsort**: die geltenden Entscheidungen
+> stehen in `docs/adr/`, der Vertrag in `docs/api/openapi.yaml`, die offenen
+> Punkte in `.agent/artifacts/architecture.md` §8.
+>
 > **Rücksprung aus Schritt 4 (Grill-Me-Stresstest)** · Agent: `aisdlc-architecture`
 > · Stand: 2026-10-21 · Eingang: `.agent/artifacts/stress-test.md` (Commit `bdb03d3`)
 > · Vertrag: `docs/api/openapi.yaml` (17 Operationen) — **noch nicht eingefroren**
@@ -257,6 +262,13 @@ Als `echobox_app` mit `set_tenant('m-1')` (zwei Mandanten angelegt: `m-1`,
 
 Beim Beheben gefunden; sie gehören in **Schritt 4** (der Vertrag wird erst nach
 Schritt 4 eingefroren).
+
+> **Stand nach Schritt 3 (2026-10-21):** **R-03, R-04 und R-05 sind dort
+> behoben** (rein mechanisch, ohne neue Festlegung — siehe
+> `.agent/artifacts/simplify-report.md`). **R-01 bleibt offen**: die Karenzzeit
+> hat **keinen** beschlossenen Vorgabewert; der Vertrag behauptet seit Schritt 3
+> **keinen** Wert. Owner: **Fachbereich**, Gate **2**. Die Tabelle unten bleibt
+> unverändert der historische Befund des Rücksprungs.
 
 | ID | Befund | Fundstelle | Warum nicht entschieden |
 |---|---|---|---|
