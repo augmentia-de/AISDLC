@@ -279,6 +279,25 @@ im Referenzlauf der Fehler, den die Agent-Frontmatter verursacht hatten.
 dorthin vendoriert sind) oder ein Vendor-Schritt, der die Bibliotheks-Skills ins
 Projekt kopiert.
 
+**Vendoriert ist die robustere Variante.** `.agent/tools/vendor_skills.py` kopiert
+die ausgewählten Skills ins Projekt und erzeugt **gleichzeitig** die Allowlist der
+Stack-Schicht — Skills und Freigaben können so nicht auseinanderlaufen:
+
+```bash
+python3 .agent/tools/vendor_skills.py --libs <bibliotheken-wurzel> --out skills
+```
+
+Erwartet Output: `skills/` (die Skills), `skills/PROVENANCE.md` (Herkunft je Skill)
+und `skills/STACK_CONFIG.jsonc.txt` (der Permission-Block für `opencode.jsonc`).
+
+**Sichtbarkeit pro Agent.** Die Allowlist wird pro Agent geschnitten: der
+Architecture-Agent sieht die Vertrags- und Datenbank-Skills, der Execution-Agent die
+Implementierungs-Skills, der Orchestrator gar keine Stack-Skills. Im Referenzlauf
+waren 12 von 32 sichtbaren Skills **falscher Stack** (dotnet, fastapi, golang, python,
+quarkus, rust, react-native) — reiner Ballast.
+
+**Konvention der Stack-Agenten:** `.agent/stack-agents.md`.
+
 ## Stack-Ebene
 
 Stack-Wissen kommt **nicht** aus eigenen Dateien, sondern per `skills.paths` direkt aus den

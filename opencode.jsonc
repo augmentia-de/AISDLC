@@ -2,46 +2,161 @@
   "$schema": "https://opencode.ai/config.json",
 
   // ==========================================================================
-  // STACK-SCHICHT - projektspezifisch, vom Framework unabhaengig.
+  // STACK-SCHICHT - Java/Spring-Boot + React/Next.js.
   //
-  // Diese Datei gehoert dem PROJEKT, nicht dem Framework. Sie wird bei jedem
-  // Stack-Wechsel ersetzt - die Framework-Schicht in `.opencode/opencode.jsonc`
-  // bleibt unangetastet.
+  // Diese Datei gehoert dem PROJEKT, nicht dem Framework. Die Framework-Schicht
+  // in `.opencode/opencode.jsonc` bleibt unangetastet.
+  //
+  // Der Allowlist-Block und die Skills unter `skills/` sind beide von
+  // `.agent/tools/vendor_skills.py` erzeugt - sie koennen nicht auseinanderlaufen.
+  // Neu vendoriert:  python3 .agent/tools/vendor_skills.py --libs <bibliotheken> --out skills
   //
   // Merge-Regel (OpenCode): Root-Config zuerst, `.opencode/`-Config danach,
-  // Agent-Frontmatter zuletzt. Letzter Treffer gewinnt. Daraus folgt:
-  //   * Der Catch-all-Deny steht HIER, vor den eigenen Erlaubnissen.
-  //   * Die Framework-Skills (aisdlc-*) bleiben sichtbar, weil ihre
-  //     Allow-Regel in `.opencode/opencode.jsonc` weiter hinten steht.
+  // Agent-Frontmatter zuletzt - letzter Treffer gewinnt. Der Catch-all-Deny steht
+  // hier, die positiven Regeln des Frameworks dort. Sonst hebt die
+  // Framework-Regel die Stack-Erlaubnisse wieder auf.
   // ==========================================================================
 
   "skills": {
     "paths": [
-      // Pfade zu den Skill-Bibliotheken dieses Stacks. Relative Pfade loesen
-      // gegen das Arbeitsverzeichnis auf, nicht gegen die Config-Datei.
-      // Leer lassen, wenn der Stack keine externen Skills nutzt.
+      // Die Skills liegen im Projekt selbst (vendoriert) - kein maschinen-
+      // abhaengiger Pfad, der beim Umzug brechen wuerde.
       "./skills"
     ]
   },
 
+
   "permissions": [
-    // Skills: erst sperren, dann freigeben. Was nicht freigegeben ist, sieht
-    // das Modell nicht - das ist der Auswahlmechanismus und der Context-Schutz.
-    // (Im Referenzlauf waren 12 von 32 sichtbaren Skills falscher Stack:
-    // dotnet, fastapi, golang, python, quarkus, rust, react-native.)
+    // Skills: erst sperren, dann freigeben. Der Framework-Teil
+    // (aisdlc-*) bleibt ueber .opencode/opencode.jsonc sichtbar, weil
+    // dessen Allow-Regel weiter hinten steht.
     { "action": "skill", "resource": "*", "effect": "deny" },
     { "action": "skill", "resource": "aisdlc-*", "effect": "allow" },
-    // Hier die Praefixe des Stacks eintragen, z. B.:
-    // { "action": "skill", "resource": "springboot-*", "effect": "allow" },
-    // { "action": "skill", "resource": "java-*", "effect": "allow" },
-    // { "action": "skill", "resource": "react-*", "effect": "allow" },
-    // { "action": "skill", "resource": "typescript-*", "effect": "allow" },
 
-    // Subagenten: erst sperren, dann die Stack-Agenten freigeben. Die
-    // Rollen-Agents des Frameworks bleiben ueber `.opencode/opencode.jsonc`
-    // erlaubt, weil deren Allow-Regel weiter hinten steht.
+    // Subagenten: erst sperren, dann die Stack-Agenten freigeben.
     { "action": "subagent", "resource": "*", "effect": "deny" },
-    // { "action": "subagent", "resource": "stack/java/backend", "effect": "allow" },
-    // { "action": "subagent", "resource": "stack/react/frontend", "effect": "allow" }
-  ]
+    { "action": "subagent", "resource": "stack/java/backend", "effect": "allow" },
+    { "action": "subagent", "resource": "stack/react/frontend", "effect": "allow" }
+  ],
+
+  // Sichtbarkeit pro Agent: der Architecture-Agent sieht die
+  // Vertrags- und Datenbank-Skills, der Execution-Agent die
+  // Implementierungs-Skills. Erzeugt von .agent/tools/vendor_skills.py.
+  "agents": {
+    "aisdlc-architecture": {
+      "permissions": [
+        { "action": "skill", "resource": "api-design", "effect": "allow" },
+        { "action": "skill", "resource": "api-design-principles", "effect": "allow" },
+        { "action": "skill", "resource": "architecture-decision-records", "effect": "allow" },
+        { "action": "skill", "resource": "code-review-excellence", "effect": "allow" },
+        { "action": "skill", "resource": "contract-first", "effect": "allow" },
+        { "action": "skill", "resource": "conventional-commit-review", "effect": "allow" },
+        { "action": "skill", "resource": "database-migrations", "effect": "allow" },
+        { "action": "skill", "resource": "git-workflow", "effect": "allow" },
+        { "action": "skill", "resource": "hexagonal-architecture", "effect": "allow" },
+        { "action": "skill", "resource": "openapi-spec-generation", "effect": "allow" },
+        { "action": "skill", "resource": "postgres-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "postgresql-table-design", "effect": "allow" },
+        { "action": "skill", "resource": "secrets-management", "effect": "allow" },
+        { "action": "skill", "resource": "security-requirement-extraction", "effect": "allow" },
+        { "action": "skill", "resource": "security-review", "effect": "allow" },
+        { "action": "skill", "resource": "stride-analysis-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "threat-mitigation-mapping", "effect": "allow" }
+      ]
+    },
+    "aisdlc-execution": {
+      "permissions": [
+        { "action": "skill", "resource": "conventional-commit-review", "effect": "allow" },
+        { "action": "skill", "resource": "e2e-testing", "effect": "allow" },
+        { "action": "skill", "resource": "error-handling", "effect": "allow" },
+        { "action": "skill", "resource": "frontend-a11y", "effect": "allow" },
+        { "action": "skill", "resource": "frontend-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "git-workflow", "effect": "allow" },
+        { "action": "skill", "resource": "java-coding-standards", "effect": "allow" },
+        { "action": "skill", "resource": "javascript-testing-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "jpa-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "langchain-architecture", "effect": "allow" },
+        { "action": "skill", "resource": "llm-evaluation", "effect": "allow" },
+        { "action": "skill", "resource": "modern-javascript-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "nextjs-app-router-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "prompt-engineering-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "react-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "react-state-management", "effect": "allow" },
+        { "action": "skill", "resource": "react-testing", "effect": "allow" },
+        { "action": "skill", "resource": "secrets-management", "effect": "allow" },
+        { "action": "skill", "resource": "security-review", "effect": "allow" },
+        { "action": "skill", "resource": "springboot-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "springboot-security", "effect": "allow" },
+        { "action": "skill", "resource": "springboot-tdd", "effect": "allow" },
+        { "action": "skill", "resource": "sql-optimization-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "tailwind-design-system", "effect": "allow" },
+        { "action": "skill", "resource": "test-collaboration", "effect": "allow" },
+        { "action": "skill", "resource": "typescript-advanced-types", "effect": "allow" },
+        { "action": "skill", "resource": "verification-loop", "effect": "allow" }
+      ]
+    },
+    "aisdlc-qa": {
+      "permissions": [
+        { "action": "skill", "resource": "canary-watch", "effect": "allow" },
+        { "action": "skill", "resource": "conventional-commit-review", "effect": "allow" },
+        { "action": "skill", "resource": "deployment-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "git-workflow", "effect": "allow" },
+        { "action": "skill", "resource": "github-actions-templates", "effect": "allow" },
+        { "action": "skill", "resource": "incident-runbook-templates", "effect": "allow" },
+        { "action": "skill", "resource": "prometheus-configuration", "effect": "allow" },
+        { "action": "skill", "resource": "secrets-management", "effect": "allow" },
+        { "action": "skill", "resource": "security-review", "effect": "allow" },
+        { "action": "skill", "resource": "slo-implementation", "effect": "allow" }
+      ]
+    },
+    "aisdlc-requirements": {
+      "permissions": [
+        { "action": "skill", "resource": "conventional-commit-review", "effect": "allow" },
+        { "action": "skill", "resource": "git-workflow", "effect": "allow" },
+        { "action": "skill", "resource": "secrets-management", "effect": "allow" },
+        { "action": "skill", "resource": "security-review", "effect": "allow" }
+      ]
+    },
+    "stack/java/backend": {
+      "permissions": [
+        { "action": "skill", "resource": "api-design", "effect": "allow" },
+        { "action": "skill", "resource": "api-design-principles", "effect": "allow" },
+        { "action": "skill", "resource": "contract-first", "effect": "allow" },
+        { "action": "skill", "resource": "database-migrations", "effect": "allow" },
+        { "action": "skill", "resource": "hexagonal-architecture", "effect": "allow" },
+        { "action": "skill", "resource": "java-coding-standards", "effect": "allow" },
+        { "action": "skill", "resource": "javascript-testing-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "jpa-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "langchain-architecture", "effect": "allow" },
+        { "action": "skill", "resource": "llm-evaluation", "effect": "allow" },
+        { "action": "skill", "resource": "modern-javascript-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "openapi-spec-generation", "effect": "allow" },
+        { "action": "skill", "resource": "postgres-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "postgresql-table-design", "effect": "allow" },
+        { "action": "skill", "resource": "prompt-engineering-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "security-requirement-extraction", "effect": "allow" },
+        { "action": "skill", "resource": "springboot-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "springboot-security", "effect": "allow" },
+        { "action": "skill", "resource": "springboot-tdd", "effect": "allow" },
+        { "action": "skill", "resource": "sql-optimization-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "stride-analysis-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "threat-mitigation-mapping", "effect": "allow" }
+      ]
+    },
+    "stack/react/frontend": {
+      "permissions": [
+        { "action": "skill", "resource": "e2e-testing", "effect": "allow" },
+        { "action": "skill", "resource": "frontend-a11y", "effect": "allow" },
+        { "action": "skill", "resource": "frontend-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "javascript-testing-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "modern-javascript-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "nextjs-app-router-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "react-patterns", "effect": "allow" },
+        { "action": "skill", "resource": "react-state-management", "effect": "allow" },
+        { "action": "skill", "resource": "react-testing", "effect": "allow" },
+        { "action": "skill", "resource": "tailwind-design-system", "effect": "allow" },
+        { "action": "skill", "resource": "typescript-advanced-types", "effect": "allow" }
+      ]
+    }
+  }
 }
