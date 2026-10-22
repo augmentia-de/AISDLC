@@ -1,6 +1,5 @@
 package com.echobox.tenant;
 
-import java.util.Map;
 import java.util.function.Supplier;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -99,15 +98,5 @@ public class TenantTransactionRunner {
                     resultSet.next();
                     return null;
                 });
-    }
-
-    /**
-     * Liefert die Argumente fuer einen benannten Mandanten.
-     *
-     * @param organisationId der Mandant
-     * @return die Parameter
-     */
-    public static Map<String, Object> tenantParameter(String organisationId) {
-        return Map.of("organisationId", organisationId);
     }
 }

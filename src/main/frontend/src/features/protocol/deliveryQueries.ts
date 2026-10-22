@@ -1,6 +1,7 @@
 import { api } from '@/lib/apiClient';
 import { dateToEndOfDay, dateToStartOfDay } from '@/lib/format';
 import { emptyPage, PAGE_LIMIT, toProblem, type ListResult } from '@/lib/listResult';
+import { param } from '@/lib/searchParams';
 import type { DeliveryList, DeliveryRun, DeliveryStatus } from '@/types/api';
 
 /**
@@ -36,23 +37,13 @@ export interface DeliveryFilter {
 export function filterFromParams(
   params: Record<string, string | string[] | undefined>,
 ): DeliveryFilter {
-  const single = (value: string | string[] | undefined): string => {
-    if (typeof value === 'string') {
-      return value;
-    }
-    if (Array.isArray(value) && value.length > 0) {
-      return value[0] ?? '';
-    }
-    return '';
-  };
-
-  const status = single(params.status);
+  const status = param(params.status) ?? '';
 
   return {
-    endpointId: single(params.endpoint_id),
+    endpointId: param(params.endpoint_id) ?? '',
     status: status as DeliveryStatus | '',
-    from: single(params.from),
-    to: single(params.to),
+    from: param(params.from) ?? '',
+    to: param(params.to) ?? '',
   };
 }
 

@@ -163,9 +163,9 @@ Testdefekts**, keine Anpassung an eine abweichende Implementierung.
 
 | # | Datei / Stelle | Defekt | Korrektur |
 |---|---|---|---|
-| **T-8** | `tests/unit/frontend/DeliveryProtocolPage.test.tsx` — `AC-020-1` | Der Test erwartet den Zeitpunkt `09.10.2026 09:16:24`, sein eigener Fixture-Wert ist aber `last_attempt_at = 2026-10-21T09:16:24.000Z`. Der **Schwester-Testfall** der toten Zustellungen legt das Format fest: `abandoned_at = 2026-10-21T10:22:11.900Z` wird als `21.10.2026 10:22:11` erwartet — also `TT.MM.JJJJ HH:MM:SS`. Die beiden Erwartungen widersprechen sich; nur die des Schwester-Testfalls passt zu ihrem eigenen Wert. | Erwartung auf `21.10.2026 09:16:24` gezogen (Kommentar im Test benennt den Grund). Das Format, die Zeitzone (UTC) und die Semantik bleiben unveraendert. |
-| **T-9** | `tests/unit/crypto/PayloadCipherTest.the_encryption_key_is_not_hardcoded_in_the_project` | Der Testlauf ging ueber **jede** Datei unter `src/` und las sie als UTF-8. Mit der Oberflaeche liegt dort auch der **Build-Output** (`.next/`, 61 MB, mit binaeren Dateien) — `Files.readString` bricht an einer ungueltigen UTF-8-Folge mit `MalformedInputException` ab. Der Nachweis „der Schluessel steht in keinem Projektartefakt“ (AC-007-4) war damit **nicht mehr ausfuehrbar**. | Zwei Aenderungen: (a) die erzeugten Verzeichnisse (`node_modules`, `.next`, `target`) werden nicht geprueft — sie sind keine Projektartefakte, sie werden beim Build erzeugt und stehen nicht im Versionsverwaltung; (b) die Dateien werden als **Bytes** gelesen und als ISO-8859-1 interpretiert — der Nachweis gilt damit **auch fuer binaere Dateien** (der Schluessel ist ASCII) und bricht nicht mehr ab. Die Aussage des Tests ist damit nicht schwächer, sondern strenger. |
-| **T-10** | `tests/integration/deployment/ContainerStartupIT.the_project_contains_no_hardcoded_secret` | Derselbe Defekt an derselben Stelle: der Test ging ueber jede Datei unter `src/` und las sie als UTF-8 — mit dem Build-Output der Oberflaeche bricht er mit `MalformedInputException` ab. Der Nachweis „im Projekt ist kein fest verdrahtetes Secret hinterlegt“ (AC-023-1) war damit **nicht ausfuehrbar**. | Dieselbe Korrektur wie T-9: die erzeugten Verzeichnisse werden ausgenommen, die Dateien werden als Bytes gelesen und als ISO-8859-1 interpretiert. Die Aussage des Tests bleibt unveraendert — und gilt nun auch fuer binaere Dateien. |
+| **T-17** | `tests/unit/frontend/DeliveryProtocolPage.test.tsx` — `AC-020-1` | Der Test erwartet den Zeitpunkt `09.10.2026 09:16:24`, sein eigener Fixture-Wert ist aber `last_attempt_at = 2026-10-21T09:16:24.000Z`. Der **Schwester-Testfall** der toten Zustellungen legt das Format fest: `abandoned_at = 2026-10-21T10:22:11.900Z` wird als `21.10.2026 10:22:11` erwartet — also `TT.MM.JJJJ HH:MM:SS`. Die beiden Erwartungen widersprechen sich; nur die des Schwester-Testfalls passt zu ihrem eigenen Wert. | Erwartung auf `21.10.2026 09:16:24` gezogen (Kommentar im Test benennt den Grund). Das Format, die Zeitzone (UTC) und die Semantik bleiben unveraendert. |
+| **T-18** | `tests/unit/crypto/PayloadCipherTest.the_encryption_key_is_not_hardcoded_in_the_project` | Der Testlauf ging ueber **jede** Datei unter `src/` und las sie als UTF-8. Mit der Oberflaeche liegt dort auch der **Build-Output** (`.next/`, 61 MB, mit binaeren Dateien) — `Files.readString` bricht an einer ungueltigen UTF-8-Folge mit `MalformedInputException` ab. Der Nachweis „der Schluessel steht in keinem Projektartefakt“ (AC-007-4) war damit **nicht mehr ausfuehrbar**. | Zwei Aenderungen: (a) die erzeugten Verzeichnisse (`node_modules`, `.next`, `target`) werden nicht geprueft — sie sind keine Projektartefakte, sie werden beim Build erzeugt und stehen nicht im Versionsverwaltung; (b) die Dateien werden als **Bytes** gelesen und als ISO-8859-1 interpretiert — der Nachweis gilt damit **auch fuer binaere Dateien** (der Schluessel ist ASCII) und bricht nicht mehr ab. Die Aussage des Tests ist damit nicht schwächer, sondern strenger. |
+| **T-19** | `tests/integration/deployment/ContainerStartupIT.the_project_contains_no_hardcoded_secret` | Derselbe Defekt an derselben Stelle: der Test ging ueber jede Datei unter `src/` und las sie als UTF-8 — mit dem Build-Output der Oberflaeche bricht er mit `MalformedInputException` ab. Der Nachweis „im Projekt ist kein fest verdrahtetes Secret hinterlegt“ (AC-023-1) war damit **nicht ausfuehrbar**. | Dieselbe Korrektur wie T-18: die erzeugten Verzeichnisse werden ausgenommen, die Dateien werden als Bytes gelesen und als ISO-8859-1 interpretiert. Die Aussage des Tests bleibt unveraendert — und gilt nun auch fuer binaere Dateien. |
 
 ---
 
@@ -193,12 +193,16 @@ an der fehlenden Dienstinstanz fehl (`ECONNREFUSED`), nicht an der Oberflaeche.
 
 `mvn -q verify` (Java 21, Docker fuer Testcontainers) — **gruen**. Die
 Oberflaeche hat keinen Einfluss auf die Java-Tests; die einzige Beruehrung
-waren T-9 und T-10 (siehe dort) — zwei Tests, die ueber `src/` gelaufen sind
+waren T-18 und T-19 (siehe dort) — zwei Tests, die ueber `src/` gelaufen sind
 und am **Build-Output** der Oberflaeche gescheitert sind.
 
 ---
 
 ## 5. Offene Punkte
+
+> **Nummerierung (Stand Schritt 7):** **B-12** und **B-13** sind die Befunde
+> dieses Teils. Teil B trug dieselben Nummern frueher fuer zwei andere Befunde —
+> sie heissen dort jetzt **B-17** und **B-18**.
 
 | ID | Thema | Owner |
 |---|---|---|

@@ -42,6 +42,22 @@ function safeIdentifier(value: FormDataEntryValue | null): string | null {
 }
 
 /**
+ * Liest eine Kennung aus dem Formular — oder leitet mit dem Code
+ * `nicht-gefunden` auf die Seite um.
+ *
+ * @param value der Rohwert des Feldes
+ * @param path der Pfad der Seite, auf die umgeleitet wird
+ * @returns die Kennung
+ */
+function requireIdentifier(value: FormDataEntryValue | null, path: string): string {
+  const identifier = safeIdentifier(value);
+  if (identifier === null) {
+    redirect(`${path}?ergebnis=nicht-gefunden`);
+  }
+  return identifier;
+}
+
+/**
  * Bestimmt den Ergebniscode aus einem Fehler des Dienstes.
  *
  * <strong>Mandant vor Rolle</strong> (V-39): 404 = fremde Ressource,
@@ -87,6 +103,28 @@ function codeForProblem(error: unknown, secretCode: string): string {
   }
 
   return 'dienst-fehler';
+}
+
+/**
+ * Fuehrt den Aufruf gegen den Dienst aus und liefert den Ergebniscode.
+ *
+ * <strong>Der Ergebniscode ist `null` bei Erfolg</strong> — die Aktion
+ * leitet dann auf die Seite mit dem Bestaetigungscode um. Ein Fehler des
+ * Dienstes wird in einen Code uebersetzt; die Weiterleitung selbst bleibt
+ * ausserhalb des `try` — sonst wuerde die Umleitung des Next.js als Fehler
+ * verschluckt.
+ *
+ * @param call der Aufruf gegen den Dienst
+ * @param secretCode der Code fuer einen Fehler am Secret-Feld
+ * @returns der Ergebniscode oder `null` bei Erfolg
+ */
+async function runAction(call: () => Promise<unknown>, secretCode: string): Promise<string | null> {
+  try {
+    await call();
+    return null;
+  } catch (error) {
+    return codeForProblem(error, secretCode);
+  }
 }
 
 /**
@@ -143,16 +181,15 @@ export async function createEndpointAction(formData: FormData): Promise<void> {
 
   const session = await readSession();
 
-  let code: string | null = null;
-  try {
-    await api.post('/endpoints', session.token, {
-      target_url: targetUrl,
-      secret,
-      event_types: parseEventTypes(eventTypes),
-    });
-  } catch (error) {
-    code = codeForProblem(error, 'secret-zu-kurz');
-  }
+  const code = await runAction(
+    () =>
+      api.post('/endpoints', session.token, {
+        target_url: targetUrl,
+        secret,
+        event_types: parseEventTypes(eventTypes),
+      }),
+    'secret-zu-kurz',
+  );
 
   if (code !== null) {
     redirect(`/endpoints?ergebnis=${code}`);
@@ -168,19 +205,14 @@ export async function createEndpointAction(formData: FormData): Promise<void> {
  * @param formData die Formulardaten
  */
 export async function pauseEndpointAction(formData: FormData): Promise<void> {
-  const endpointId = safeIdentifier(formData.get('endpoint_id'));
-  if (endpointId === null) {
-    redirect('/endpoints?ergebnis=nicht-gefunden');
-  }
+  const endpointId = requireIdentifier(formData.get('endpoint_id'), '/endpoints');
 
   const session = await readSession();
 
-  let code: string | null = null;
-  try {
-    await api.post(`/endpoints/${endpointId}/pause`, session.token);
-  } catch (error) {
-    code = codeForProblem(error, 'secret-zu-kurz');
-  }
+  const code = await runAction(
+    () => api.post(`/endpoints/${endpointId}/pause`, session.token),
+    'secret-zu-kurz',
+  );
 
   if (code !== null) {
     redirect(`/endpoints?ergebnis=${code}`);
@@ -196,19 +228,14 @@ export async function pauseEndpointAction(formData: FormData): Promise<void> {
  * @param formData die Formulardaten
  */
 export async function resumeEndpointAction(formData: FormData): Promise<void> {
-  const endpointId = safeIdentifier(formData.get('endpoint_id'));
-  if (endpointId === null) {
-    redirect('/endpoints?ergebnis=nicht-gefunden');
-  }
+  const endpointId = requireIdentifier(formData.get('endpoint_id'), '/endpoints');
 
   const session = await readSession();
 
-  let code: string | null = null;
-  try {
-    await api.post(`/endpoints/${endpointId}/resume`, session.token);
-  } catch (error) {
-    code = codeForProblem(error, 'secret-zu-kurz');
-  }
+  const code = await runAction(
+    () => api.post(`/endpoints/${endpointId}/resume`, session.token),
+    'secret-zu-kurz',
+  );
 
   if (code !== null) {
     redirect(`/endpoints?ergebnis=${code}`);
@@ -227,10 +254,7 @@ export async function resumeEndpointAction(formData: FormData): Promise<void> {
  * @param formData die Formulardaten
  */
 export async function rotateEndpointSecretAction(formData: FormData): Promise<void> {
-  const endpointId = safeIdentifier(formData.get('endpoint_id'));
-  if (endpointId === null) {
-    redirect('/endpoints?ergebnis=nicht-gefunden');
-  }
+  const endpointId = requireIdentifier(formData.get('endpoint_id'), '/endpoints');
 
   const secret = String(formData.get('secret') ?? '').trim();
 
@@ -243,12 +267,10 @@ export async function rotateEndpointSecretAction(formData: FormData): Promise<vo
 
   const session = await readSession();
 
-  let code: string | null = null;
-  try {
-    await api.post(`/endpoints/${endpointId}/secret-rotation`, session.token, { secret });
-  } catch (error) {
-    code = codeForProblem(error, 'rotation-secret-zu-kurz');
-  }
+  const code = await runAction(
+    () => api.post(`/endpoints/${endpointId}/secret-rotation`, session.token, { secret }),
+    'rotation-secret-zu-kurz',
+  );
 
   if (code !== null) {
     redirect(
@@ -269,19 +291,14 @@ export async function rotateEndpointSecretAction(formData: FormData): Promise<vo
  * @param formData die Formulardaten
  */
 export async function replayDeliveryAction(formData: FormData): Promise<void> {
-  const deliveryRunId = safeIdentifier(formData.get('delivery_run_id'));
-  if (deliveryRunId === null) {
-    redirect('/dead-deliveries?ergebnis=nicht-gefunden');
-  }
+  const deliveryRunId = requireIdentifier(formData.get('delivery_run_id'), '/dead-deliveries');
 
   const session = await readSession();
 
-  let code: string | null = null;
-  try {
-    await api.post(`/deliveries/${deliveryRunId}/replay`, session.token, {});
-  } catch (error) {
-    code = codeForProblem(error, 'secret-zu-kurz');
-  }
+  const code = await runAction(
+    () => api.post(`/deliveries/${deliveryRunId}/replay`, session.token, {}),
+    'secret-zu-kurz',
+  );
 
   if (code !== null) {
     redirect(`/dead-deliveries?ergebnis=${code}`);

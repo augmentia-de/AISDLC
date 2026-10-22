@@ -25,18 +25,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Repository
 public class AuditLogRepository {
 
-    /** Die Rolle des handelnden Benutzers — hier der Empfaenger-Admin. */
-    public static final String ROLE_RECEIVER_ADMIN = "receiver_admin";
-
-    /** Die Rolle des handelnden Benutzers — hier der Plattform-Betrieb. */
-    public static final String ROLE_SERVICE_ADMIN = "service_admin";
-
-    /** Die Rolle des handelnden Benutzers — hier der Entwickler. */
-    public static final String ROLE_DEVELOPER = "developer";
-
-    /** Die Rolle des Systems — ein automatischer Vorgang. */
-    public static final String ROLE_SYSTEM = "system";
-
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final String INSERT_AUDIT = """

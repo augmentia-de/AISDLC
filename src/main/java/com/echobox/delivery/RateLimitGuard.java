@@ -82,18 +82,4 @@ public class RateLimitGuard {
 
         return EndpointRateLimiter.decide(observed, limit, Duration.ofSeconds(windowSeconds), windowStart, now);
     }
-
-    /**
-     * Der wirksame Grenzwert eines Endpunkts — der Override, sonst die Vorgabe.
-     *
-     * @param organisationId der Mandant
-     * @param endpointId     der Endpunkt
-     * @return der wirksame Grenzwert ({@code 0} = abgeschaltet)
-     */
-    public int effectiveLimit(String organisationId, UUID endpointId) {
-        EchoBoxProperties.Delivery.RateLimit defaults = properties.getDelivery().getRateLimit();
-        return repository.rateLimitSetting(organisationId, endpointId)
-                .map(setting -> setting.limitValue() == null ? defaults.getLimit() : setting.limitValue())
-                .orElseGet(defaults::getLimit);
-    }
 }

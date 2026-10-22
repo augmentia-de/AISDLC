@@ -2,7 +2,9 @@ package com.echobox.common;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.UUID;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -83,6 +85,48 @@ public class CursorCodec {
             throw new ValidationException("cursor", "invalid_cursor", "Der Cursor ist ungueltig.");
         }
         return new String(raw, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Verschliesst den Sortierschluessel einer Liste in einem Cursor.
+     *
+     * <p>Das Format ist {@code <millis>:<uuid>} — es ist **identisch** mit dem
+     * Format, das die Listenabfragen selbst verwenden.
+     *
+     * @param sortKey der Sortierschluessel der Liste
+     * @param id      die Kennung des letzten Eintrags der Seite
+     * @return der opake Cursor
+     */
+    public String encodePosition(Instant sortKey, UUID id) {
+        return encode(sortKey.toEpochMilli() + ":" + id);
+    }
+
+    /**
+     * Prueft einen Cursor und liest den Sortierschluessel aus.
+     *
+     * <p>Ein leerer Cursor ist der <strong>Anfang der Liste</strong>. Ein
+     * Cursor mit gueltiger Signatur, aber unlesbarem Inhalt, ist ein Verstoss
+     * gegen den Vertrag (HTTP 422 {@code cursor_invalid}) — er gehoert zu
+     * einer anderen Operation oder zu einem anderen Filter.
+     *
+     * @param cursor der opake Cursor (nullable = Anfang der Liste)
+     * @return die Position des Cursors
+     * @throws ValidationException wenn der Cursor ungueltig ist (HTTP 422)
+     */
+    public CursorPosition decodePosition(String cursor) {
+        if (cursor == null || cursor.isBlank()) {
+            return CursorPosition.START;
+        }
+        String raw = decode(cursor);
+        int separator = raw.indexOf(':');
+        try {
+            Instant sortKey = Instant.ofEpochMilli(Long.parseLong(raw.substring(0, separator)));
+            UUID id = UUID.fromString(raw.substring(separator + 1));
+            return new CursorPosition(sortKey, id);
+        } catch (RuntimeException exception) {
+            throw new ValidationException("cursor", "cursor_invalid",
+                    "Der Cursor ist ungueltig — er gehoert zu einer anderen Operation oder einem anderen Filter.");
+        }
     }
 
     private byte[] sign(byte[] raw) {

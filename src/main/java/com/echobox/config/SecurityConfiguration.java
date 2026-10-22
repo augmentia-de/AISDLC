@@ -1,12 +1,8 @@
 package com.echobox.config;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -19,12 +15,8 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 
-import com.echobox.common.Problem;
 import com.echobox.common.ProblemFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import com.echobox.common.ProblemWriter;
 
 /**
  * Die Anmeldung und die Zugriffsregeln des Dienstes.
@@ -49,8 +41,6 @@ import jakarta.servlet.http.HttpServletResponse;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
      * Baut die Filterkette.
@@ -107,7 +97,7 @@ public class SecurityConfiguration {
      */
     @Bean
     public AuthenticationEntryPoint problemAuthenticationEntryPoint() {
-        return (request, response, exception) -> writeProblem(response, request,
+        return (request, response, exception) -> ProblemWriter.write(response,
                 ProblemFactory.create(ProblemFactory.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.value(),
                         "Unauthorized", "Das Bearer-Token fehlt oder ist ungueltig.", request.getRequestURI()));
     }
@@ -120,17 +110,9 @@ public class SecurityConfiguration {
      */
     @Bean
     public AccessDeniedHandler problemAccessDeniedHandler() {
-        return (request, response, exception) -> writeProblem(response, request,
+        return (request, response, exception) -> ProblemWriter.write(response,
                 ProblemFactory.create(ProblemFactory.FORBIDDEN, HttpStatus.FORBIDDEN.value(),
                         "Forbidden", "Diese Rolle darf die Operation fuer diesen Mandanten nicht ausfuehren.",
                         request.getRequestURI()));
-    }
-
-    private static void writeProblem(HttpServletResponse response, HttpServletRequest request, Problem problem)
-            throws IOException {
-        response.setStatus(problem.status());
-        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write(MAPPER.writeValueAsString(problem));
     }
 }

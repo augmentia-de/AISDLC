@@ -10,15 +10,25 @@
 /** Die Farbtonfamilie der Anzeige. */
 export type BadgeTone = 'aktiv' | 'pausiert' | 'erfolg' | 'fehler' | 'offen' | 'neutral';
 
-/** Die Eigenschaften der Zustandsanzeige. */
-export interface StatusBadgeProps {
-  /** Der Text des Zustands — der maschinenlesbare Wert des Vertrags. */
+/**
+ * Die Darstellung eines Zustands — **eine** Quelle fuer alle Bausteine.
+ *
+ * <strong>Die Endpunktseite, das Zustellprotokoll und die Totenliste zeigen
+ * denselben Zustand auf dieselbe Weise:</strong> Text, Farbtonfamilie und ein
+ * unterscheidbares Merkmal. Der Zustand haengt <strong>nie</strong> allein an
+ * der Farbe (ADR-018 §3).
+ */
+export interface StatusPresentation {
+  /** Der Text des Zustands. */
   label: string;
   /** Die Farbtonfamilie. */
   tone: BadgeTone;
   /** Das unterscheidbare Merkmal neben dem Text. */
   mark: string;
 }
+
+/** Die Eigenschaften der Zustandsanzeige. */
+export type StatusBadgeProps = StatusPresentation;
 
 /**
  * Zeigt einen Zustand als Text, Farbe und Form.

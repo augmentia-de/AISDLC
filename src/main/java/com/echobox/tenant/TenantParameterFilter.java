@@ -19,12 +19,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.echobox.common.Problem;
 import com.echobox.common.ProblemFactory;
+import com.echobox.common.ProblemWriter;
 import com.echobox.common.ValidationViolation;
 import com.echobox.event.PayloadSize;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ReadListener;
@@ -63,14 +63,12 @@ public class TenantParameterFilter extends OncePerRequestFilter {
 
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
         if (isBodyRelevant(request) && request.getContentLengthLong() > PayloadSize.MAX_REQUEST_BODY_BYTES) {
-            writeProblem(response, request, ProblemFactory.create(ProblemFactory.PAYLOAD_TOO_LARGE,
+            writeProblem(response, ProblemFactory.create(ProblemFactory.PAYLOAD_TOO_LARGE,
                     HttpStatus.PAYLOAD_TOO_LARGE.value(), "Payload too large",
                     "Der Request-Body ueberschreitet die zulaessige Groesse.",
                     request.getRequestURI()));
@@ -88,7 +86,7 @@ public class TenantParameterFilter extends OncePerRequestFilter {
         }
 
         if (offending != null) {
-            writeProblem(response, request, ProblemFactory.create(ProblemFactory.TENANT_PARAMETER_REJECTED,
+            writeProblem(response, ProblemFactory.create(ProblemFactory.TENANT_PARAMETER_REJECTED,
                     HttpStatus.UNPROCESSABLE_ENTITY.value(), "Tenant parameter rejected",
                     "Der Mandant stammt aus der Identitaet; ein Mandantenparameter wird nicht akzeptiert.",
                     request.getRequestURI(),
@@ -156,12 +154,8 @@ public class TenantParameterFilter extends OncePerRequestFilter {
         return TENANT_PARAMETER_NAMES.contains(name.trim().toLowerCase(Locale.ROOT));
     }
 
-    private static void writeProblem(HttpServletResponse response, HttpServletRequest request, Problem problem)
-            throws IOException {
-        response.setStatus(problem.status());
-        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write(MAPPER.writeValueAsString(problem));
+    private static void writeProblem(HttpServletResponse response, Problem problem) throws IOException {
+        ProblemWriter.write(response, problem);
     }
 
     /** Ersetzt den Request-Body durch die bereits gelesenen Bytes. */

@@ -13,8 +13,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.RequestScope;
 
-import com.echobox.common.UnauthenticatedException;
-
 /**
  * Der Mandant und die Rollen des angemeldeten Aufrufers.
  *
@@ -52,20 +50,6 @@ public class TenantContext {
         }
         Object claim = token.getToken().getClaims().get(ORGANISATION_ID_CLAIM);
         return claim == null ? "" : String.valueOf(claim);
-    }
-
-    /**
-     * Liefert den Mandanten der Identitaet und verlangt, dass er gesetzt ist.
-     *
-     * @return der Mandant
-     * @throws UnauthenticatedException wenn kein Mandant vorliegt (HTTP 401)
-     */
-    public String requireOrganisationId() {
-        String organisationId = organisationId();
-        if (organisationId.isBlank()) {
-            throw new UnauthenticatedException();
-        }
-        return organisationId;
     }
 
     /**

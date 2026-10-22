@@ -20,7 +20,7 @@ import com.echobox.common.PageResponse;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record DeliveryListResponse(
         @JsonProperty("items") List<DeliveryRunResponse> items,
-        @JsonProperty("page") Page page) {
+        @JsonProperty("page") PageResponse page) {
 
     /**
      * Erzeugt eine Protokollliste. Die Eintragsliste ist unabhaengig und
@@ -31,33 +31,5 @@ public record DeliveryListResponse(
      */
     public DeliveryListResponse {
         items = items == null ? List.of() : List.copyOf(items);
-    }
-
-    /**
-     * Die Angaben zur Seite — die Projektion des Vertrags
-     * {@code components.schemas.Page}.
-     *
-     * <p>Die Feldnamen sind <strong>explizit</strong> gesetzt: der Vertrag
-     * fuehrt sie snake_case, unabhaengig von der Benennungskonvention der
-     * JSON-Bindung.
-     *
-     * @param limit      die maximale Zahl der Eintraege je Seite
-     * @param hasMore    ob es eine weitere Seite gibt
-     * @param nextCursor der Cursor der naechsten Seite (nullable)
-     */
-    public record Page(
-            @JsonProperty("limit") int limit,
-            @JsonProperty("has_more") boolean hasMore,
-            @JsonProperty("next_cursor") String nextCursor) {
-
-        /**
-         * Bildet die Seitenangaben aus dem Traeger des Fachmodells.
-         *
-         * @param response der Traeger
-         * @return die Seitenangaben
-         */
-        public static Page of(PageResponse response) {
-            return new Page(response.limit(), response.hasMore(), response.nextCursor());
-        }
     }
 }

@@ -1,4 +1,4 @@
-import type { BadgeTone } from '@/components/StatusBadge';
+import type { StatusPresentation } from '@/components/StatusBadge';
 import type { EndpointStatus } from '@/types/api';
 
 /**
@@ -10,16 +10,6 @@ import type { EndpointStatus } from '@/types/api';
  * (`failed`, `abandoned`, …). Beide Anzeigen tragen Text, Farbe und Form —
  * der Zustand hängt <strong>nie</strong> allein an der Farbe (ADR-018 §3).
  */
-
-/** Die Darstellung eines Zustands. */
-export interface StatusPresentation {
-  /** Der Text des Zustands. */
-  label: string;
-  /** Die Farbtonfamilie. */
-  tone: BadgeTone;
-  /** Das unterscheidbare Merkmal neben dem Text. */
-  mark: string;
-}
 
 /**
  * Bildet den Zustand eines Endpunkts auf seine Anzeige ab.

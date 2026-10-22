@@ -1,6 +1,5 @@
 package com.echobox.endpoint;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -10,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.echobox.common.CursorCodec;
+import com.echobox.common.CursorPosition;
 import com.echobox.common.NotFoundException;
 import com.echobox.common.PageResponse;
 import com.echobox.endpoint.api.EndpointListResponse;
@@ -83,9 +83,9 @@ public class EndpointQueryService {
      * @return die Seite
      */
     public EndpointListResponse list(String organisationId, List<String> statuses, int limit, String cursor) {
-        CursorPosition position = decodeCursor(cursorCodec, cursor);
+        CursorPosition position = cursorCodec.decodePosition(cursor);
         List<Endpoint> rows = repository.list(organisationId, statuses, limit + 1,
-                position.updatedAt(), position.endpointId());
+                position.sortKey(), position.id());
         return toPage(rows, limit);
     }
 
@@ -99,10 +99,10 @@ public class EndpointQueryService {
      * @return die Seite
      */
     public EndpointListResponse listCrossTenant(List<String> statuses, int limit, String cursor) {
-        CursorPosition position = decodeCursor(cursorCodec, cursor);
+        CursorPosition position = cursorCodec.decodePosition(cursor);
         String status = statuses == null || statuses.isEmpty() ? null : statuses.get(0);
         List<Endpoint> rows = repository.listCrossTenant(status, limit + 1,
-                position.updatedAt(), position.endpointId());
+                position.sortKey(), position.id());
         return toPage(rows, limit);
     }
 
@@ -112,49 +112,9 @@ public class EndpointQueryService {
         String nextCursor = null;
         if (hasMore && !page.isEmpty()) {
             Endpoint last = page.get(page.size() - 1);
-            nextCursor = encodeCursor(last.updatedAt(), last.endpointId());
+            nextCursor = cursorCodec.encodePosition(last.updatedAt(), last.endpointId());
         }
         List<EndpointResponse> items = page.stream().map(EndpointResponse::of).toList();
-        return new EndpointListResponse(items, EndpointListResponse.Page.of(
-                new PageResponse(limit, hasMore, nextCursor)));
-    }
-
-    /**
-     * Der Cursor ist <strong>opak</strong> und HMAC-signiert: er traegt den
-     * Sortierschluessel der Liste (Aktualisierungszeitpunkt und Endpunkt-ID).
-     * Die Position haengt am Schluessel, nicht an einem Offset — zwischen zwei
-     * Seiten geaenderte Datensaetze werden deshalb weder doppelt noch
-     * uebersprungen. Ein manipulierter Cursor wird mit HTTP 422 abgelehnt.
-     */
-    private String encodeCursor(Instant updatedAt, UUID endpointId) {
-        return cursorCodec.encode(updatedAt.toEpochMilli() + ":" + endpointId);
-    }
-
-    private static CursorPosition decodeCursor(CursorCodec cursorCodec, String cursor) {
-        if (cursor == null || cursor.isBlank()) {
-            return CursorPosition.START;
-        }
-        String raw = cursorCodec.decode(cursor);
-        int separator = raw.indexOf(':');
-        try {
-            Instant updatedAt = Instant.ofEpochMilli(Long.parseLong(raw.substring(0, separator)));
-            UUID endpointId = UUID.fromString(raw.substring(separator + 1));
-            return new CursorPosition(updatedAt, endpointId);
-        } catch (RuntimeException e) {
-            throw new com.echobox.common.ValidationException("cursor", "cursor_invalid",
-                    "Der Cursor ist ungueltig — er gehoert zu einer anderen Operation oder einem anderen Filter.");
-        }
-    }
-
-    /**
-     * Der Sortierschluessel, den der Cursor traegt.
-     *
-     * @param updatedAt  der Aktualisierungszeitpunkt
-     * @param endpointId die Endpunkt-ID
-     */
-    private record CursorPosition(Instant updatedAt, UUID endpointId) {
-
-        /** Der Anfang der Liste — kein Cursor. */
-        private static final CursorPosition START = new CursorPosition(null, null);
+        return new EndpointListResponse(items, new PageResponse(limit, hasMore, nextCursor));
     }
 }

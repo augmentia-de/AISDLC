@@ -96,15 +96,6 @@ public enum DeliveryOutcome {
     }
 
     /**
-     * Liefert, ob der Versuch wiederholt wird.
-     *
-     * @return {@code true}, wenn ein weiterer Versuch geplant wird
-     */
-    public boolean isRetryable() {
-        return !isFinal();
-    }
-
-    /**
      * Liefert den Wert, wie er in der Datenbank steht.
      *
      * @return der Wert in Kleinbuchstaben

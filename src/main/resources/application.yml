@@ -9,7 +9,6 @@
 # Umgebungsvariablen (Konvention ECHobox_*):
 #   ECHobox_DATABASE_URL, ECHobox_DATABASE_USERNAME, ECHobox_DATABASE_PASSWORD
 #   ECHobox_CRYPTO_KEY             (Base64, 32 Byte — AES-256-GCM-Schluessel)
-#   ECHobox_CRYPTO_FINGERPRINT_KEY (optional, sonst aus ECHobox_CRYPTO_KEY abgeleitet)
 #   ECHobox_CURSOR_KEY             (HMAC-Schluessel der opaken Cursor)
 #   ECHobox_SECURITY_JWK_SET_URI   (JWKS des Identity Providers)
 #   ECHobox_TENANT_ID              (Mandanteninstanz, ADR-013)
@@ -85,9 +84,6 @@ echobox:
     # und warnt — im Staging/Produktivbetrieb ist das ein Fehler (key-required).
     key: ${ECHobox_CRYPTO_KEY:}
     key-required: false
-    # Schluessel fuer den Nutzlast-Fingerabdruck (ADR-007). Ohne eigenen Wert
-    # wird er aus dem Hauptschluessel abgeleitet.
-    fingerprint-key: ${ECHobox_CRYPTO_FINGERPRINT_KEY:}
   security:
     jwk-set-uri: ${ECHobox_SECURITY_JWK_SET_URI:https://idp.example.invalid/.well-known/jwks.json}
     # HMAC-Schluessel der opaken Cursor. Ohne Wert wird ein ephemerer

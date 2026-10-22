@@ -10,9 +10,6 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 /**
  * Der HTTP-Adapter des Zustellports.
  *
@@ -23,11 +20,12 @@ import org.springframework.stereotype.Component;
  *
  * <p>Die Timeouts stammen aus der Betriebskonfiguration
  * ({@code echobox.delivery.http.connect-timeout},
- * {@code echobox.delivery.http.read-timeout} — ADR-008: 5 s / 10 s).
+ * {@code echobox.delivery.http.read-timeout} — ADR-008: 5 s / 10 s). Sie
+ * werden **hier nicht verdrahtet**: die Bean entsteht in
+ * {@link DeliveryConfiguration} aus {@code EchoBoxProperties}.
  *
  * <p>TLS ist Standard: es wird <strong>kein</strong> Trust-all betrieben.
  */
-@Component
 public class DeliveryHttpClient implements DeliveryPort {
 
     private final HttpClient httpClient;
@@ -40,9 +38,7 @@ public class DeliveryHttpClient implements DeliveryPort {
      * @param connectTimeout der Verbindungs-Timeout
      * @param readTimeout    der Lese-Timeout
      */
-    public DeliveryHttpClient(
-            @Value("${echobox.delivery.http.connect-timeout:5s}") Duration connectTimeout,
-            @Value("${echobox.delivery.http.read-timeout:10s}") Duration readTimeout) {
+    public DeliveryHttpClient(Duration connectTimeout, Duration readTimeout) {
         this.readTimeout = readTimeout;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)

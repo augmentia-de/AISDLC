@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.echobox.common.CursorCodec;
+import com.echobox.common.CursorPosition;
 import com.echobox.common.ForbiddenException;
 import com.echobox.common.PageResponse;
 import com.echobox.common.ValidationException;
@@ -109,10 +110,10 @@ public class DeadDeliveryQueryService {
                                          String cursor) {
         requireServiceAdmin();
         requireDeadStatusOnly(statuses);
-        CursorPosition position = decodeCursor(cursorCodec, cursor);
+        CursorPosition position = cursorCodec.decodePosition(cursor);
         List<DeliveryRepository.DeadDelivery> rows = crossTenantScope.asServiceAdmin(() ->
                 repository.listDeadDeliveriesCrossTenant(endpointId, eventType, limit + 1, from, to,
-                        position.createdAt(), position.deliveryRunId()));
+                        position.sortKey(), position.id()));
         return toPage(rows, limit);
     }
 
@@ -124,11 +125,10 @@ public class DeadDeliveryQueryService {
         String nextCursor = null;
         if (hasMore && !page.isEmpty()) {
             DeliveryRepository.DeadDelivery last = page.get(page.size() - 1);
-            nextCursor = encodeCursor(last.createdAt(), last.deliveryRunId());
+            nextCursor = cursorCodec.encodePosition(last.createdAt(), last.deliveryRunId());
         }
         List<DeadDeliveryResponse> items = page.stream().map(DeadDeliveryResponse::of).toList();
-        return new DeadDeliveryListResponse(items, DeadDeliveryListResponse.Page.of(
-                new PageResponse(limit, hasMore, nextCursor)));
+        return new DeadDeliveryListResponse(items, new PageResponse(limit, hasMore, nextCursor));
     }
 
     /**
@@ -160,42 +160,5 @@ public class DeadDeliveryQueryService {
                                 + "der einzige zulaessige Status ist '" + DEAD_STATUS + "'.");
             }
         }
-    }
-
-    /**
-     * Der Cursor ist <strong>opak</strong> und HMAC-signiert: er traegt den
-     * Sortierschluessel der Liste (Anlegezeitpunkt und Zustelllauf-ID). Ein
-     * manipulierter Cursor wird mit HTTP 422 abgelehnt.
-     */
-    private String encodeCursor(Instant createdAt, UUID deliveryRunId) {
-        return cursorCodec.encode(createdAt.toEpochMilli() + ":" + deliveryRunId);
-    }
-
-    private static CursorPosition decodeCursor(CursorCodec cursorCodec, String cursor) {
-        if (cursor == null || cursor.isBlank()) {
-            return CursorPosition.START;
-        }
-        String raw = cursorCodec.decode(cursor);
-        int separator = raw.indexOf(':');
-        try {
-            Instant createdAt = Instant.ofEpochMilli(Long.parseLong(raw.substring(0, separator)));
-            UUID deliveryRunId = UUID.fromString(raw.substring(separator + 1));
-            return new CursorPosition(createdAt, deliveryRunId);
-        } catch (RuntimeException e) {
-            throw new ValidationException("cursor", "cursor_invalid",
-                    "Der Cursor ist ungueltig — er gehoert zu einer anderen Operation oder einem anderen Filter.");
-        }
-    }
-
-    /**
-     * Der Sortierschluessel, den der Cursor traegt.
-     *
-     * @param createdAt     der Anlegezeitpunkt
-     * @param deliveryRunId die Zustelllauf-ID
-     */
-    private record CursorPosition(Instant createdAt, UUID deliveryRunId) {
-
-        /** Der Anfang der Liste — kein Cursor. */
-        private static final CursorPosition START = new CursorPosition(null, null);
     }
 }

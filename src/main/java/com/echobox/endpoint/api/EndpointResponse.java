@@ -6,7 +6,6 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import com.echobox.endpoint.Endpoint;
-import com.echobox.endpoint.EndpointStatus;
 
 /**
  * Die Antwort auf einen Endpunkt-Vorgang — die Projektion des Vertrags
@@ -56,14 +55,5 @@ public record EndpointResponse(
                 endpoint.pausedAt(),
                 endpoint.createdAt(),
                 endpoint.updatedAt());
-    }
-
-    /**
-     * Der Zustand als Enum — hilfreich fuer die Abbildung auf den Vertrag.
-     *
-     * @return der Zustand
-     */
-    public EndpointStatus statusValue() {
-        return EndpointStatus.fromWire(status);
     }
 }

@@ -14,7 +14,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import com.echobox.testsupport.AbstractApplicationIT;
-import com.echobox.testsupport.Auth;
 
 /**
  * Integrationsebene — Wiederholung mit Backoff (US-011, FR-022).

@@ -24,14 +24,4 @@ public record Problem(String type,
                        String detail,
                        String instance,
                        List<ValidationViolation> violations) {
-
-    /**
-     * Liefert dasselbe Problem mit dem Pfad der Anfrage.
-     *
-     * @param requestPath der Pfad der Anfrage
-     * @return das Problem mit gesetztem Pfad
-     */
-    public Problem withInstance(String requestPath) {
-        return new Problem(type, title, status, code, detail, requestPath, violations);
-    }
 }

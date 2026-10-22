@@ -238,7 +238,7 @@ Alle Pruefungen wurden **nach** der Umstellung ausgefuehrt.
 | Oberflaeche Unit (Vitest) | `tests/unit/frontend` — **30** Testfaelle in 5 Dateien | **gruen** |
 | Oberflaeche Browser (Playwright) | `tests/e2e` — **31** Testfaelle | **gruen** |
 
-### 5.2 Die nachgezogenen Tests — Teil D (T-17 … T-24)
+### 5.2 Die nachgezogenen Tests — Teil D (T-20 … T-27)
 
 Die Semantik (Vertrag, ADRs, Schema) wurde **nicht** geaendert. Jede Aenderung
 ist entweder eine **Anpassung an die neue Architektur** (Server Component
@@ -246,16 +246,16 @@ statt Client Component) oder eine **Korrektur eines Testdefekts**.
 
 | # | Datei / Stelle | Defekt oder Anpassung | Korrektur | AC bleibt abgedeckt durch |
 |---|---|---|---|---|
-| **T-17** | `tests/unit/frontend/EndpointsPage.test.tsx` (vollstaendig neu) | Die Seite ist ein **Server Component**: sie laesst sich nicht mehr mit `render(<Page />)` rendern (die Props sind ein `Promise`, die Seite ist `async`). | Der Test rendert die Seite **mit dem Ergebnis**: `render(await EndpointsPage({ searchParams }))`. Die **Aktionen** werden ueber einen echten Formularabschick geprueft (`runAction` — der Helfer faengt die Weiterleitung von Next.js ab und liefert das Ziel). | **AC-019-1** (Status, Ziel-URL ohne Secret, Ereignistypen — unveraendert), **AC-019-2** (Meldung am Feld + `aria-describedby` + **kein** Anlegen), **AC-019-3** (Statuswechsel + genau ein POST an `/pause`), **AC-019-4** (Bestaetigung ohne Klartext) |
-| **T-18** | `tests/unit/frontend/DeliveryProtocolPage.test.tsx` (vollstaendig neu) | Wie T-17; zusaetzlich: der Filter war eine `onChange`-Reaktion im Browser. | Der Test prueft die **Anfrage** (kombinierbare Filter: `endpoint_id`, `status`, `from`, `to` als UTC-Grenzen) und die **Anzeige**. Der Filter wird zusaetzlich als GET-Formular geprueft (`method="get"`, `action="/deliveries"`). | **AC-020-1** (Zustand, Versuche, letzter Versuch, Antwortcode, naechster Versuch — unveraendert; die Kombination der Filter jetzt an der Anfrage statt an der Auswahl), **AC-020-3** (Leerzustand), **AC-020-4** (404 → Leerzustand, keine fremden Daten) |
-| **T-19** | `tests/unit/frontend/DeadDeliveryPage.test.tsx` (vollstaendig neu) | Wie T-17; zusaetzlich: die Tabelle zeigte direkt das Vertragsmodell `DeadDelivery`. | Die Seite fuehrt ein **Zeilenmodell** (`DeadDeliveryRow`) — die Quelle kann die Totenliste **oder** das Zustellprotokoll sein (D2). Der Test deckt beide Quellen und alle vier Berechtigungsfaelle ab. | **AC-020-2** (Ereignis-ID, Endpunkt, Ereignistyp, Versuche, Aufgabezeitpunkt — unveraendert), **AC-020-3** (Leerzustand), **FR-024** (Replay fuer den Empfaenger-Admin, **nur** seinen) |
-| **T-20** | `tests/unit/frontend/a11y.test.tsx` | Der Scan lief ueber die **Client-Komponenten**; es gibt sie nicht mehr. | Der Scan laeuft ueber die **gerenderten Seiten** — der Test prueft damit die echte Ausgabe inklusive Formularen und Tabellen. | **AC-021-2** (axe ueber alle drei Seiten, 0 schwere Verstoesse), **AC-021-4** (Rollen und Inhalte) |
-| **T-21** | `tests/unit/frontend/ProgressiveEnhancement.test.tsx` (**neu**) | Es gab **keinen** Test fuer die Zusage aus ADR-018 §8. | Der Test prueft Quelle und Ergebnis (siehe 2.3). **Neu** gegenueber Schritt 5. | **ADR-018 §8** (ohne JavaScript bedienbar) —Deckung fuer AC-021-1 (Tastaturbedienung) und AC-019-*/AC-020-* (Bedienbarkeit der Aktionen) |
-| **T-22** | `tests/e2e/{endpoints,protocol,dead-deliveries,a11y}.spec.ts` | Die Seiten sind Server Components: `page.route` wirkt nur auf **Browser**-Anfragen und koennte den Dienst-Aufruf nicht mehr abfangen. | Der Dienst-Doppelgaenger steht jetzt an der **Dienstgrenze** (`tests/e2e/support/mock-api.mjs`); die Oberflaeche spricht ihn ueber HTTP an — genau wie im Betrieb. Die Tests steuern seinen Zustand ueber `/__control/zustand`. **Drei zusaetzliche Tests mit `javaScriptEnabled: false`** (Pausieren, Filter, Replay). | **AC-019-1…4**, **AC-020-1…4**, **AC-021-1…4** (unveraendert) + **ADR-018 §8** (neu) + **FR-024/O-14** (neu) |
-| **T-23** | `tests/e2e/health.spec.ts` | Der Test sprach den Dienst unter `ECHOBOX_API_BASE_URL` (Standard `localhost:8080`) an — im Testlauf laeuft dort kein Dienst. | Der Test spricht den **Dienst-Doppelgaenger** an (ueber `ECHOBOX_MOCK_BASE_URL`); mit gesetzter `ECHOBOX_API_BASE_URL` spricht er den **echten** Dienst an. | **AC-023-1** (Liveness und Readiness) |
-| **T-24** | `tests/unit/frontend/support/{actionRunner,token}.ts`, `tests/e2e/support/{harness,mock-api.mjs}` (**neu**) | Die Tests brauchten Hilfen: den Aufruf einer Server Action, ein Token mit Rollen, den Doppelgaenger. | Drei kleine Hilfsmodule. Sie enthalten **keine** Testfaelle. | — |
+| **T-20** | `tests/unit/frontend/EndpointsPage.test.tsx` (vollstaendig neu) | Die Seite ist ein **Server Component**: sie laesst sich nicht mehr mit `render(<Page />)` rendern (die Props sind ein `Promise`, die Seite ist `async`). | Der Test rendert die Seite **mit dem Ergebnis**: `render(await EndpointsPage({ searchParams }))`. Die **Aktionen** werden ueber einen echten Formularabschick geprueft (`runAction` — der Helfer faengt die Weiterleitung von Next.js ab und liefert das Ziel). | **AC-019-1** (Status, Ziel-URL ohne Secret, Ereignistypen — unveraendert), **AC-019-2** (Meldung am Feld + `aria-describedby` + **kein** Anlegen), **AC-019-3** (Statuswechsel + genau ein POST an `/pause`), **AC-019-4** (Bestaetigung ohne Klartext) |
+| **T-21** | `tests/unit/frontend/DeliveryProtocolPage.test.tsx` (vollstaendig neu) | Wie T-20; zusaetzlich: der Filter war eine `onChange`-Reaktion im Browser. | Der Test prueft die **Anfrage** (kombinierbare Filter: `endpoint_id`, `status`, `from`, `to` als UTC-Grenzen) und die **Anzeige**. Der Filter wird zusaetzlich als GET-Formular geprueft (`method="get"`, `action="/deliveries"`). | **AC-020-1** (Zustand, Versuche, letzter Versuch, Antwortcode, naechster Versuch — unveraendert; die Kombination der Filter jetzt an der Anfrage statt an der Auswahl), **AC-020-3** (Leerzustand), **AC-020-4** (404 → Leerzustand, keine fremden Daten) |
+| **T-22** | `tests/unit/frontend/DeadDeliveryPage.test.tsx` (vollstaendig neu) | Wie T-20; zusaetzlich: die Tabelle zeigte direkt das Vertragsmodell `DeadDelivery`. | Die Seite fuehrt ein **Zeilenmodell** (`DeadDeliveryRow`) — die Quelle kann die Totenliste **oder** das Zustellprotokoll sein (D2). Der Test deckt beide Quellen und alle vier Berechtigungsfaelle ab. | **AC-020-2** (Ereignis-ID, Endpunkt, Ereignistyp, Versuche, Aufgabezeitpunkt — unveraendert), **AC-020-3** (Leerzustand), **FR-024** (Replay fuer den Empfaenger-Admin, **nur** seinen) |
+| **T-23** | `tests/unit/frontend/a11y.test.tsx` | Der Scan lief ueber die **Client-Komponenten**; es gibt sie nicht mehr. | Der Scan laeuft ueber die **gerenderten Seiten** — der Test prueft damit die echte Ausgabe inklusive Formularen und Tabellen. | **AC-021-2** (axe ueber alle drei Seiten, 0 schwere Verstoesse), **AC-021-4** (Rollen und Inhalte) |
+| **T-24** | `tests/unit/frontend/ProgressiveEnhancement.test.tsx` (**neu**) | Es gab **keinen** Test fuer die Zusage aus ADR-018 §8. | Der Test prueft Quelle und Ergebnis (siehe 2.3). **Neu** gegenueber Schritt 5. | **ADR-018 §8** (ohne JavaScript bedienbar) —Deckung fuer AC-021-1 (Tastaturbedienung) und AC-019-*/AC-020-* (Bedienbarkeit der Aktionen) |
+| **T-25** | `tests/e2e/{endpoints,protocol,dead-deliveries,a11y}.spec.ts` | Die Seiten sind Server Components: `page.route` wirkt nur auf **Browser**-Anfragen und koennte den Dienst-Aufruf nicht mehr abfangen. | Der Dienst-Doppelgaenger steht jetzt an der **Dienstgrenze** (`tests/e2e/support/mock-api.mjs`); die Oberflaeche spricht ihn ueber HTTP an — genau wie im Betrieb. Die Tests steuern seinen Zustand ueber `/__control/zustand`. **Drei zusaetzliche Tests mit `javaScriptEnabled: false`** (Pausieren, Filter, Replay). | **AC-019-1…4**, **AC-020-1…4**, **AC-021-1…4** (unveraendert) + **ADR-018 §8** (neu) + **FR-024/O-14** (neu) |
+| **T-26** | `tests/e2e/health.spec.ts` | Der Test sprach den Dienst unter `ECHOBOX_API_BASE_URL` (Standard `localhost:8080`) an — im Testlauf laeuft dort kein Dienst. | Der Test spricht den **Dienst-Doppelgaenger** an (ueber `ECHOBOX_MOCK_BASE_URL`); mit gesetzter `ECHOBOX_API_BASE_URL` spricht er den **echten** Dienst an. | **AC-023-1** (Liveness und Readiness) |
+| **T-27** | `tests/unit/frontend/support/{actionRunner,token}.ts`, `tests/e2e/support/{harness,mock-api.mjs}` (**neu**) | Die Tests brauchten Hilfen: den Aufruf einer Server Action, ein Token mit Rollen, den Doppelgaenger. | Drei kleine Hilfsmodule. Sie enthalten **keine** Testfaelle. | — |
 
-### 5.3 Die Nachzuege der Tests aus Teil A, B und C (T-1 … T-16)
+### 5.3 Die Nachzuege der Tests aus Teil A, B und C (T-1 … T-19)
 
 Unveraendert uebernommen aus den Teilberichten:
 
@@ -277,16 +277,26 @@ Unveraendert uebernommen aus den Teilberichten:
 | T-14 | `tests/integration/**` (4 Stellen) | `String.valueOf(...)` statt `(String)` — der Treiber liefert eine `UUID` | erledigt |
 | T-15 | `tests/integration/protocol/DeadDeliveryListIT` | der Helfer liefert die **Endpunkt**-ID | erledigt |
 | T-16 | `tests/integration/protocol/RetentionEnforcementIT` | Zeitpunkt als `OffsetDateTime` in UTC binden; `deleted_at` als `Timestamp` umwandeln | erledigt |
-| T-8 (Teil C) | `tests/unit/frontend/DeliveryProtocolPage.test.tsx` | die Zeitpunkt-Erwartung an den eigenen Fixture-Wert angepasst (`21.10.2026 09:16:24`) | **ueberholt** — die Datei wurde in Teil D neu geschrieben (T-18); die Formatregel `TT.MM.JJJJ HH:MM:SS` (UTC) gilt unveraendert |
-| T-9 (Teil C) | `tests/unit/crypto/PayloadCipherTest` | erzeugte Verzeichnisse ausgenommen, Dateien als **Bytes** gelesen (ISO-8859-1) | erledigt |
-| T-10 (Teil C) | `tests/integration/deployment/ContainerStartupIT` | dieselbe Korrektur wie T-9 (Teil C) | erledigt |
+| T-17 (Teil C) | `tests/unit/frontend/DeliveryProtocolPage.test.tsx` | die Zeitpunkt-Erwartung an den eigenen Fixture-Wert angepasst (`21.10.2026 09:16:24`) | **ueberholt** — die Datei wurde in Teil D neu geschrieben (T-21); die Formatregel `TT.MM.JJJJ HH:MM:SS` (UTC) gilt unveraendert |
+| T-18 (Teil C) | `tests/unit/crypto/PayloadCipherTest` | erzeugte Verzeichnisse ausgenommen, Dateien als **Bytes** gelesen (ISO-8859-1) | erledigt |
+| T-19 (Teil C) | `tests/integration/deployment/ContainerStartupIT` | dieselbe Korrektur wie T-18 (Teil C) | erledigt |
 
-> **Befund B-16 (Nummerierung):** die Nummern **T-8 bis T-10** wurden in
-> Teil B und in Teil C **jeweils doppelt** vergeben, ebenso **B-12** und
-> **B-13**. Die Zuordnung ist in diesem Bericht ueber die Angabe des Teils
-> eindeutig. Fuer Schritt 7 (Vereinfachung) sollte die Nummerierung der
-> Befunde einmalig vergeben werden — sie ist jetzt in vier Artefakten
-> verteilt.
+> **Befund B-16 (Nummerierung) — erledigt in Schritt 7:** die Nummern
+> **T-8 bis T-10** wurden in Teil B und in Teil C **jeweils doppelt** vergeben,
+> ebenso **B-12** und **B-13**. Die Nummern sind jetzt **einmalig** vergeben;
+> die Nummerierung folgt der Reihenfolge der Teile **A → B → C → D**:
+>
+> | Bereich | Nummern | Verteilung |
+> |---|---|---|
+> | Teil A | **T-1 … T-7** | unveraendert |
+> | Teil B | **T-8 … T-16** | unveraendert |
+> | Teil C | **T-17 … T-19** | frueher T-8 … T-10 (Teil C) |
+> | Teil D | **T-20 … T-27** | frueher T-17 … T-24 |
+>
+> Die Befunde **B-17** (Ubergangstabelle des Domänenmodells) und **B-18**
+> (Endpunkt-Idempotenzschluessel) sind aus Teil B; **B-12** (`next lint`) und
+> **B-13** (npm-Workspace-Wurzel) bleiben die Befunde aus Teil C. Die Reihenfolge
+> der Erklaerungen ist unveraendert — nur die Nummern sind eindeutig.
 
 ### 5.4 Der Dienst im Browser-Test (genaue Angabe)
 
@@ -361,7 +371,9 @@ die Dateien `src/main/frontend/src/lib/auth.ts`,
 | **B-10** | Der Bereitstellungsdeskriptor fehlte | erledigt in Teil B (`.github/workflows/deploy.yml`); **Schritt 9** verfeinert ihn um die Qualitaets-Gates und den Rollout. | **offen** (Schritt 9) |
 | **B-12** | `next lint` ist ueberholt → Lint als eigener CI-Schritt | **dokumentiert** (siehe 4.2): `npm run lint` laeuft als eigener Schritt; der Build prueft die Regeln nicht selbst. | **offen** (Schritt 9) |
 | **B-13** | npm-Workspace-Wurzel fuer die Tests unter `tests/` | **dokumentiert** (siehe 4.3): die Workspace-Wurzel liegt im Projekt-Root; `npm ci` laeuft dort. Wer nur das Backend baut, braucht kein Node. | **offen** (Schritt 9) — die Entscheidung selbst steht |
-| **B-16** | Die Nummern T-8…T-10 und B-12/B-13 sind in den Teilberichten doppelt vergeben | in diesem Bericht ueber die Angabe des Teils eindeutig; eine einmalige Nummerierung ist fuer Schritt 7 sinnvoll. | **offen** (Schritt 7) |
+| **B-16** | Die Nummern T-8…T-10 und B-12/B-13 sind in den Teilberichten doppelt vergeben | **erledigt** in Schritt 7: die Nummern sind einmalig vergeben (T-1…T-7 = Teil A, T-8…T-16 = Teil B, T-17…T-19 = Teil C, T-20…T-27 = Teil D; B-17/B-18 = Teil B). Die Verweise in diesem Bericht und in den drei Teilberichten sind korrigiert. | **erledigt** ✓ |
+| **B-17** | Die Uebergangstabelle des Domänenmodells nennt nur `failed → delayed`; das Endpunkt-Limit wirkt aber auf jeden offenen Zustand | **dokumentiert** in Teil B: die Implementierung erlaubt den Uebergang von jedem offenen Zustand (`DeliveryStateMachine.onRateLimited`) — Vertrag und ADR-010 nennen den Zustand `delayed` ohne Einschraenkung. **Kein Vertragsdefekt.** | **offen** (Architektur, Schritt 8) |
+| **B-18** | `endpoint_event_types` hat keinen eindeutigen Schluessel ueber `(endpoint_id, event_type)` **je Mandant** | **dokumentiert** in Teil B: `endpoint_id` ist weltweit eindeutig, damit gibt es keine Mehrfachregistrierung desselben Ereignistyps je Endpunkt. Der Vertrag laesst die Frage offen. | **offen** (Gate 2) |
 | **O-04 / O-05 / R-01 / E-12** | Verschluesselung im Ruhezustand als Pflicht, AVV bei Fremddaten, Karenzzeit der Aufbewahrung, Haertung der mandantenuebergreifenden Sicht | unveraendert — fachliche Entscheidungen des Fachbereichs | **offen** (Gate 2) |
 
 **Kein Vertragsdefekt wurde gefunden.** Der Vertrag

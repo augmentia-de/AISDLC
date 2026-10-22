@@ -30,4 +30,23 @@ public class DeliveryConfiguration {
         return new BackoffPolicy(backoff.getBaseDelay(), backoff.getMultiplier(), backoff.getMaxDelay(),
                 backoff.getJitter(), ThreadLocalRandom.current());
     }
+
+    /**
+     * Der HTTP-Adapter des Zustellports.
+     *
+     * <p><strong>Die Timeouts kommen aus der Betriebskonfiguration</strong>
+     * ({@code echobox.delivery.http.connect-timeout},
+     * {@code echobox.delivery.http.read-timeout} — ADR-008) und **nicht** aus
+     * einem im Code verdrahteten Vorgabewert: {@link EchoBoxProperties} ist
+     * die einzige Quelle, aus der alle Zahlenwerte der Zustellung stammen
+     * (D-09).
+     *
+     * @param properties die Betriebskonfiguration
+     * @return der HTTP-Adapter
+     */
+    @Bean
+    public DeliveryHttpClient deliveryHttpClient(EchoBoxProperties properties) {
+        EchoBoxProperties.Delivery.Http http = properties.getDelivery().getHttp();
+        return new DeliveryHttpClient(http.getConnectTimeout(), http.getReadTimeout());
+    }
 }

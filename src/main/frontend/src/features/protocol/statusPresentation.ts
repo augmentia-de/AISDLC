@@ -1,4 +1,4 @@
-import type { BadgeTone } from '@/components/StatusBadge';
+import type { StatusPresentation } from '@/components/StatusBadge';
 import type { DeliveryStatus } from '@/types/api';
 
 /**
@@ -9,16 +9,6 @@ import type { DeliveryStatus } from '@/types/api';
  * denen der Vertrag filtert. Die Form und die Farbe kommen zusaetzlich dazu:
  * der Zustand haengt <strong>nie</strong> allein an der Farbe (ADR-018 §3).
  */
-
-/** Die Darstellung eines Zustands. */
-export interface StatusPresentation {
-  /** Der Text des Zustands. */
-  label: string;
-  /** Die Farbtonfamilie. */
-  tone: BadgeTone;
-  /** Das unterscheidbare Merkmal neben dem Text. */
-  mark: string;
-}
 
 /**
  * Bildet den Zustand eines Zustelllaufs auf seine Anzeige ab.

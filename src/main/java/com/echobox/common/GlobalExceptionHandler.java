@@ -82,10 +82,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<Problem> handleValidationException(ValidationException exception,
                                                               HttpServletRequest request) {
-        Problem problem = ProblemFactory.create(ProblemFactory.VALIDATION_FAILED, HttpStatus.UNPROCESSABLE_ENTITY.value(),
-                "Validation failed", "Die Anfrage ist semantisch ungueltig.", request.getRequestURI(),
-                exception.violations());
-        return respond(problem);
+        return respond(validationFailed(request, exception.violations()));
     }
 
     /**
@@ -107,10 +104,7 @@ public class GlobalExceptionHandler {
             violations.add(new ValidationViolation(error.getObjectName(), error.getCode(),
                     defaultMessage(error.getDefaultMessage(), error.getObjectName())));
         }
-        Problem problem = ProblemFactory.create(ProblemFactory.VALIDATION_FAILED,
-                HttpStatus.UNPROCESSABLE_ENTITY.value(), "Validation failed",
-                "Die Anfrage ist semantisch ungueltig.", request.getRequestURI(), violations);
-        return respond(problem);
+        return respond(validationFailed(request, violations));
     }
 
     /**
@@ -127,10 +121,7 @@ public class GlobalExceptionHandler {
         exception.getConstraintViolations().forEach(violation -> violations.add(new ValidationViolation(
                 String.valueOf(violation.getPropertyPath()), violation.getMessageTemplate(),
                 violation.getMessage())));
-        Problem problem = ProblemFactory.create(ProblemFactory.VALIDATION_FAILED,
-                HttpStatus.UNPROCESSABLE_ENTITY.value(), "Validation failed",
-                "Die Anfrage ist semantisch ungueltig.", request.getRequestURI(), violations);
-        return respond(problem);
+        return respond(validationFailed(request, violations));
     }
 
     /**
@@ -180,12 +171,8 @@ public class GlobalExceptionHandler {
         String field = exception instanceof MissingServletRequestParameterException missing
                 ? missing.getParameterName()
                 : ((MethodArgumentTypeMismatchException) exception).getName();
-        Problem problem = ProblemFactory.create(ProblemFactory.VALIDATION_FAILED,
-                HttpStatus.UNPROCESSABLE_ENTITY.value(), "Validation failed",
-                "Die Anfrage ist semantisch ungueltig.", request.getRequestURI(),
-                List.of(new ValidationViolation(field, "invalid_parameter",
-                        "Der Parameter fehlt oder hat einen unbrauchbaren Wert.")));
-        return respond(problem);
+        return respond(validationFailed(request, List.of(new ValidationViolation(field, "invalid_parameter",
+                "Der Parameter fehlt oder hat einen unbrauchbaren Wert."))));
     }
 
     /**
@@ -253,6 +240,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(problem.status())
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(problem);
+    }
+
+    /**
+     * Die Fehlerantwort einer semantisch ungueltigen Anfrage — HTTP 422
+     * {@code validation_failed}.
+     *
+     * <p>Es gibt <strong>eine</strong> Abbildung: die Bean-Validierung, die
+     * Parametervalidierung, die Fachverletzung und der unbrauchbare Parameter
+     * ergeben <strong>dasselbe</strong> Fehlerbild — nur die Verstoesse
+     * unterscheiden sich.
+     *
+     * @param request    die Anfrage
+     * @param violations die feldbezogenen Verstoesse
+     * @return die Fehlerantwort
+     */
+    private static Problem validationFailed(HttpServletRequest request, List<ValidationViolation> violations) {
+        return ProblemFactory.create(ProblemFactory.VALIDATION_FAILED,
+                HttpStatus.UNPROCESSABLE_ENTITY.value(), "Validation failed",
+                "Die Anfrage ist semantisch ungueltig.", request.getRequestURI(), violations);
     }
 
     private static String defaultMessage(String message, String fallback) {

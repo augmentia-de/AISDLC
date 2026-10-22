@@ -1,7 +1,5 @@
 package com.echobox.protocol.api;
 
-import java.time.Instant;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
