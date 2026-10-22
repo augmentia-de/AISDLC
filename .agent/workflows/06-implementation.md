@@ -85,5 +85,16 @@ git commit -m "feat(sdlc-6): Implementierung der Stories" \
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
 
+## Logging
+
+Die Anwendung loggt **strukturiert**: eine Zeile je Ereignis mit Korrelations-ID,
+Ereignistyp, Mandant, Ergebnis und Dauer. **Keine** Nutzdaten, keine Secrets, keine
+Tokens, keine vollstaendigen Personendatensaetze.
+
+Die Konvention wird in `.agent/artifacts/logging.md` festgeschrieben — der
+Security-Scan prueft spaeter **gegen diese Datei**, nicht gegen eine eigene
+Erwartung. Sie entsteht im selben Schritt wie der Code, weil sie aus dem Code
+heraus folgt.
+
 ## Gate
 Bei fehlenden Tests → Rücksprung zu Phase 5.

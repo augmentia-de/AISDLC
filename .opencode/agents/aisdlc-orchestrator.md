@@ -90,6 +90,29 @@ OFFENE PUNKTE: <kurz> | -
 Halte dich an die Schreibbereich-Angabe der Workflow-Datei. Ein Subagent, der in
 `docs/requirements/` schreiben will, hat den falschen Schritt oder einen falschen Agenten.
 
+### 2b — Lauf-Protokoll schreiben
+
+**Jedes Ereignis ist eine JSON-Zeile** in `.agent/artifacts/run-log.jsonl` (append-only).
+Du schreibst es — du bist der Einzige, der Schrittgrenzen und Gates siehst.
+
+```json
+{"ts":"2026-10-22T01:41:03Z","event":"step_start","step":6,"agent":"aisdlc-execution"}
+{"ts":"2026-10-22T02:18:41Z","event":"step_end","step":6,"commit":"825656a","duration_s":2258}
+{"ts":"2026-10-22T02:28:11Z","event":"jump_back","from":7,"to":1,"reason":"Traceability-Matrix unvollstaendig"}
+{"ts":"2026-10-22T02:29:02Z","event":"gate","gate":1,"result":"approved","by":"human"}
+{"ts":"2026-10-22T02:30:00Z","event":"check","name":"traceability_check","result":"fail","gaps":178}
+```
+
+Ereignisse: `step_start`, `step_end`, `jump_back`, `gate`, `check`, `retry`.
+
+**Warum:** Der Ablauf lag bisher nur in der Git-Historie und in Prosa. Ohne Daten
+sind Leerlauf, Ruecksprung-Zyklen und Schritt-Dauern nicht messbar — und jede
+Verbesserung wurde aus dem Gefuehl entschieden statt aus der Historie. Im
+EchoBox-Lauf: 23 Artefakte, davon 0 maschinenlesbar.
+
+**Regel:** Das Protokoll wird **waehrend** des Laufs geschrieben, nicht am Ende
+rekonstruiert. Eine nachtraeglich gebaute Historie ist eine Behauptung, keine Spur.
+
 ### 3 — Ergebnis prüfen
 
 ```bash
@@ -123,6 +146,28 @@ Herleitung oder Auszüge aus den Artefakten gehören **nicht** in die Antwort: s
 kosten Kontext im Orchestrator und sind beim nächsten Schritt veraltet.
 
 Gemessen: 895 Zeichen statt 37.367 (Faktor 42) bei der Architecture-Session.
+
+### 3c — Traceability nachziehen lassen
+
+Nach Schritt 5 oder 6 ist die Kette erstmals belegbar. Dann startest du **einen
+eigenen Auftrag an den Requirements-Agenten** — keinen Ruecksprung in Schritt 1:
+
+```
+Nutze das Werkzeug .agent/tools/traceability_check.py --fill, um den Beleg fuer
+die Kette Anforderung -> Story -> Feature -> Test -> Code zu erzeugen. Der Beleg
+kommt nach .agent/artifacts/traceability.md, der Fuehlbericht nach
+.agent/artifacts/traceability-fill.md. Was nicht belegbar ist, bleibt eine Luecke -
+kein erfundener Pfad. Commit-Subject: docs(sdlc-1): Traceability-Beleg nachgezogen (Nachzug)
+```
+
+Der Requirements-Agent besitzt `docs/requirements/` und `.agent/artifacts/` — er
+darf den Beleg schreiben, ohne dass die Folder-Ownership aufgeweicht wird. Der
+Execution-Agent darf dort nicht schreiben; ihm das Recht fuer genau eine Datei zu
+geben, wuerde die Trennung aufweichen.
+
+**Hoechstens ein Nachzug pro Schritt.** Ein zweiter bedeutet: die Ursache liegt im
+Ablauf, nicht im Artefakt — dann gehoert der Schritt geprueft, nicht die Matrix
+gefuellt.
 
 ### 3b — Steckbrief schreiben
 

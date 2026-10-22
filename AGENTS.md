@@ -37,6 +37,18 @@ Diese Datei ist die Single Source of Truth; bei Widerspruch gilt sie.
 12. **Read the briefing first.** `.agent/artifacts/briefing.md` is the briefing of the
     previous step. Read it, then read only the files it names. The briefing is the
     entry point - never the truth (see Briefing).
+13. **Log structured, never payload.** The application logs one event per line with
+    correlation ID, event type, tenant, outcome and duration. **Never** payload data,
+    secrets, tokens or complete personal data records. The convention lives in
+    `.agent/artifacts/logging.md` (step 6); the security scan checks against it, not
+    against an invented expectation.
+14. **Write the run log.** Every step start, step end, gate, check result and jump-back
+    goes as one JSON line into `.agent/artifacts/run-log.jsonl`. The orchestrator
+    writes it - it is the only one that sees step boundaries and gates. The run log is
+    data; the artefacts are prose. Both are needed, and only the data can be counted.
+15. **Big artefacts start with a table.** An artefact over ~20 KB gets a table at the
+    top: finding, severity, status, where it was fixed. The derivation stays below it.
+    A table is an entry point, prose is the proof.
 
 ## HARD GATES - Agent Must Stop and Await Human Approval
 
@@ -48,6 +60,19 @@ Diese Datei ist die Single Source of Truth; bei Widerspruch gilt sie.
   The agent must present QA and Security findings and wait for human approval.
 
 Without approval, the pipeline does not advance. No exceptions.
+
+**Traceability is a gate condition, not a footnote.** The check
+`python3 .agent/tools/traceability_check.py` must report **zero gaps** before
+GATE 2. A gap means: a requirement with a story has no provable test, or a test
+that proves nothing. The check compares the artefacts against the file system - a
+filled matrix is not a proof, the existing file is. The check runs **before** the
+gate, not after it: in the reference run the matrix stayed unfilled for 15 hours
+because nothing looked at it until step 7 was long done.
+
+The **matrix** holds the static half (requirement -> story -> feature). The
+**dynamic** half (requirement -> test -> code) is derived from the file system and
+written to `.agent/artifacts/traceability.md`. No step fills a field it cannot
+prove - a made-up path is worse than a gap, because it looks proven and is not.
 
 **Contract freeze.** The contract `docs/api/openapi.yaml` is **frozen after step 4**
 (the stress test), not after gate 1. The first full run found 13 contract defects in
@@ -98,6 +123,7 @@ exists. The commit is the checkpoint the human reviews at the gate.
 | Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
 | Scope | only the files of this step that changed or are new — enforced by the pathspec |
 | Order | commit **before** the gate — the gate reviews the finished commit |
+| Jump-back | a step that corrects an earlier step's artefacts produces **one** extra commit with the subject of the **corrected** step plus `(Nachzug)`. The body names the step it came from and the reason. **At most one** jump-back per step — a second one means the cause is in the flow, not in the artefact. |
 | Empty | if nothing changed, no commit — no empty commits |
 | Push | the pipeline never pushes — `git push` is not part of the pipeline |
 
@@ -153,13 +179,16 @@ Zusätzlich verfügbar: `strangler-fig`, `module-migration`, `test-self-correcti
 | `docs/qa/` | QA Orchestrator | Execution, OpenCode (Self-Correction) |
 | `coverage/` | CI/Test-Runner | QA, Execution |
 | `.agent/artifacts/` | zustaendiger Rollen-Agent des Schritts | Alle (Read-Only) |
+| `.agent/artifacts/run-log.jsonl` | `aisdlc-orchestrator` | Alle (Read-Only) |
 | `.agent/knowledge/` | Architecture Orchestrator | Alle (Read-Only) |
 | `how-to/` | Menschlicher Reviewer | Alle (Read-Only) |
 | `.opencode/` | OpenCode-System | Alle (Read-Only) |
 
 **`.agent/artifacts/` ist der kanonische Zielort der Schritt-Artefakte**
 (`requirements.md`, `user-stories.md`, `risk-register.md`, `architecture.md`,
-`folder-structure.md`, `test-report.md`, `security-audit.md`, `deploy-report.md`).
+`folder-structure.md`, `test-report.md`, `security-audit.md`, `deploy-report.md`,
+`briefing.md`, `logging.md`, `traceability.md`, `traceability-fill.md`,
+`run-log.jsonl`).
 Jeder Schritt schreibt eigene Dateien — der Bereich ist geteilt, nicht exklusiv.
 Dort schreiben zu duerfen: die vier Rollen-Agenten (`aisdlc-requirements`,
 `aisdlc-architecture`, `aisdlc-execution`, `aisdlc-qa`). Ein Rollen-Agent, dessen

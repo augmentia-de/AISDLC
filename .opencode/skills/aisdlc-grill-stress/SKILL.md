@@ -74,6 +74,11 @@ wenn die Friction real ist. Im Befund deutlich markieren.
 
 ## 3. Ergebnis
 
+**Der Bericht beginnt mit einer Tabelle**: Befund, Schwere, Status, wo behoben. Die
+Herleitung steht darunter. Der Referenzlauf erzeugte 67 KB Prosa über den
+Stresstest — auffindbar, aber nicht auswertbar. Die Tabelle ist der Einstieg, die
+Prosa ist der Beleg.
+
 - Befunde getrennt nach Standards-Achse und Spezifikation-Achse
 - Je Befund: Datei:Zeile, Problem, Auswirkung, Loesung, Empfehlungsstaerke
 - Offene Entscheidungen, die der Mensch treffen muss

@@ -28,6 +28,25 @@ Kriterium. "Die Liste rendert in unter 2 s (p95)" ist eins.
 3. **Akzeptanzkriterien** — je Story mindestens eins, beobachtbar und messbar.
 4. **BDD-Features** — eine `.feature` je Story mit `Given/When/Then`:
    der Normalfall, der Verweigerungsfall, der Grenzfall.
+   **Jedes Szenario trägt die Kennung seines Akzeptanzkriteriums** als Kommentar:
+
+   ```gherkin
+   # Story: US-003 — Secret rotieren
+   # Anforderungen: FR-003
+
+   Feature: Secret rotieren
+
+     Scenario: Rotation  # AC-003-1
+       Given ein Endpunkt mit Secret S1
+       When der Empfänger-Admin rotiert auf Secret S2
+       Then verwendet der Dienst ab dem nächsten Zustellversuch ausschließlich S2
+   ```
+
+   Die Kennung `AC-<story>-<nr>` steht damit an **drei** Orten: in der Story-JSON
+   (`"id"`), im Feature-Szenario (Kommentar) und später im Testfall. Nur so ist die
+   Zuordnung Test → Anforderung **mechanisch** — der Traceability-Check liest die
+   Kennung aus dem Test und findet die Anforderung über die Story. Ohne sie muss
+   zugeordnet werden, und das wird geraten.
 5. **Nicht-funktionale Anforderungen** — Performance, Sicherheit, Datenschutz,
    Barrierefreiheit, Verfuegbarkeit. Je eine **messbare** Zielgroesse.
 6. **Risiken** — nur Risiken, die eine **Entscheidung** aendern. Je ein Gegenmass, das
@@ -65,6 +84,8 @@ Story-Schema:
 
 ## Regeln
 
+- **Jedes** Akzeptanzkriterium hat eine Kennung `AC-<story>-<nr>`, und **jedes**
+  Feature-Szenario trägt sie. Ein Szenario ohne Kennung ist am Ende nicht belegbar.
 - Jede Story hat mindestens ein Akzeptanzkriterium; jedes Kriterium ist beobachtbar.
 - Eine Story haengt nicht an einer anderen unfertigen Story, ohne das zu sagen.
 - Was nicht in den Scope gehoert, landet in einem ausdruecklichen **"won't have"** —

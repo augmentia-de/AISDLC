@@ -59,7 +59,12 @@ grep -rInE "(api[_-]?key|secret|password|token|private[_-]?key)[[:space:]]*[:=][
 - CI/CD: keine Secrets in Logs, OIDC statt statischer Keys, geschützte Branches.
 
 ### 9. Logging und Datenschutz
-- Keine Passwoerter, Tokens, kompletten personenbezogenen Datensaetze in Logs.
+- **Gegen `.agent/artifacts/logging.md` pruefen**, nicht gegen eine eigene Erwartung.
+  Die Konvention ist der Massstab; fehlt sie, ist das selbst ein Befund.
+- Je Ereignis eine Zeile: Korrelations-ID, Ereignistyp, Mandant, Ergebnis, Dauer.
+- Keine Passwoerter, Tokens, kompletten personenbezogenen Datensaetze, **keine
+  Nutzdaten** in Logs.
+- **Kein Stacktrace in der Antwort** - im Log ist er erlaubt, in der Antwort nicht.
 - Retention- und Loeschkonzept dokumentiert (z. B. 90 Tage, Right to Erasure).
 - Personenbezogene Daten werden nicht ueber unnoetige Kanale gesendet.
 
@@ -88,6 +93,12 @@ Jeder Befund nennt **Nachweis** (Datei:Zeile oder ausgefuehrter Check) und **Aus
 - Kein "Critical" ohne belegten Nachweis.
 - Jeder Fund mit `[SECURITY]`-Praefix im Bericht kennzeichnen.
 - Null Findings sind ein Ergebnis - aber nur, wenn geprueft wurde.
+
+## Ausgabeform
+
+**Jeder Bericht über ~20 KB beginnt mit einer Tabelle**: Befund, Schwere, Status, wo
+behoben. Die Herleitung steht darunter. Eine Tabelle ist der Einstieg, die Prosa ist
+der Beleg - ohne die Tabelle muss jemand 100 KB lesen, um zu zählen, was offen ist.
 
 ## Output
 

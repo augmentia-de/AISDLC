@@ -31,6 +31,24 @@ Ein Kriterium ohne Testfall ist eine Luecke und blockiert Gate 1.
 
 3. **Datei benennen** — nach dem **Verhalten**, nicht nach der Implementierung:
    `test_task_status_transition`, nicht `test_service`.
+
+   **Der Testfall trägt die Kennung seines Akzeptanzkriteriums** — als Methodenname
+   oder als Kommentar direkt darüber:
+
+   ```java
+   // AC-003-1
+   @Test void ac003_1_rotationVerwendetNurS2() { … }
+   ```
+
+   ```typescript
+   // AC-003-1
+   it('ac003_1 rotation verwendet nur S2', async () => { … })
+   ```
+
+   Die Datei selbst trägt **keine** Kennung — sie kann mehrere Kriterien abdecken.
+   Maßgeblich ist, was **im Test** steht: der Traceability-Check liest die Kennung aus
+   dem Testtext, nicht aus dem Dateinamen. Ein Test ohne Kennung ist am Ende nicht
+   belegbar und blockiert das Gate.
 4. **Negative Faelle ergaenzen** — zu jedem "das System muss verweigern" ein Test, der
    die Verweigerung belegt. Das wird vergessen.
 5. **Invarianten** — Zustandsautomat, Mandantentrennung, Aufbewahrungsregeln bekommen
@@ -43,13 +61,15 @@ Ein Kriterium ohne Testfall ist eine Luecke und blockiert Gate 1.
 
 | Kriterium | Ebene | Testdatei | Fall | Status |
 |---|---|---|---|---|
-| AC-003-1 Task erscheint in der Liste | integration | `tests/integration/test_task_create` | `test_create_task` | geplant |
+| AC-003-1 Task erscheint in der Liste | integration | `tests/integration/test_task_create` | `ac003_1_taskErscheintInDerListe` | geplant |
 
 Ausserdem maschinenlesbar in `docs/requirements/traceability_matrix.json`.
 
 ## Regeln
 
 - Ein Kriterium, mindestens ein Fall. Ohne Fall ist es eine Luecke.
+- **Jeder Testfall trägt die Kennung seines Akzeptanzkriteriums.** Ohne sie ist der
+  Test am Ende nicht belegbar — und der Beleg ist Gate-Bedingung.
 - Pflicht-Negativfaelle fuer jede Verweigerungsanforderung.
 - Ein Test, der nichts ueber das Verhalten behauptet, ist keine Abdeckung.
 - Ein Test, der nicht ausgefuehrt wurde, gilt als nicht bestanden.

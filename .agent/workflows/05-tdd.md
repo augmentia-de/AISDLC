@@ -63,5 +63,20 @@ git commit -m "test(sdlc-5): Teststrategie und fehlschlagende Tests" \
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
 
+## Traceability
+
+Nach den Tests ist die Kette erstmals belegbar. Der Check laeuft hier:
+
+```bash
+python3 .agent/tools/traceability_check.py
+```
+
+**Jeder Testfall traegt die Kennung seines Akzeptanzkriteriums** (Methodenname oder
+Kommentar). Ohne sie bleibt der Test unbelegt.
+
+Der **Beleg** (`.agent/artifacts/traceability.md`) wird von einem eigenen Auftrag an
+den Requirements-Agenten erzeugt — `--fill`, siehe `aisdlc-traceability-check`. Nicht
+in diesem Schritt: der Execution-Agent darf `docs/requirements/` nicht schreiben.
+
 ## Gate
 Bei unklarem Interface → Rücksprung zu Phase 3 (Simplify).

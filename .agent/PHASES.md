@@ -44,7 +44,16 @@ Kontextkosten bleiben bei 0, bis der Schritt wirklich gebraucht wird.
 | Gate | Nach Schritt | Bedingung | Wirkung |
 |---|---|---|---|
 | **GATE 1** | 2 (Architektur) | PRD vollständig, Architektur und Entscheidungen ok | Kein Anwendungscode vor menschlicher Freigabe. Prüft die **Richtung**, nicht den fertigen Vertrag. |
-| **GATE 2** | 8 (Security) | QA 0 Critical, Security 0 Critical/High | Kein Deployment vor menschlicher Freigabe |
+| **GATE 2** | 8 (Security) | QA 0 Critical, Security 0 Critical/High, **Traceability 0 Lücken** | Kein Deployment vor menschlicher Freigabe |
+
+**Die Traceability-Bedingung** (`python3 .agent/tools/traceability_check.py` → 0 Lücken)
+gehört zu GATE 2, weil sie erst nach Schritt 5/6 überhaupt prüfbar ist: eine
+Anforderung mit Story braucht einen **belegten** Test. „Belegt" heißt: der Test
+trägt die Akzeptanzkriterien-Kennung und existiert im Projekt. Eine gefüllte Matrix
+ist kein Beleg — der Beleg ist die Datei.
+
+Der Check läuft **vor** dem Gate. Im Referenzlauf blieb die Matrix 15 Stunden
+unvollständig, weil erst nach Schritt 7 jemand hinsah.
 
 **Einfrierpunkt des Vertrags: nach Schritt 4** (Ende des Stresstests), nicht nach
 Gate 1. Der erste Volllauf fand im Stresstest 13 Vertragsdefekte — alle **nach** der
@@ -107,10 +116,39 @@ Zwei Gruende, warum nicht `git commit -- <pfade>`:
 Regeln:
 - Genau ein Commit pro Schritt. Wenn sich nichts geaendert hat, kein Commit erzeugen
   (`git commit` meldet dann "nothing to commit" — das ist kein Fehler).
+- **Ausnahme Nachzug:** Korrigiert ein Schritt die Artefakte eines frueheren Schritts,
+  entsteht **ein** zusaetzlicher Commit mit dem Subject des **korrigierten** Schritts
+  plus `(Nachzug)`. Der Body nennt den Ausloeser-Schritt und den Grund. **Hoechstens
+  ein** Nachzug pro Schritt — ein zweiter bedeutet: die Ursache liegt im Ablauf, nicht
+  im Artefakt. Im EchoBox-Lauf gab es zwei, beide in Schritt 1.
 - Nur die Pfade des Schritts committen — fremde Aenderungen werden nie mitcommittet.
 - Kein `git push` — die Pipeline pusht nicht.
 - Der Roh-Input des Schritts (z. B. die Anforderungs-Mail) gehoert in denselben Commit
   wie das daraus erzeugte Artefakt — die Traceability laeuft sonst ins Leere.
+
+## Traceability: zwei Haelften, zwei Schritte
+
+| Haelfte | Inhalt | Entsteht in | Artefakt |
+|---|---|---|---|
+| **statisch** | Anforderung → Story → Feature | Schritt 1 | `docs/requirements/traceability_matrix.json` |
+| **dynamisch** | Anforderung → Test → Code | Schritt 5/6, jederzeit neu | `.agent/artifacts/traceability.md` |
+
+Die Matrix trägt **nur** die statische Hälfte. Die dynamische wird **aus dem
+Dateisystem ermittelt** — von `.agent/tools/traceability_check.py --fill`. Damit
+kann kein Schritt ein Feld füllen, das er nicht belegen kann, und kein späterer
+Schritt muss die Matrix nachtragen.
+
+**Warum das so ist:** Die Matrix mit den Feldern `tests` und `code` war im
+Referenzlauf über den gesamten Lauf ein Gerüst (0 von 89 Anforderungen mit
+Test-Referenz) und wurde erst nach Schritt 7 gefüllt — drei Schritte zu spät, mit
+zwei zusätzlichen Commits in Schritt 1. Der Grund: `tests` und `code` sind Werte,
+die erst Schritt 5/6 kennt, die Datei aber dem Requirements-Agenten gehört. Ein
+Cross-Step-Artefakt, das der Commit-Scope nicht auflösen kann.
+
+**Akzeptanzkriterien-Kennungen (E):** Jedes Kriterium trägt `AC-<story>-<nr>` — im
+Feature-Szenario als Kommentar (`Scenario: Rotation  # AC-003-1`), in der Story-JSON
+als `id`, im Testfall als Methodenname oder Kommentar (`ac003_1_...`). Nur damit
+ist die Zuordnung Test → Anforderung **mechanisch** und nicht geraten.
 
 ## Steckbrief zwischen den Schritten
 
@@ -135,12 +173,36 @@ Regeln:
 - Es existiert, weil der Kontext im ersten Volllauf über vier Schritte um den Faktor
   80 wuchs (173k → 14,08M Input-Token): jeder Schritt las alles neu.
 
+## Lauf-Protokoll
+
+`.agent/artifacts/run-log.jsonl` — **eine JSON-Zeile je Ereignis**, append-only.
+Geschrieben vom `aisdlc-orchestrator`; er ist der Einzige, der Schrittgrenzen und
+Gates sieht.
+
+```json
+{"ts":"2026-10-22T01:41:03Z","event":"step_start","step":6,"agent":"aisdlc-execution"}
+{"ts":"2026-10-22T02:18:41Z","event":"step_end","step":6,"commit":"825656a","duration_s":2258}
+{"ts":"2026-10-22T02:28:11Z","event":"jump_back","from":7,"to":1,"reason":"Traceability-Matrix unvollstaendig"}
+{"ts":"2026-10-22T02:29:02Z","event":"gate","gate":1,"result":"approved","by":"human"}
+{"ts":"2026-10-22T02:30:00Z","event":"check","name":"traceability_check","result":"fail","gaps":178}
+```
+
+**Warum:** Der Ablauf lag bisher nur in der Git-Historie und in Prosa. Ohne Daten
+sind Leerlauf, Ruecksprung-Zyklen und Schritt-Dauern nicht messbar — und jede
+Verbesserung wurde aus dem Gefuehl entschieden statt aus der Historie. Im
+EchoBox-Lauf: 23 Artefakte, davon **0** maschinenlesbar; `ruecksprung-bilanz.md`
+mit 102 KB Prosa.
+
 ## Werkzeuge
 
 | Ort | Art |
 |---|---|
 | `.agent/tools/` | Phasen-Werkzeuge (gehören dem Schritt, nicht der Anwendung) |
 | `src/<modul>/tools/` | Code-Generatoren (gehören neben den Code, den sie erzeugen) |
+
+| Werkzeug | Zweck |
+|---|---|
+| `.agent/tools/traceability_check.py` | prueft die Kette; `--fill` schreibt den Beleg |
 
 Konvention und Bestand: `.agent/tools/README.md`.
 

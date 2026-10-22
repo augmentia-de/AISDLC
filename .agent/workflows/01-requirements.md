@@ -32,9 +32,13 @@ All artifacts written to `.agent/artifacts/` and `docs/requirements/`.
 - `user-stories.md` — Epics → Stories → Acceptance Criteria
 - `risk-register.md` — Top 5 Risiken
 - `docs/requirements/PRD.md` — Product Requirement Document
-- `docs/requirements/features/*.feature` — BDD-Szenarien (Gherkin)
+- `docs/requirements/features/*.feature` — BDD-Szenarien (Gherkin).
+  **Jedes Szenario trägt die Kennung seines Akzeptanzkriteriums** (`# AC-003-1`) —
+  ohne sie ist der zugehörige Test am Ende nicht belegbar.
 - `docs/requirements/stories/*.json` — User Stories als Tasks
-- `docs/requirements/traceability_matrix.json` — Requirement → Test → Code
+- `docs/requirements/traceability_matrix.json` — Anforderung → Story → Feature
+  (**nur die statische Hälfte**; die Test- und Code-Referenzen kommen später aus dem
+  Dateisystem, siehe `aisdlc-traceability-check`)
 
 ## Regeln
 

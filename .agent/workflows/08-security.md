@@ -63,6 +63,18 @@ git commit -m "docs(sdlc-8): Security-Audit und QA-Bericht" \
 - Kein `git push` — die Pipeline pusht nicht.
 - Konvention: `.agent/PHASES.md` → "Commit pro Schritt".
 
+## Traceability als Gate-Voraussetzung
+
+Vor dem Gate laeuft der Check — **0 Luecken** sind Bedingung:
+
+```bash
+python3 .agent/tools/traceability_check.py
+```
+
+Eine Luecke heisst: eine Anforderung mit Story hat keinen belegten Test. Der Check
+vergleicht die Artefakte mit dem Dateisystem — eine gefuellte Matrix ist kein Beleg,
+die existierende Datei ist es.
+
 ## HARD GATE
 **After Security is complete, stop and await human approval before Deploy Agent runs.**
 

@@ -39,6 +39,14 @@ Das lokale Setup spiegelt die Produktion: gleiche Images, gleiche
 Umgebungsvariablen-Namen, gleiche Ports, Datenbank aus dem kanonischen Schema beim
 ersten Start.
 
+## Logging und Health-Check gehoeren zusammen
+
+Der Container schreibt in das Format aus `.agent/artifacts/logging.md` — eine
+Zeile je Ereignis, mit Korrelations-ID. Der Health-Check liest dasselbe Format:
+er pruft nicht nur, ob der Prozess lebt, sondern ob er **arbeitet** (letztes
+Heartbeat-Ereignis, Zeitstempel). Ein Health-Check, der nur den Prozess sieht,
+erkennt eine festgefahrene Zustellung nicht.
+
 ## Output
 
 - `infra/<service>.Dockerfile`
@@ -46,6 +54,8 @@ ersten Start.
 - `.dockerignore`
 - `.agent/artifacts/containerization.md` — Basis-Image, Stufen, User, Ports,
   Health-Check und die Liste der injizierten Variablen (nur Namen)
+- `.agent/artifacts/logging.md` — die Logging-Konvention des Projekts: Ereignisfeld,
+  Level, Korrelations-ID-Fluss, was **nicht** geloggt wird, Retention
 
 ## Regeln
 
