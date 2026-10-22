@@ -192,13 +192,14 @@ class ContainerHardeningIT {
     }
 
     @Test
-    @DisplayName("S-19: die Build-Datei hebt die Version des eingebetteten Containers an")
+    @DisplayName("S-19/S-31: die Build-Datei hebt die Version des eingebetteten Containers an")
     void the_build_pins_the_embedded_container() throws IOException {
         String pom = Files.readString(POM, StandardCharsets.UTF_8);
 
         assertThat(pom)
-                .as("der eingebettete Container braucht mindestens 10.1.55 (S-19)")
-                .contains("<tomcat.version>10.1.55</tomcat.version>");
+                .as("der eingebettete Container braucht mindestens 10.1.59 (S-19, S-31) — der Pin "
+                        + "ist die hoechste erreichbare Version der 10.1.x-Linie")
+                .contains("<tomcat.version>10.1.61</tomcat.version>");
         assertThat(pom)
                 .as("Spring Boot 3.5.16 bringt Tomcat 10.1.55 mit")
                 .contains("<version>3.5.16</version>");

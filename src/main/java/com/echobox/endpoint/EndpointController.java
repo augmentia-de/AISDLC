@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -73,7 +74,7 @@ public class EndpointController {
      * @param request der Request-Body
      * @return der angelegte Endpunkt
      */
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<EndpointResponse> create(@RequestBody EndpointCreateRequest request) {
         Endpoint endpoint = service.register(request);
         return ResponseEntity
@@ -120,7 +121,7 @@ public class EndpointController {
      * @param request    der Request-Body
      * @return der geaenderte Endpunkt
      */
-    @PatchMapping("/{endpointId}")
+    @PatchMapping(value = "/{endpointId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public EndpointResponse update(@PathVariable("endpointId") UUID endpointId,
                                    @RequestBody EndpointUpdateRequest request) {
         return EndpointResponse.of(service.update(endpointId, request));
@@ -155,7 +156,7 @@ public class EndpointController {
      * @param request    der Request-Body
      * @return der Stand der Rotation
      */
-    @PostMapping("/{endpointId}/secret-rotation")
+    @PostMapping(value = "/{endpointId}/secret-rotation", consumes = MediaType.APPLICATION_JSON_VALUE)
     public SecretRotationResponse rotateSecret(@PathVariable("endpointId") UUID endpointId,
                                                 @RequestBody SecretRotationRequest request) {
         request.validate();

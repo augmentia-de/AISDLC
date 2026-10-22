@@ -53,10 +53,14 @@ jobs:
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
             detect --source=/repo --redact --no-banner --exit-code=1
 
+      # S-32: der Scan meldet nur **neue** Advisories. Die bekannten sind in
+      # `osv-scanner.toml` (Baseline) mit Begruendung und Ablaufdatum
+      # dokumentiert; ohne diese Baseline schlug der Schritt auf jedem Lauf an.
       - name: SCA-Scan (OSV)
         uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
         with:
           scan-args: |-
+            --config=osv-scanner.toml
             --recursive
             ./
 

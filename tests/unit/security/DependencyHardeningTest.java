@@ -11,8 +11,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit-Ebene — der eingebettete Container traegt keine der drei
- * <strong>erreichbaren</strong> Advisories (S-19).
+ * Unit-Ebene — der eingebettete Container traegt keine der
+ * <strong>erreichbaren</strong> Advisories (S-19) und liegt ueber der
+ * <strong>Fix-Linie</strong> der drei aktuellen Tomcat-Advisories (S-31).
  *
  * <p>Der Nachweis ist der <strong>Abhaengigkeitsbaum</strong>, nicht ein
  * Laufzeitverhalten: geprueft wird die Version des Containers, die der Build
@@ -25,16 +26,20 @@ import org.junit.jupiter.api.Test;
  *   <li>CVE-2025-48988 — Multipart-DoS — behoben in 10.1.42,</li>
  *   <li>CVE-2025-48989 — „made you reset" — behoben in 10.1.44.</li>
  * </ul>
- * Die geforderte Untergrenze ist <strong>10.1.55</strong> — sie deckt alle
- * drei ab und ist die Version, die Spring Boot 3.5.16 mitbringt.
+ * Die geforderte Untergrenze ist <strong>10.1.59</strong> (S-31): darunter
+ * liegen drei aktuell veroeffentlichte Advisories
+ * (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5 — alle
+ * betreffen „10.1.0-M1 … 10.1.57" und sind erst ab 10.1.58 behoben;
+ * 10.1.58 wurde nie veroeffentlicht, die Fix-Linie beginnt mit 10.1.59).
+ * Der Build pinnt die hoechste erreichbare Version dieser Linie (10.1.61).
  */
 class DependencyHardeningTest {
 
-    /** Die Mindestversion des eingebetteten Containers (S-19). */
-    private static final String REQUIRED_TOMCAT_VERSION = "10.1.55";
+    /** Die Mindestversion des eingebetteten Containers (S-19, S-31). */
+    private static final String REQUIRED_TOMCAT_VERSION = "10.1.59";
 
     @Test
-    @DisplayName("S-19: der eingebettete Container ist mindestens 10.1.55")
+    @DisplayName("S-19/S-31: der eingebettete Container ist mindestens 10.1.59")
     void the_embedded_container_is_new_enough() {
         String version = resolvedTomcatVersion();
 
@@ -45,7 +50,9 @@ class DependencyHardeningTest {
         assertThat(isAtLeast(version, REQUIRED_TOMCAT_VERSION))
                 .as("tomcat-embed-core %s ist aelter als %s — damit sind CVE-2026-24880 "
                         + "(Request/Response-Smuggling), CVE-2025-48988 (Multipart-DoS) und "
-                        + "CVE-2025-48989 erreichbar.", version, REQUIRED_TOMCAT_VERSION)
+                        + "CVE-2025-48989 erreichbar; unterhalb von 10.1.59 zusaetzlich "
+                        + "GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6 und GHSA-h3x4-894j-xpx5.",
+                        version, REQUIRED_TOMCAT_VERSION)
                 .isTrue();
     }
 

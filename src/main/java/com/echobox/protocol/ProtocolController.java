@@ -3,6 +3,7 @@ package com.echobox.protocol;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -157,7 +158,7 @@ public class ProtocolController {
      * @param request der Request-Body (optional)
      * @return das Ergebnis der Durchsetzung
      */
-    @PostMapping("/retention/enforcement")
+    @PostMapping(value = "/retention/enforcement", consumes = MediaType.APPLICATION_JSON_VALUE)
     public RetentionEnforcementResponse enforceRetention(
             @RequestBody(required = false) RetentionEnforcementRequest request) {
         if (request != null) {

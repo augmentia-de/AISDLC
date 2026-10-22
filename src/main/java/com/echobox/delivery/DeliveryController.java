@@ -2,6 +2,7 @@ package com.echobox.delivery;
 
 import java.util.UUID;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,7 +50,7 @@ public class DeliveryController {
      * @param request       der Request-Body (optional)
      * @return der neue Zustelllauf
      */
-    @PostMapping("/{deliveryRunId}/replay")
+    @PostMapping(value = "/{deliveryRunId}/replay", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ReplayResponse> replay(@PathVariable("deliveryRunId") UUID deliveryRunId,
                                                   @RequestBody(required = false) ReplayRequest request) {
         if (request != null) {

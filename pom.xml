@@ -23,6 +23,14 @@
       * CVE-2025-48989 („made you reset")           — behoben in 10.1.44.
     Die Mindestversion des eingebetteten Containers ist 10.1.55; die Regression
     prueft das (S-19) im Abhaengigkeitsbaum.
+
+    S-31: der Pin lag unter der Fix-Linie von **drei weiteren** Advisories
+    (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5 — alle
+    betreffen „10.1.0-M1 … 10.1.57" und sind erst ab **10.1.58** behoben).
+    10.1.58 wurde nie veroeffentlicht; die Fix-Linie beginnt mit 10.1.59.
+    Der Pin steht jetzt auf der **hoechsten erreichbaren** Version dieser Linie
+    (10.1.61) — die Regression prueft die Fix-Linie (10.1.59) im
+    Abhaengigkeitsbaum.
   -->
   <parent>
     <groupId>org.springframework.boot</groupId>
@@ -48,8 +56,13 @@
       Die Version des eingebetteten Containers ist eine **untere** Grenze:
       tomcat-embed-core < 10.1.55 traegt die drei erreichbaren Advisories
       S-19 (CVE-2026-24880, CVE-2025-48988, CVE-2025-48989).
+
+      S-31: die Untergrenze liegt jetzt ueber der Fix-Linie (10.1.59) der drei
+      weiteren Advisories GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6 und
+      GHSA-h3x4-894j-xpx5. Der Pin ist die hoechste erreichbare Version der
+      10.1.x-Linie (10.1.61).
     -->
-    <tomcat.version>10.1.55</tomcat.version>
+    <tomcat.version>10.1.61</tomcat.version>
     <jacoco.version>0.8.13</jacoco.version>
   </properties>
 

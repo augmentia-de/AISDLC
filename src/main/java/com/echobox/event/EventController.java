@@ -3,6 +3,7 @@ package com.echobox.event;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,10 +44,15 @@ public class EventController {
     /**
      * Liefert ein Ereignis ein — HTTP 202.
      *
+     * <p>Der Medientyp ist **festgelegt** auf {@code application/json} (S-28):
+     * der Vertrag kennt keinen anderen Koerper. Ein anderer Medientyp — auch
+     * {@code application/*+json} — wird mit HTTP 400 {@code malformed_request}
+     * abgelehnt, statt vom Message-Converter gelesen zu werden.
+     *
      * @param request der Request-Body
      * @return der Annahmelauf
      */
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<EventIntakeResponse> submit(@RequestBody EventIntakeRequest request) {
         EventService.IntakeResult result = service.submit(request);
         Event event = result.event();

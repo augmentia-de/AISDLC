@@ -57,3 +57,16 @@ die Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
   gibt ein eigenes Produktionsprofil mit Pflicht-Schluessel (S-27).
 - Der Build **erzwingt** die Coverage-Schwelle: JaCoCo bricht den Build ab,
   wenn die Zeilenabdeckung unter 80 % faellt (A-1).
+- **Nacharbeit Schritt 8, zweite Runde (S-28 bis S-34)** — die Befunde der
+  zweiten Audit-Runde sind behoben: die Grenze des Request-Bodies gilt
+  **unabhaengig vom Medientyp** — jeder Body wird vor dem Message-Converter
+  begrenzt gelesen (2 MiB), auch `application/*+json` (S-28); die
+  Zielgruppen-Pruefung ist **fail-closed** — ohne konfigurierte Audience wird
+  jedes Token abgelehnt und der Dienst startet nicht (S-29); ein nicht
+  unterstuetzter Medientyp ergibt **400 `malformed_request`** statt 500 mit
+  Stacktrace (S-30); der eingebettete Container wurde auf Tomcat **10.1.61**
+  gehoben — oberhalb der Fix-Linie (S-31); der SCA-Gate hat eine **Baseline**
+  (`osv-scanner.toml`) mit Begruendung und Ablaufdatum, sodass nur **neue**
+  Advisories den Lauf scheitern lassen (S-32); ein Token ohne Mandant ergibt
+  **401** statt 500 (S-33); der veraltete Javadoc der Zustandsmaschine ist
+  aktualisiert (S-34).

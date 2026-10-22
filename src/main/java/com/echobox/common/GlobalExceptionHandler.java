@@ -13,11 +13,14 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -217,6 +220,56 @@ public class GlobalExceptionHandler {
         Problem problem = ProblemFactory.create(ProblemFactory.FORBIDDEN, HttpStatus.FORBIDDEN.value(),
                 "Forbidden", "Diese Rolle darf die Operation fuer diesen Mandanten nicht ausfuehren.",
                 request.getRequestURI());
+        return respond(problem);
+    }
+
+    /**
+     * Bildet einen nicht unterstuetzten Medientyp ab — HTTP 400
+     * {@code malformed_request}.
+     *
+     * <p>Ein nicht unterstuetzter Medientyp ist ein **Fehler des Aufrufers**
+     * (S-30): der Vertrag kennt fuer die Einlieferung nur {@code
+     * application/json} und fuer Fehler des Aufrufers nur 4xx. Ohne diesen
+     * Fall fiel die Ausnahme in den allgemeinen Handler — die Antwort war
+     * HTTP 500 {@code internal_error} mit Stacktrace im Protokoll; ein Aufrufer
+     * haette damit **unbegrenzt** Serverfehler erzeugen koennen, ohne dass das
+     * Monitoring es als Fehler des Aufrufers erkannt haette.
+     *
+     * <p>Der Stacktrace wird **nicht** protokolliert: der Fehler ist erwartbar
+     * und traegt kein internes Detail. Im Protokoll steht er hoechstens auf
+     * DEBUG.
+     *
+     * @param exception die Ausnahme
+     * @param request   die Anfrage
+     * @return die Fehlerantwort
+     */
+    @ExceptionHandler({HttpMediaTypeNotSupportedException.class, HttpMediaTypeNotAcceptableException.class})
+    public ResponseEntity<Problem> handleUnsupportedMediaType(Exception exception, HttpServletRequest request) {
+        LOG.debug("Nicht unterstuetzter Medientyp bei {} {}", request.getMethod(), request.getRequestURI());
+        Problem problem = ProblemFactory.create(ProblemFactory.MALFORMED_REQUEST,
+                HttpStatus.BAD_REQUEST.value(), "Malformed request",
+                "Der Medientyp der Anfrage wird nicht unterstuetzt.", request.getRequestURI());
+        return respond(problem);
+    }
+
+    /**
+     * Bildet einen nicht lesbaren Multipart-Body ab — HTTP 400
+     * {@code malformed_request}.
+     *
+     * <p>Der Dienst nimmt **nur** JSON entgegen (der Vertrag kennt keinen
+     * Multipart-Koerper, der Multipart-Resolver ist abgeschaltet). Ein
+     * Multipart-Body ist deshalb ein Fehler des Aufrufers — kein Serverfehler.
+     *
+     * @param exception der Ausnahme
+     * @param request   die Anfrage
+     * @return die Fehlerantwort
+     */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<Problem> handleMultipart(MultipartException exception, HttpServletRequest request) {
+        LOG.debug("Nicht unterstuetzter Multipart-Body bei {} {}", request.getMethod(), request.getRequestURI());
+        Problem problem = ProblemFactory.create(ProblemFactory.MALFORMED_REQUEST,
+                HttpStatus.BAD_REQUEST.value(), "Malformed request",
+                "Der Medientyp der Anfrage wird nicht unterstuetzt.", request.getRequestURI());
         return respond(problem);
     }
 

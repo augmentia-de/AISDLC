@@ -25,8 +25,10 @@ import java.util.Set;
  * <p><strong>Der Weg in den Zustand {@code delayed} (A-6 / B-17):</strong> der
  * Ratenbegrenzungs-Pfad verschiebt einen Lauf auch dann, wenn er gerade
  * beansprucht wurde — der Uebergang {@code scheduled -&gt; delayed} ist deshalb
- * zulaessig. Die Tabelle in {@code docs/architecture/domain_model.md} §3.3
- * nennt diesen Uebergang noch nicht; sie wird in Schritt 2 nachgezogen.
+ * zulaessig. Die Uebergangstabelle in
+ * {@code docs/architecture/domain_model.md} §3.3 fuehrt diesen Uebergang (sie
+ * wurde nachgezogen); diese Klasse und die Tabelle sind dieselbe Quelle der
+ * Wahrheit.
  */
 public final class DeliveryStateMachine {
 
@@ -117,8 +119,9 @@ public final class DeliveryStateMachine {
      * <strong>ersten</strong> Versuch eines frischen Laufs — sonst kaeme ein
      * Endpunkt in der ersten Minute ueber das Limit hinaus. Der Vertrag und
      * ADR-010 nennen den Zustand {@code delayed} ohne Einschraenkung des
-     * Ausgangszustands. Die Tabelle in {@code docs/architecture/domain_model.md}
-     * §3.3 wird in Schritt 2 nachgezogen (A-6 / B-17).
+     * Ausgangszustands. Die Uebergangstabelle in
+     * {@code docs/architecture/domain_model.md} §3.3 fuehrt die Uebergaenge
+     * {@code pending -> delayed} und {@code scheduled -> delayed} (A-6 / B-17).
      *
      * @param status der Zustand vor der Verschiebung
      * @return der Zustand nach der Verschiebung

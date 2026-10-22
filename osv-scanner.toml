@@ -1,0 +1,179 @@
+# =============================================================================
+# EchoBox — Baseline des SCA-Scans (S-32)
+#
+# Grundlage: der SCA-Schritt der Pipeline (.github/workflows/deploy.yml) darf
+# **nur neue** Advisories scheitern lassen. Ohne Baseline schlug der Scan auf
+# **jedem** Lauf an — der Gate war vorhanden, aber nicht kalibriert: er
+# unterschied nicht zwischen "neu" und "seit langem bekannt".
+#
+# Diese Datei ist die **Baseline**: sie listet die zum Zeitpunkt der Erzeugung
+# **bekannten** Advisories mit Begruendung und Ablaufdatum. Der Scan meldet
+# damit nur noch Advisories, die **nicht** in dieser Datei stehen.
+#
+# Erzeugt aus dem aktuellen Stand:
+#   * Java:  `mvn -B dependency:tree` (110 Koordinaten) -> OSV `querybatch`
+#   * NPM:   `package-lock.json` (522 Pakete)          -> OSV `querybatch`
+# Stand: 2026-10-22 — 17 Java- und 9 npm-Advisories, alle mit Begruendung
+# (Sicherheits-Audit, Anhang A).
+#
+# **Pflege (verbindlich):**
+#   * Wer eine Abhaengigkeit aktualisiert, entfernt die betroffenen Eintraege
+#     in demselben Schritt — eine behobene Advisory gehoert nicht mehr in die
+#     Baseline.
+#   * Jeder Eintrag traegt eine **Begruendung** (warum ist das in dieser
+#     Konfiguration nicht erreichbar?) und ein **Ablaufdatum**
+#     (`ignoreUntil`, hoechstens sechs Monate in der Zukunft).
+#   * Ist das Ablaufdatum ueberschritten, meldet der Scan das Advisory
+#     wieder — es muss dann behoben oder neu begruendet werden. Die Datei
+#     veraltet also von selbst.
+#   * Die Baseline wird zu Beginn jeder Sicherheits-Audit-Runde neu erzeugt
+#     (Owner: `aisdlc-qa`); die Freigabe der Baseline erfolgt mit GATE 2
+#     (Owner: menschlicher Reviewer).
+# =============================================================================
+
+# --- Java (Maven) ------------------------------------------------------------
+# Die Erreichbarkeit ist je Advisory im Sicherheits-Audit (Anhang A.2 bis A.4)
+# begruendet; die Beschreibung hier wiederholt sie knapp.
+
+[[IgnoredVulns]]
+id = "GHSA-4265-ccf5-phj5"
+ignoreUntil = 2027-04-30
+reason = "commons-compress 1.24.0: Pack200-/DUMP-Dateien — betrifft die Datei- und Archivverarbeitung im Test- und Build-Werkzeug, nicht den Request-Pfad des Dienstes."
+
+[[IgnoredVulns]]
+id = "GHSA-4g9r-vxhx-9pgx"
+ignoreUntil = 2027-04-30
+reason = "commons-compress 1.24.0: Pack200-/DUMP-Dateien — betrifft die Datei- und Archivverarbeitung im Test- und Build-Werkzeug, nicht den Request-Pfad des Dienstes."
+
+[[IgnoredVulns]]
+id = "GHSA-5gvw-p9qm-jgwh"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: setzt @JsonView und @JsonUnwrapped voraus — der Dienst verwendet kein @JsonView (keine Treffer in src/main/java)."
+
+[[IgnoredVulns]]
+id = "GHSA-mhm7-754m-9p8w"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: setzt @JsonView und @JsonTypeInfo(EXTERNAL_PROPERTY) voraus — beides wird nicht verwendet."
+
+[[IgnoredVulns]]
+id = "GHSA-7hhh-6rmp-j9qf"
+ignoreUntil = 2027-04-30
+reason = "jackson-core 2.21.4: betrifft nur createParser(DataInput) — Spring MVC liest den Request-Body ueber InputStream/byte[]."
+
+[[IgnoredVulns]]
+id = "GHSA-cxp5-3px4-pw24"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: setzt @JsonIdentityInfo voraus — nicht verwendet."
+
+[[IgnoredVulns]]
+id = "GHSA-gx83-3vf8-gh7j"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: setzt @JsonTypeInfo, PolymorphicTypeValidator oder activateDefaultTyping voraus — nichts davon wird verwendet."
+
+[[IgnoredVulns]]
+id = "GHSA-wv8q-qhhj-9h54"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: setzt @JsonTypeInfo und DefaultBaseTypeLimitingValidator voraus — nichts davon wird verwendet."
+
+[[IgnoredVulns]]
+id = "GHSA-vvgp-rfg2-7rr6"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: betrifft InetAddress/InetSocketAddress in Request-Bodys — der Dienst hat keine solchen Feldtypen."
+
+[[IgnoredVulns]]
+id = "GHSA-wjgm-6hv5-3cvf"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: betrifft java.nio.file.Path/FileSystemProvider in Request-Bodys — der Dienst verarbeitet keine Dateipfade aus Eingaben."
+
+[[IgnoredVulns]]
+id = "GHSA-q4xh-88c3-wmh7"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: betrifft Duration/XMLGregorianCalendar in Request-Bodys — keine solchen Feldtypen in den DTOs."
+
+[[IgnoredVulns]]
+id = "GHSA-5jmj-h7xm-6q6v"
+ignoreUntil = 2027-04-30
+reason = "jackson-databind 2.21.4: setzt @JsonIgnoreProperties auf Properties voraus — nicht verwendet."
+
+[[IgnoredVulns]]
+id = "GHSA-p6pp-m3f8-5c89"
+ignoreUntil = 2027-04-30
+reason = "jackson-core 2.21.4: ReDoS im Zahlentoken — StreamReadConstraints.maxNumberLength (1000) bricht lange Zahlen vorher ab; der Parse-Pfad ist damit nicht erreichbar (empirisch gemessen)."
+
+[[IgnoredVulns]]
+id = "GHSA-pc63-qcmh-9cmg"
+ignoreUntil = 2027-04-30
+reason = "spring-webmvc 6.2.19: setzt XsltView und eine /**-View-Aufloesung voraus — der Dienst liefert ausschliesslich JSON (@RestController), es gibt keine View-Aufloesung."
+
+[[IgnoredVulns]]
+id = "GHSA-j9f9-w8pj-32f8"
+ignoreUntil = 2027-04-30
+reason = "spring-webmvc 6.2.19: setzt Server-Sent-Events mit View-Fragmenten voraus — der Dienst hat keine SSE-Endpunkte (kein SseEmitter, kein text/event-stream)."
+
+[[IgnoredVulns]]
+id = "GHSA-qv9r-c865-cp47"
+ignoreUntil = 2027-04-30
+reason = "log4j-api 2.24.3: Log4j ist nicht die Logging-Implementierung (logback 1.5.x); betrifft MapMessage.asJson()."
+
+[[IgnoredVulns]]
+id = "GHSA-j92g-9f8w-j867"
+ignoreUntil = 2027-04-30
+reason = "postgresql 42.7.11: Kanalbindung (channelBinding=require) ist nicht konfiguriert; der Angriff setzt einen Angreifer auf dem Datenbankweg voraus."
+
+# --- Oberflaeche (npm) --------------------------------------------------------
+# Alle betreffen ausschliesslich **Entwicklungs**-Abhaengigkeiten (Test- und
+# Build-Werkzeug). Ein Fehler darin ist nur ausnutzbar, wer bereits Schreibrecht
+# auf dem Repository hat. Die Laufzeit-Abhaengigkeiten (next 15.5.28,
+# react/react-dom 19.2.9) sind nicht betroffen.
+
+[[IgnoredVulns]]
+id = "GHSA-5gmw-xhrv-c9v3"
+ignoreUntil = 2027-04-30
+reason = "tinypool 1.1.1 (devDependency): Fehler im Test-Werkzeug — nur ausnutzbar mit Schreibrecht auf dem Repository."
+
+[[IgnoredVulns]]
+id = "GHSA-85c8-ppgw-ccpr"
+ignoreUntil = 2027-04-30
+reason = "tinypool 1.1.1 (devDependency): Fehler im Test-Werkzeug — nur ausnutzbar mit Schreibrecht auf dem Repository."
+
+[[IgnoredVulns]]
+id = "GHSA-82fw-gwwq-j7x9"
+ignoreUntil = 2027-04-30
+reason = "vitest 3.2.7 (devDependency): Fehler im Test-Werkzeug — nur ausnutzbar mit Schreibrecht auf dem Repository."
+
+[[IgnoredVulns]]
+id = "GHSA-qxg6-89mg-rqv8"
+ignoreUntil = 2027-04-30
+reason = "@vitest/mocker 3.2.7 (devDependency): Fehler im Test-Werkzeug — nur ausnutzbar mit Schreibrecht auf dem Repository."
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2027-04-30
+reason = "braces 3.0.3 (devDependency, transitiv ueber eslint/vite): Fehler im Test- und Lint-Werkzeug — nur ausnutzbar mit Schreibrecht auf dem Repository."
+
+# postcss 8.4.31 wird von next 15.5.28 als **Laufzeit**-Abhaengigkeit
+# mitgeliefert (im Lockfile nicht als dev markiert). Die Advisories betreffen
+# den CSS-Parser beim Build; der Dienst nimmt keine CSS-Eingaben entgegen. Die
+# Behebung erfolgt mit dem naechsten next-Upgrade — bis dahin ist der
+# Eintrag befristet und wird bei jedem Audit nachgeprueft (offener Punkt
+# O-05 der Nacharbeit, Schritt 9 / Wartung).
+
+[[IgnoredVulns]]
+id = "GHSA-qx2v-qp2m-jg93"
+ignoreUntil = 2027-04-30
+reason = "postcss 8.4.31, von next 15.5.28 als Laufzeit-Abhaengigkeit mitgeliefert: betrifft den CSS-Parser beim Build — der Dienst nimmt keine CSS-Eingaben entgegen; Behebung mit dem naechsten next-Upgrade."
+
+[[IgnoredVulns]]
+id = "GHSA-6g55-p6wh-862q"
+ignoreUntil = 2027-04-30
+reason = "postcss 8.4.31, von next 15.5.28 als Laufzeit-Abhaengigkeit mitgeliefert: betrifft den CSS-Parser beim Build — der Dienst nimmt keine CSS-Eingaben entgegen; Behebung mit dem naechsten next-Upgrade."
+
+[[IgnoredVulns]]
+id = "GHSA-fxqj-rqcc-2cmp"
+ignoreUntil = 2027-04-30
+reason = "postcss 8.4.31, von next 15.5.28 als Laufzeit-Abhaengigkeit mitgeliefert: betrifft den CSS-Parser beim Build — der Dienst nimmt keine CSS-Eingaben entgegen; Behebung mit dem naechsten next-Upgrade."
+
+[[IgnoredVulns]]
+id = "GHSA-r28c-9q8g-f849"
+ignoreUntil = 2027-04-30
+reason = "postcss 8.4.31, von next 15.5.28 als Laufzeit-Abhaengigkeit mitgeliefert: betrifft den CSS-Parser beim Build — der Dienst nimmt keine CSS-Eingaben entgegen; Behebung mit dem naechsten next-Upgrade."

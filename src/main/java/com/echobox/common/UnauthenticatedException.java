@@ -13,6 +13,15 @@ public class UnauthenticatedException extends ApiException {
      * Erzeugt den Fehler.
      */
     public UnauthenticatedException() {
-        super(ProblemFactory.UNAUTHORIZED, 401, "Unauthorized", "Das Bearer-Token fehlt oder ist ungueltig.");
+        this("Das Bearer-Token fehlt oder ist ungueltig.");
+    }
+
+    /**
+     * Erzeugt den Fehler mit einer eigenen Handlungsanweisung.
+     *
+     * @param detail die Handlungsanweisung
+     */
+    public UnauthenticatedException(String detail) {
+        super(ProblemFactory.UNAUTHORIZED, 401, "Unauthorized", detail);
     }
 }

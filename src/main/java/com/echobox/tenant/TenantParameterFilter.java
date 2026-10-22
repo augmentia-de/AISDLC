@@ -15,7 +15,6 @@ import java.util.Set;
 import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -37,7 +36,8 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Lehnt **Mandantenparameter** ab (D-01, AC-001-5, AC-004-4).
+ * Lehnt **Mandantenparameter** ab (D-01, AC-001-5, AC-004-4) und begrenzt die
+ * Groesse des Request-Bodies (S-20, S-28).
  *
  * <p>Der Mandant stammt **ausschliesslich** aus der Identitaet (JWT-Claim
  * {@code organisation_id}). Ein mitgeschickter Mandantenparameter wird mit
@@ -59,6 +59,21 @@ import jakarta.servlet.http.HttpServletResponse;
  * danach bricht das Lesen ab und die Anfrage ergibt HTTP 413. Ohne diese
  * Grenze wuerde ein Mandant den Body unbeschaenkt in den Heap des geteilten
  * JVM laden (Ausfall fuer alle Mandanten).
+ *
+ * <p><strong>Die Grenze haengt auch nicht am Medientyp (S-28):</strong> sie
+ * gilt fuer <strong>jeden</strong> Request-Body, den der Dienst liest — auch
+ * fuer {@code application/*+json} ({@code MappingJackson2HttpMessageConverter}),
+ * {@code text/plain}, {@code multipart/form-data},
+ * {@code application/octet-stream} und fuer einen Request ganz ohne
+ * {@code Content-Type}. Vorpruefung ({@code Content-Length}) und begrenztes
+ * Lesen benutzen deshalb <strong>dieselbe</strong> Bedingung
+ * ({@link #mayCarryBody(HttpServletRequest)}).
+ *
+ * <p>Der Filter liest den Body <strong>vor</strong> dem Message-Converter und
+ * gibt ihm nur die bereits gelesenen (und damit begrenzten) Byte. Der
+ * Converter kann so nie mehr Bytes sehen, als die Grenze erlaubt — die Grenze
+ * ist damit <strong>nicht</strong> von der Medienpruefung eines Converters
+ * abhaengig.
  */
 @Component
 @Order(SecurityProperties.DEFAULT_FILTER_ORDER + 10)
@@ -70,6 +85,13 @@ public class TenantParameterFilter extends OncePerRequestFilter {
             "org_id", "orgid", "tenant_id", "tenantid", "tenant",
             "x-organisation-id", "x-organization-id", "x-org-id", "x-tenant-id", "x-tenant");
 
+    /**
+     * Die Methoden, die einen Request-Body tragen koennen. Fuer **jede** von
+     * ihnen gilt die Grenze des Request-Bodies — unabhaengig vom Medientyp
+     * (S-28).
+     */
+    private static final Set<String> BODY_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
+
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
 
     /** Die Groesse des Puffers, in dem der Request-Body gelesen wird (S-20). */
@@ -79,47 +101,51 @@ public class TenantParameterFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        if (isBodyRelevant(request) && request.getContentLengthLong() > PayloadSize.MAX_REQUEST_BODY_BYTES) {
-            writeProblem(response, ProblemFactory.create(ProblemFactory.PAYLOAD_TOO_LARGE,
-                    HttpStatus.PAYLOAD_TOO_LARGE.value(), "Payload too large",
-                    "Der Request-Body ueberschreitet die zulaessige Groesse.",
-                    request.getRequestURI()));
-            return;
-        }
-
         String offending = findTenantParameterInQueryOrHeader(request);
 
-        if (offending == null && isBodyRelevant(request)) {
-            // S-20: der Body wird **begrenzt** gelesen — unabhaengig von
-            // `Content-Length`. Bei `Transfer-Encoding: chunked` liefert
-            // `getContentLengthLong()` die Laenge -1; ohne diese Grenze wuerde
-            // der Body unbeschaenkt in den Heap gelesen (Ausfall aller
-            // Mandanten). `null` bedeutet: groesser als die Grenze.
-            byte[] body = readBounded(request, PayloadSize.MAX_REQUEST_BODY_BYTES);
-            if (body == null) {
-                writeProblem(response, ProblemFactory.create(ProblemFactory.PAYLOAD_TOO_LARGE,
-                        HttpStatus.PAYLOAD_TOO_LARGE.value(), "Payload too large",
-                        "Der Request-Body ueberschreitet die zulaessige Groesse.",
-                        request.getRequestURI()));
+        if (offending == null && mayCarryBody(request)) {
+            // S-20/S-28: der Body wird **begrenzt** gelesen — unabhaengig von
+            // `Content-Length` *und* unabhaengig vom Medientyp. Bei
+            // `Transfer-Encoding: chunked` liefert `getContentLengthLong()` die
+            // Laenge -1; ohne diese Grenze wuerde der Body unbeschaenkt in den
+            // Heap gelesen (Ausfall aller Mandanten). `null` bedeutet: groesser
+            // als die Grenze.
+            if (request.getContentLengthLong() > PayloadSize.MAX_REQUEST_BODY_BYTES) {
+                writeProblem(response, payloadTooLarge(request));
                 return;
             }
-            offending = findTenantParameterInBody(body);
-            if (offending == null) {
-                request = new CachedBodyRequest(request, body);
+            byte[] body = readBounded(request, PayloadSize.MAX_REQUEST_BODY_BYTES);
+            if (body == null) {
+                writeProblem(response, payloadTooLarge(request));
+                return;
             }
+            // Der Message-Converter liest nur noch diese (begrenzten) Byte.
+            request = new CachedBodyRequest(request, body);
+            offending = findTenantParameterInBody(body);
         }
 
         if (offending != null) {
-            writeProblem(response, ProblemFactory.create(ProblemFactory.TENANT_PARAMETER_REJECTED,
-                    HttpStatus.UNPROCESSABLE_ENTITY.value(), "Tenant parameter rejected",
-                    "Der Mandant stammt aus der Identitaet; ein Mandantenparameter wird nicht akzeptiert.",
-                    request.getRequestURI(),
-                    List.of(new ValidationViolation(offending, "tenant_parameter_not_allowed",
-                            "Der Mandant darf nicht mitgeschickt werden."))));
+            writeProblem(response, tenantParameterRejected(request, offending));
             return;
         }
 
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Prueft, ob die Anfrage ueberhaupt einen Request-Body tragen kann.
+     *
+     * <p>Die Bedingung ist bewusst **nicht** an den Medientyp gebunden (S-28):
+     * eine Sicherheitsgrenze, die an einer Eingabevariante haengt, ist per
+     * Konstruktion umgehbar. Vorpruefung und begrenztes Lesen benutzen
+     * dieselbe Bedingung.
+     *
+     * @param request der Request
+     * @return {@code true}, wenn der Request einen Body tragen kann
+     */
+    private static boolean mayCarryBody(HttpServletRequest request) {
+        String method = request.getMethod();
+        return method != null && BODY_METHODS.contains(method.toUpperCase(Locale.ROOT));
     }
 
     /**
@@ -157,15 +183,6 @@ public class TenantParameterFilter extends OncePerRequestFilter {
         }
     }
 
-    private static boolean isBodyRelevant(HttpServletRequest request) {
-        String method = request.getMethod();
-        if (!"POST".equals(method) && !"PUT".equals(method) && !"PATCH".equals(method)) {
-            return false;
-        }
-        String contentType = request.getContentType();
-        return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith(MediaType.APPLICATION_JSON_VALUE);
-    }
-
     private static String findTenantParameterInQueryOrHeader(HttpServletRequest request) {
         for (String name : request.getParameterMap().keySet()) {
             if (isTenantParameter(name)) {
@@ -180,6 +197,17 @@ public class TenantParameterFilter extends OncePerRequestFilter {
         return null;
     }
 
+    /**
+     * Sucht einen Mandantenparameter im **Body**.
+     *
+     * <p>Die Suche ist **nicht** an den Medientyp gebunden (S-28): der Body
+     * wird als JSON gelesen, unabhaengig davon, welchen Medientyp die Anfrage
+     * traegt. Ein Body, der kein JSON-Objekt ist, traegt keinen Mandanten-
+     * parameter (er wird ohnehin vom Message-Converter abgelehnt).
+     *
+     * @param body der (bereits begrenzte) Body
+     * @return der Name des Mandantenparameters oder {@code null}
+     */
     private static String findTenantParameterInBody(byte[] body) {
         if (body == null || body.length == 0) {
             return null;
@@ -211,6 +239,37 @@ public class TenantParameterFilter extends OncePerRequestFilter {
             return false;
         }
         return TENANT_PARAMETER_NAMES.contains(name.trim().toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * Die Fehlerantwort eines zu grossen Request-Bodies — HTTP 413
+     * {@code payload_too_large}.
+     *
+     * @param request der Request
+     * @return die Fehlerantwort
+     */
+    private static Problem payloadTooLarge(HttpServletRequest request) {
+        return ProblemFactory.create(ProblemFactory.PAYLOAD_TOO_LARGE,
+                HttpStatus.PAYLOAD_TOO_LARGE.value(), "Payload too large",
+                "Der Request-Body ueberschreitet die zulaessige Groesse.",
+                request.getRequestURI());
+    }
+
+    /**
+     * Die Fehlerantwort eines mitgeschickten Mandantenparameters — HTTP 422
+     * {@code tenant_parameter_rejected}.
+     *
+     * @param request   der Request
+     * @param offending der Name des Mandantenparameters
+     * @return die Fehlerantwort
+     */
+    private static Problem tenantParameterRejected(HttpServletRequest request, String offending) {
+        return ProblemFactory.create(ProblemFactory.TENANT_PARAMETER_REJECTED,
+                HttpStatus.UNPROCESSABLE_ENTITY.value(), "Tenant parameter rejected",
+                "Der Mandant stammt aus der Identitaet; ein Mandantenparameter wird nicht akzeptiert.",
+                request.getRequestURI(),
+                List.of(new ValidationViolation(offending, "tenant_parameter_not_allowed",
+                        "Der Mandant darf nicht mitgeschickt werden.")));
     }
 
     private static void writeProblem(HttpServletResponse response, Problem problem) throws IOException {

@@ -93,9 +93,11 @@ public class SecurityConfiguration {
      *   <li>die **Ablaufzeit** ({@code exp}) ist **Pflicht** — ein Token ohne
      *       Ablaufzeit waere unbegrenzt gueltig.</li>
      * </ul>
-     * Beide Pruefungen schlagen fehl, wenn die Audience nicht konfiguriert ist:
-     * die Audience wird dann **nicht** geprueft (es gibt nichts zu pruefen),
-     * die Ablaufzeit aber weiterhin erzwungen.
+     * Die Zielgruppen-Pruefung ist **immer** aktiv (S-29): eine leere
+     * Konfiguration schaltet sie nicht ab, sondern lehnt **jedes** Token ab
+     * (fail-closed). Der Startabbruch bei leerer Konfiguration kommt aus der
+     * {@link AudiencePolicy} — der Decoder bleibt auch ohne Zielgruppe
+     * konstruierbar, damit die Pruefkette fuer sich allein pruefbar bleibt.
      *
      * @param properties die Betriebskonfiguration
      * @return der Decoder
@@ -114,18 +116,36 @@ public class SecurityConfiguration {
     }
 
     /**
+     * Die Zielgruppen-Vorgabe (S-29).
+     *
+     * <p>Der Dienst startet **nicht**, wenn die Zielgruppe leer ist: eine leere
+     * Zielgruppe waere ein stilles Fail-open (ein Token eines anderen Clients
+     * desselben Identity Providers wuerde angenommen). Der Vorgabewert
+     * {@code echobox} bleibt unveraendert.
+     *
+     * @param properties die Betriebskonfiguration
+     * @return die Zielgruppen-Vorgabe
+     * @throws IllegalStateException wenn die Zielgruppe leer ist
+     */
+    @Bean
+    public AudiencePolicy audiencePolicy(EchoBoxProperties properties) {
+        return AudiencePolicy.required(properties.getSecurity().getAudience());
+    }
+
+    /**
      * Die Pruefkette des Decoders: Zeitstempel, Pflicht-Ablaufzeit, Audience.
      *
-     * @param audience die erwartete Zielgruppe (leer = keine Zielgruppenpruefung)
+     * <p>Die Zielgruppen-Pruefung ist **immer** Teil der Kette (S-29) — eine
+     * leere Zielgruppe schaltet sie nicht ab.
+     *
+     * @param audience die erwartete Zielgruppe
      * @return die Pruefkette
      */
     static OAuth2TokenValidator<Jwt> validators(String audience) {
         List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
         validators.add(new JwtTimestampValidator());
         validators.add(expiryRequired());
-        if (audience != null && !audience.isBlank()) {
-            validators.add(audienceRequired(audience.trim()));
-        }
+        validators.add(audienceRequired(audience));
         return new DelegatingOAuth2TokenValidator<>(validators);
     }
 
@@ -148,13 +168,22 @@ public class SecurityConfiguration {
     /**
      * Die Zielgruppe muss die konfigurierte Audience enthalten.
      *
+     * <p>Ist keine Zielgruppe konfiguriert, wird **jedes** Token abgelehnt
+     * (fail-closed, S-29): eine leere Konfiguration darf die Pruefung nicht
+     * abschalten.
+     *
      * @param audience die erwartete Zielgruppe
      * @return die Pruefung
      */
     private static OAuth2TokenValidator<Jwt> audienceRequired(String audience) {
+        String expected = audience == null ? "" : audience.trim();
         return token -> {
+            if (expected.isEmpty()) {
+                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token",
+                        "Die Zielgruppe der Token ist nicht konfiguriert.", null));
+            }
             List<String> audiences = token.getAudience();
-            if (audiences == null || !audiences.contains(audience)) {
+            if (audiences == null || !audiences.contains(expected)) {
                 return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token",
                         "Das Token ist nicht fuer diese API ausgegeben (aud).", null));
             }

@@ -8,6 +8,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.echobox.common.UnauthenticatedException;
+
 /**
  * Fuehrt fachliche Aktionen in der Transaktion aus, in der **zuvor** der
  * Mandant gesetzt wurde (ADR-002 §3).
@@ -86,11 +88,20 @@ public class TenantTransactionRunner {
     /**
      * Setzt den Mandanten der aktuellen Transaktion.
      *
+     * <p>Ein Token <strong>ohne Mandant</strong> ist ein Fehler des Aufrufers
+     * (S-33): der Mandant stammt aus dem Claim {@code organisation_id} der
+     * Identitaet; ohne ihn ist das Token nicht brauchbar. Der Dienst antwortet
+     * deshalb mit <strong>401</strong> {@code unauthorized} — nicht mit 500.
+     * Der Mandant wird weiterhin **nicht** geraten und nicht ersetzt (fail-closed).
+     *
      * @param organisationId der Mandant
+     * @throws UnauthenticatedException wenn der Mandant fehlt
      */
     public void setTenant(String organisationId) {
         if (organisationId == null || organisationId.isBlank()) {
-            throw new IllegalArgumentException("Der Mandant darf nicht leer sein (fail-closed).");
+            throw new UnauthenticatedException(
+                    "Das Token traegt keinen Mandanten (organisation_id) — der Mandant stammt "
+                    + "ausschliesslich aus der Identitaet.");
         }
         jdbcTemplate.query(SET_TENANT_SQL,
                 statement -> statement.setString(1, organisationId),
