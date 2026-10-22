@@ -162,6 +162,27 @@ public final class JwtTestKeys implements AutoCloseable {
      */
     public static Map<String, Object> claims(String organisationId, java.util.List<String> roles,
                                               Long expiresAt, String audience) {
+        Map<String, Object> claims = claimsWithAudiences(organisationId, roles, expiresAt, null);
+        if (audience != null) {
+            claims.put("aud", audience);
+        }
+        return claims;
+    }
+
+    /**
+     * Baut die Claims eines Tokens mit Ablaufzeit und mehreren Zielgruppen.
+     *
+     * <p>Der Claim {@code aud} darf im JWT eine Liste sein — der Decoder muss
+     * beide Formen lesen koennen.
+     *
+     * @param organisationId der Mandant
+     * @param roles          die Rollen
+     * @param expiresAt      der Ablaufzeitpunkt (Sekunden seit Epoch) — {@code null} ohne Ablauf
+     * @param audiences      die Zielgruppen — {@code null} ohne Zielgruppe
+     * @return die Claims
+     */
+    public static Map<String, Object> claimsWithAudiences(String organisationId, java.util.List<String> roles,
+                                                          Long expiresAt, java.util.List<String> audiences) {
         Map<String, Object> claims = new LinkedHashMap<>();
         claims.put("sub", "tester");
         claims.put("iss", "https://idp.example.invalid");
@@ -170,8 +191,8 @@ public final class JwtTestKeys implements AutoCloseable {
         if (expiresAt != null) {
             claims.put("exp", expiresAt);
         }
-        if (audience != null) {
-            claims.put("aud", audience);
+        if (audiences != null) {
+            claims.put("aud", audiences);
         }
         return claims;
     }

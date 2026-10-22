@@ -1,6 +1,7 @@
 package com.echobox.config;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.echobox.common.ApiRateLimiter;
 import com.echobox.common.ClockPort;
 import com.echobox.common.CursorCodec;
 import com.echobox.crypto.PayloadCipher;
@@ -66,7 +68,16 @@ public class CoreConfiguration {
                     + "erzeugt. Die Nutzlast ist damit nur zur Laufzeit lesbar.");
             return new SecretKeySpec(ephemeral, "AES");
         }
-        return new SecretKeySpec(decode(configured), "AES");
+        byte[] key = decode(configured);
+        if (key.length != AES_256_KEY_BYTES) {
+            // ADR-003 §1 legt 256 Bit fest. Ein kuerzerer Schluessel wuerde
+            // stillschweigend AES-128 bedeuten — der Dienst startet dann nicht.
+            throw new IllegalStateException(
+                    "Der Verschluesselungsschluessel muss genau " + AES_256_KEY_BYTES
+                            + " Byte (256 Bit, AES-256) lang sein, hat aber " + key.length
+                            + " Byte. ADR-003 §1 legt AES-256 fest.");
+        }
+        return new SecretKeySpec(key, "AES");
     }
 
     /**
@@ -78,6 +89,24 @@ public class CoreConfiguration {
     @Bean
     public PayloadCipher payloadCipher(SecretKey payloadEncryptionKey) {
         return new PayloadCipher(payloadEncryptionKey);
+    }
+
+    /**
+     * Der Zaehler des Anfragelimits der API (S-24).
+     *
+     * <p>Der Vertrag sagt HTTP 429 {@code rate_limit_exceeded} mit
+     * {@code Retry-After} fuer jede Operation zu. Der Zaehler begrenzt die
+     * Anfragen je Mandant und Fenster; die Werte kommen aus der
+     * Betriebskonfiguration ({@code echobox.rate-limit.*}).
+     *
+     * @param properties die Betriebskonfiguration
+     * @param clock      die Uhr
+     * @return der Zaehler
+     */
+    @Bean
+    public ApiRateLimiter apiRateLimiter(EchoBoxProperties properties, ClockPort clock) {
+        return new ApiRateLimiter(properties.getRateLimit().getLimit(),
+                Duration.ofSeconds(properties.getRateLimit().getWindowSeconds()), clock);
     }
 
     /**

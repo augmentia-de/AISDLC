@@ -14,9 +14,10 @@
 #     eigenen Secrets traegt.
 #   * Der **Build** ist gemeinsam: er erzeugt das Image, das beide Umgebungen
 #     beziehen. Die **Bereitstellung** ist getrennt.
-#
-# Ergaenzung: Schritt 9 (Deployment & Betrieb) verfeinert diese Datei um die
-# Qualitaets-Gates (Test, Coverage, Security-Scan) und die Rollout-Logik.
+#   * **S-25:** vor dem Image gibt es Gates — Secret-Scan, SCA-Scan, die
+#     Tests des Dienstes **und** der Oberflaeche. Die Registry-Anmeldung
+#     nutzt das **kurzlebige** Token des Laufs (`GITHUB_TOKEN`, per OIDC
+#     erteilt), nicht einen statischen, langlebigen Registry-Schluessel.
 # =============================================================================
 name: echobox-bereitstellung
 
@@ -25,13 +26,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Standardberechtigungen: nur lesen. Das Schreiben von Paket-Registry und
-# Kubernetes erfolgt ueber den OIDC-Token der jeweiligen Umgebung.
+# Standardberechtigungen: nur lesen. Das Schreiben in die Paket-Registry
+# erfolgt ueber das kurzlebige Token des Laufs; `id-token: write` erlaubt
+# zusaetzlich die OIDC-Anmeldung an eine Registry, die OIDC spricht.
 permissions:
   contents: read
+  packages: write
+  id-token: write
 
 env:
   IMAGE: ghcr.io/example/echobox
+  FRONTEND: src/main/frontend
 
 jobs:
   # ------------------------------------------------------------------ Build
@@ -42,9 +47,52 @@ jobs:
       - name: Quellcode holen
         uses: actions/checkout@v4
 
-      - name: Java-Build und Tests
+      # ---------------------------------------------------------- Gates
+      - name: Secret-Scan (gitleaks)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
+            detect --source=/repo --redact --no-banner --exit-code=1
+
+      - name: SCA-Scan (OSV)
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
+        with:
+          scan-args: |-
+            --recursive
+            ./
+
+      # ------------------------------------------------- Dienst (Backend)
+      - name: Java-Build und Tests (inkl. Coverage-Gate)
         run: mvn -B verify
 
+      # ------------------------------------------- Oberflaeche (Frontend)
+      # Der npm-Workspace liegt in der Wurzel; `package-lock.json` ebenfalls.
+      - name: Node installieren
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Abhaengigkeiten der Oberflaeche installieren
+        run: npm ci
+
+      - name: Typpruefung des gesamten Projekts
+        run: npm run typecheck
+
+      - name: Lint, Vertragspruefung und Unit-Tests der Oberflaeche
+        run: npm run frontend:check
+
+      - name: Oberflaeche bauen
+        run: npm run build
+
+      - name: Browser fuer die End-to-End-Tests installieren
+        working-directory: ${{ env.FRONTEND }}
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-End-Tests der Oberflaeche
+        run: npm run test:e2e
+
+      # ------------------------------------------------------------ Image
       - name: Image bauen
         run: docker build --tag ${{ env.IMAGE }}:${{ github.sha }} .
 
@@ -53,7 +101,13 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.REGISTRY_TOKEN }}
+          # S-25: das Token des Laufs (`GITHUB_TOKEN`) statt eines statischen
+          # Registry-Schluessels — es ist kurzlebig und wird automatisch
+          # entzogen. Ein statisches `REGISTRY_TOKEN` wird nicht mehr gebraucht.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image pushen
+        run: docker push ${{ env.IMAGE }}:${{ github.sha }}
 
   # --------------------------------------------------------------- Staging
   deploy-staging:
@@ -68,12 +122,16 @@ jobs:
 
       - name: staging-Konfiguration anwenden
         env:
+          # S-27: das Image ist nicht fest auf ein Profil gepinnt — die
+          # Umgebung legt das Profil fest.
+          SPRING_PROFILES_ACTIVE: staging
           ECHobox_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           ECHobox_DATABASE_USERNAME: ${{ secrets.STAGING_DATABASE_USERNAME }}
           ECHobox_DATABASE_PASSWORD: ${{ secrets.STAGING_DATABASE_PASSWORD }}
           ECHobox_CRYPTO_KEY: ${{ secrets.STAGING_CRYPTO_KEY }}
           ECHobox_CURSOR_KEY: ${{ secrets.STAGING_CURSOR_KEY }}
           ECHobox_SECURITY_JWK_SET_URI: ${{ secrets.STAGING_JWK_SET_URI }}
+          ECHobox_SECURITY_AUDIENCE: ${{ secrets.STAGING_SECURITY_AUDIENCE }}
         run: echo "Die Staging-Konfiguration kommt ausschliesslich aus den Secrets der Umgebung 'staging'."
 
       - name: Image in staging ausrollen
@@ -92,12 +150,16 @@ jobs:
 
       - name: production-Konfiguration anwenden
         env:
+          # S-27: das Image ist nicht fest auf ein Profil gepinnt — die
+          # Umgebung legt das Profil fest.
+          SPRING_PROFILES_ACTIVE: production
           ECHobox_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           ECHobox_DATABASE_USERNAME: ${{ secrets.PRODUCTION_DATABASE_USERNAME }}
           ECHobox_DATABASE_PASSWORD: ${{ secrets.PRODUCTION_DATABASE_PASSWORD }}
           ECHobox_CRYPTO_KEY: ${{ secrets.PRODUCTION_CRYPTO_KEY }}
           ECHobox_CURSOR_KEY: ${{ secrets.PRODUCTION_CURSOR_KEY }}
           ECHobox_SECURITY_JWK_SET_URI: ${{ secrets.PRODUCTION_JWK_SET_URI }}
+          ECHobox_SECURITY_AUDIENCE: ${{ secrets.PRODUCTION_SECURITY_AUDIENCE }}
         run: echo "Die Produktionskonfiguration kommt ausschliesslich aus den Secrets der Umgebung 'production'."
 
       - name: Image in production ausrollen

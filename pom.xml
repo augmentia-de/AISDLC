@@ -14,10 +14,20 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <!--
+    Spring Boot 3.5.16 — S-19 (High).
+    Die Version bringt tomcat-embed-core 10.1.55 mit. Damit sind die drei
+    erreichbaren Advisories des HTTP/1.1-Pfades behoben:
+      * CVE-2026-24880 (Request/Response-Smuggling) — behoben in 10.1.52,
+      * CVE-2025-48988 (Multipart-DoS)             — behoben in 10.1.42,
+      * CVE-2025-48989 („made you reset")           — behoben in 10.1.44.
+    Die Mindestversion des eingebetteten Containers ist 10.1.55; die Regression
+    prueft das (S-19) im Abhaengigkeitsbaum.
+  -->
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.3.5</version>
+    <version>3.5.16</version>
     <relativePath/>
   </parent>
 
@@ -34,6 +44,13 @@
     <testcontainers.version>1.20.4</testcontainers.version>
     <wiremock.version>3.9.2</wiremock.version>
     <build-helper-plugin.version>3.6.0</build-helper-plugin.version>
+    <!--
+      Die Version des eingebetteten Containers ist eine **untere** Grenze:
+      tomcat-embed-core < 10.1.55 traegt die drei erreichbaren Advisories
+      S-19 (CVE-2026-24880, CVE-2025-48988, CVE-2025-48989).
+    -->
+    <tomcat.version>10.1.55</tomcat.version>
+    <jacoco.version>0.8.13</jacoco.version>
   </properties>
 
   <dependencies>
@@ -152,6 +169,108 @@
                 <source>${project.basedir}/tests/unit</source>
                 <source>${project.basedir}/tests/integration</source>
               </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        Die Coverage-Messung beginnt bei **null**: die alte Datei
+        `target/jacoco.exec` wird vor dem Build geloescht. Ohne diesen Schritt
+        wuerde das Gate die Daten *aller* frueheren Laeufe mitzaehlen und
+        koennte eine Regression verdecken.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>clean-jacoco-exec</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <configuration>
+              <excludeDefaultDirectories>true</excludeDefaultDirectories>
+              <filesets>
+                <fileset>
+                  <directory>${project.build.directory}</directory>
+                  <includes>
+                    <include>jacoco.exec</include>
+                  </includes>
+                </fileset>
+              </filesets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--
+        JaCoCo — das Coverage-Gate des Builds (A-1).
+
+        Die Zusage „min. 80 % Testabdeckung" ist nur eine Zusage, wenn der
+        Build sie **erzwingt**. `check` bricht den Build ab, sobald die
+        Zeilenabdeckung des Bundles unter 80 % faellt. Der Bericht liegt in
+        `target/site/jacoco` (HTML, XML, CSV).
+
+        `prepare-agent` laeuft vor den Tests, `report` und `check` in der
+        Phase `verify` — also nach Surefire **und** Failsafe: das Gate misst
+        die Unit- **und** die Integrationstests.
+
+        `append` ist **wahr**: jeder Testlauf startet eine eigene JVM, und
+        jede JVM schreibt ihr Ergebnis in dieselbe Datei. Ohne `append` wuerde
+        die letzte JVM die Daten der uebrigen ueberschreiben.
+      -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <configuration>
+          <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <append>true</append>
+            </configuration>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <configuration>
+              <formats>
+                <format>HTML</format>
+                <format>XML</format>
+                <format>CSV</format>
+              </formats>
+            </configuration>
+          </execution>
+          <execution>
+            <id>check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.80</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
             </configuration>
           </execution>
         </executions>

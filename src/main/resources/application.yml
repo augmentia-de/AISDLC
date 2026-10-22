@@ -11,6 +11,8 @@
 #   ECHobox_CRYPTO_KEY             (Base64, 32 Byte — AES-256-GCM-Schluessel)
 #   ECHobox_CURSOR_KEY             (HMAC-Schluessel der opaken Cursor)
 #   ECHobox_SECURITY_JWK_SET_URI   (JWKS des Identity Providers)
+#   ECHobox_SECURITY_AUDIENCE      (Zielgruppe der Token, S-21)
+#   ECHobox_RATE_LIMIT             (Anfragelimit der API je Mandant, S-24)
 #   ECHobox_TENANT_ID              (Mandanteninstanz, ADR-013)
 # =============================================================================
 spring:
@@ -54,6 +56,13 @@ spring:
   mvc:
     problemdetails:
       enabled: false
+  servlet:
+    multipart:
+      # S-19: der Dienst nimmt **nur** JSON entgegen (der Vertrag kennt keinen
+      # Multipart-koerper). Ohne den Multipart-Resolver parst der Container
+      # keinen Multipart-Body — der Pfad des Multipart-DoS (CVE-2025-48988)
+      # ist damit zusaetzlich zur gehobenen Container-Version geschlossen.
+      enabled: false
   threads:
     virtual:
       enabled: false
@@ -65,7 +74,13 @@ server:
     include-message: never
     include-binding-errors: never
   tomcat:
-    max-swallow-size: ${ECHobox_MAX_SWALLOW_SIZE:4MB}
+    # S-20: der Container darf nach dem Abbruch einer Anfrage hoechstens so
+    # viel vom Restkoerper schlucken, wie die Grenze des Request-Bodies
+    # erlaubt — sonst pufferte er einen unbegrenzten Rest im Speicher.
+    max-swallow-size: ${ECHobox_MAX_SWALLOW_SIZE:2MB}
+    # S-20: auch ein Form-POST (multipart) wird nicht groesser als der
+    # Request-Body gelesen.
+    max-http-form-post-size: ${ECHobox_MAX_FORM_POST_SIZE:2MB}
 
 management:
   endpoints:
@@ -86,9 +101,20 @@ echobox:
     key-required: false
   security:
     jwk-set-uri: ${ECHobox_SECURITY_JWK_SET_URI:https://idp.example.invalid/.well-known/jwks.json}
+    # S-21: die Zielgruppe (aud), die ein Token tragen muss. Ein Token, das der
+    # Identity Provider fuer einen anderen Client ausgestellt hat, wird
+    # abgelehnt. Leer: die Zielgruppe wird nicht geprueft.
+    audience: ${ECHobox_SECURITY_AUDIENCE:echobox}
     # HMAC-Schluessel der opaken Cursor. Ohne Wert wird ein ephemerer
     # Schluessel erzeugt (dann sind Cursor nur innerhalb einer Instanz gueltig).
     cursor-key: ${ECHobox_CURSOR_KEY:}
+  rate-limit:
+    # S-24: das Anfragelimit der API — die Zusage des eingefrorenen Vertrags
+    # (HTTP 429 `rate_limit_exceeded` mit `Retry-After`). Der Zaehler gilt je
+    # Mandant und Fenster. Das Endpunkt-Limit aus FR-033 steht weiterhin
+    # unter `echobox.delivery.rate-limit`.
+    limit: ${ECHobox_RATE_LIMIT:240}
+    window-seconds: ${ECHobox_RATE_LIMIT_WINDOW_SECONDS:60}
   tenant:
     # Mandanteninstanz (ADR-013, AC-023-2). Leer = geteilter Betrieb.
     id: ${ECHobox_TENANT_ID:}
@@ -115,6 +141,10 @@ echobox:
       # ADR-008: 5 s Verbindungs-Timeout, 10 s Lese-Timeout
       connect-timeout: ${ECHobox_DELIVERY_CONNECT_TIMEOUT:5s}
       read-timeout: ${ECHobox_DELIVERY_READ_TIMEOUT:10s}
+      # S-23: der Antwortkoerper eines Empfaengers wird hoechstens so gross
+      # gelesen — er ist vertragsseitig bedeutungslos, ein boesartiger
+      # Empfaenger darf aber den Worker nicht mit Speicher fuellen.
+      max-response-body-bytes: ${ECHobox_DELIVERY_MAX_RESPONSE_BODY_BYTES:1048576}
     replay:
       # ADR-006 §6 / N-20: die Zeitlimits der Replay-Transaktion sind kuerzer
       # als das HTTP-Timeout — der verlierende Replay antwortet mit 409.

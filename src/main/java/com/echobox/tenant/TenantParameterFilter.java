@@ -2,7 +2,9 @@ package com.echobox.tenant;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
@@ -50,6 +52,13 @@ import jakarta.servlet.http.HttpServletResponse;
  *
  * <p>Der Filter setzt zugleich die Grenze fuer die Groesse des Request-Bodies
  * (2 MiB). Die Grenze der **Nutzlast** (1 MiB) prueft der Ereignisvorgang.
+ *
+ * <p><strong>Die Grenze haengt nicht an {@code Content-Length} (S-20):</strong>
+ * bei {@code Transfer-Encoding: chunked} ist die Laenge unbekannt ({@code -1}).
+ * Der Body wird deshalb <strong>begrenzt</strong> gelesen — hoechstens 2 MiB,
+ * danach bricht das Lesen ab und die Anfrage ergibt HTTP 413. Ohne diese
+ * Grenze wuerde ein Mandant den Body unbeschaenkt in den Heap des geteilten
+ * JVM laden (Ausfall fuer alle Mandanten).
  */
 @Component
 @Order(SecurityProperties.DEFAULT_FILTER_ORDER + 10)
@@ -62,6 +71,9 @@ public class TenantParameterFilter extends OncePerRequestFilter {
             "x-organisation-id", "x-organization-id", "x-org-id", "x-tenant-id", "x-tenant");
 
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
+
+    /** Die Groesse des Puffers, in dem der Request-Body gelesen wird (S-20). */
+    private static final int READ_CHUNK_BYTES = 8192;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -78,7 +90,19 @@ public class TenantParameterFilter extends OncePerRequestFilter {
         String offending = findTenantParameterInQueryOrHeader(request);
 
         if (offending == null && isBodyRelevant(request)) {
-            byte[] body = request.getInputStream().readAllBytes();
+            // S-20: der Body wird **begrenzt** gelesen — unabhaengig von
+            // `Content-Length`. Bei `Transfer-Encoding: chunked` liefert
+            // `getContentLengthLong()` die Laenge -1; ohne diese Grenze wuerde
+            // der Body unbeschaenkt in den Heap gelesen (Ausfall aller
+            // Mandanten). `null` bedeutet: groesser als die Grenze.
+            byte[] body = readBounded(request, PayloadSize.MAX_REQUEST_BODY_BYTES);
+            if (body == null) {
+                writeProblem(response, ProblemFactory.create(ProblemFactory.PAYLOAD_TOO_LARGE,
+                        HttpStatus.PAYLOAD_TOO_LARGE.value(), "Payload too large",
+                        "Der Request-Body ueberschreitet die zulaessige Groesse.",
+                        request.getRequestURI()));
+                return;
+            }
             offending = findTenantParameterInBody(body);
             if (offending == null) {
                 request = new CachedBodyRequest(request, body);
@@ -96,6 +120,41 @@ public class TenantParameterFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    /**
+     * Liest den Request-Body **begrenzt**: hoechstens {@code limit} Byte werden
+     * gelesen, danach bricht das Lesen ab (S-20).
+     *
+     * <p>Die Grenze haengt **nicht** an {@code Content-Length}: bei einer
+     * chunked Uebertragung ist die Laenge unbekannt (-1). Der Body wird deshalb
+     * gelesen, bis die Grenze ueberschritten ist — der Abbruch erfolgt, bevor
+     * der Body vollstaendig im Heap liegt.
+     *
+     * @param request der Request
+     * @param limit   die Hoechstzahl der gelesenen Bytes
+     * @return die gelesenen Bytes oder {@code null}, wenn der Body zu gross ist
+     * @throws IOException wenn das Lesen scheitert
+     */
+    private static byte[] readBounded(HttpServletRequest request, int limit) throws IOException {
+        try (InputStream stream = request.getInputStream()) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream(Math.min(limit + 1, READ_CHUNK_BYTES));
+            byte[] chunk = new byte[READ_CHUNK_BYTES];
+            int total = 0;
+            while (total <= limit) {
+                int read = stream.read(chunk);
+                if (read < 0) {
+                    break;
+                }
+                int allowed = Math.min(read, limit + 1 - total);
+                buffer.write(chunk, 0, allowed);
+                total += allowed;
+                if (total > limit) {
+                    return null;
+                }
+            }
+            return buffer.toByteArray();
+        }
     }
 
     private static boolean isBodyRelevant(HttpServletRequest request) {

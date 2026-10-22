@@ -39,7 +39,8 @@ public class DeliveryConfiguration {
      * {@code echobox.delivery.http.read-timeout} — ADR-008) und **nicht** aus
      * einem im Code verdrahteten Vorgabewert: {@link EchoBoxProperties} ist
      * die einzige Quelle, aus der alle Zahlenwerte der Zustellung stammen
-     * (D-09).
+     * (D-09). Dasselbe gilt fuer die Grenze des gelesenen Antwortkoerpers
+     * ({@code echobox.delivery.http.max-response-body-bytes} — S-23).
      *
      * @param properties die Betriebskonfiguration
      * @return der HTTP-Adapter
@@ -47,6 +48,7 @@ public class DeliveryConfiguration {
     @Bean
     public DeliveryHttpClient deliveryHttpClient(EchoBoxProperties properties) {
         EchoBoxProperties.Delivery.Http http = properties.getDelivery().getHttp();
-        return new DeliveryHttpClient(http.getConnectTimeout(), http.getReadTimeout());
+        return new DeliveryHttpClient(http.getConnectTimeout(), http.getReadTimeout(),
+                http.getMaxResponseBodyBytes());
     }
 }

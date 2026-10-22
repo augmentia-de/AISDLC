@@ -62,6 +62,12 @@ public abstract class AbstractApplicationIT {
     @DynamicPropertySource
     protected static void dataSourceProperties(DynamicPropertyRegistry registry) {
         PostgresTestContainer.registerDataSource(registry);
+        // Das Anfragelimit der API (S-24) wird in `ApiRateLimitIT` geprueft.
+        // Die uebrigen Integrationstests erzeugen weit mehr Anfragen, als das
+        // Betriebslimit erlaubt (die Rollenmatrix allein rund 700 je Testklasse)
+        // — sie wuerden sonst mit 429 antworten und nicht ihr eigentliches
+        // Verhalten pruefen.
+        registry.add("echobox.rate-limit.limit", () -> "100000");
     }
 
     /**

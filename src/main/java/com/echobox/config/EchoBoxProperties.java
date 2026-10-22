@@ -30,6 +30,17 @@ public class EchoBoxProperties {
 
     private final Retention retention = new Retention();
 
+    private final ApiRateLimit rateLimit = new ApiRateLimit();
+
+    /**
+     * Liefert die Einstellungen des API-Anfragelimits (S-24).
+     *
+     * @return die Einstellungen des Anfragelimits
+     */
+    public ApiRateLimit getRateLimit() {
+        return rateLimit;
+    }
+
     /**
      * Liefert die Kryptografie-Einstellungen.
      *
@@ -127,6 +138,14 @@ public class EchoBoxProperties {
         private String cursorKey = "";
 
         /**
+         * Die Zielgruppe ({@code aud}), die ein Token tragen muss (S-21).
+         *
+         * <p>Leer: die Zielgruppe wird nicht geprueft (nur fuer Betriebe ohne
+         * Identity Provider mit eigener Audience-Politik).
+         */
+        private String audience = "echobox";
+
+        /**
          * Liefert die JWKS-Adresse des Identity Providers.
          *
          * @return die JWKS-Adresse
@@ -142,6 +161,24 @@ public class EchoBoxProperties {
          */
         public void setJwkSetUri(String jwkSetUri) {
             this.jwkSetUri = jwkSetUri;
+        }
+
+        /**
+         * Liefert die erwartete Zielgruppe der Token.
+         *
+         * @return die Zielgruppe
+         */
+        public String getAudience() {
+            return audience;
+        }
+
+        /**
+         * Setzt die erwartete Zielgruppe der Token.
+         *
+         * @param audience die Zielgruppe
+         */
+        public void setAudience(String audience) {
+            this.audience = audience;
         }
 
         /**
@@ -555,6 +592,9 @@ public class EchoBoxProperties {
 
             private Duration readTimeout = Duration.ofSeconds(10);
 
+            /** Die Hoechstgroesse des gelesenen Antwortkoerpers (S-23). */
+            private int maxResponseBodyBytes = 1024 * 1024;
+
             /**
              * Liefert den Verbindungs-Timeout.
              *
@@ -590,12 +630,34 @@ public class EchoBoxProperties {
             public void setReadTimeout(Duration readTimeout) {
                 this.readTimeout = readTimeout;
             }
+
+            /**
+             * Liefert die Hoechstgroesse des gelesenen Antwortkoerpers.
+             *
+             * <p>Der Antwortkoerper eines Empfaengers ist vertragsseitig
+             * bedeutungslos — nur Statuscode und Ablehnungssignal zaehlen. Die
+             * Grenze schuetzt den Zustell-Worker vor einem boesartigen
+             * Empfaenger (S-23).
+             *
+             * @return die Grenze in Byte
+             */
+            public int getMaxResponseBodyBytes() {
+                return maxResponseBodyBytes;
+            }
+
+            /**
+             * Setzt die Hoechstgroesse des gelesenen Antwortkoerpers.
+             *
+             * @param maxResponseBodyBytes die Grenze in Byte
+             */
+            public void setMaxResponseBodyBytes(int maxResponseBodyBytes) {
+                this.maxResponseBodyBytes = maxResponseBodyBytes;
+            }
         }
     }
 
     /** Die Aufbewahrung (F-02). */
     public static class Retention {
-
         private int eventDays = 30;
 
         private int deliveryDays = 30;
@@ -659,6 +721,56 @@ public class EchoBoxProperties {
          */
         public void setPurgeDelay(Integer purgeDelay) {
             this.purgeDelay = purgeDelay;
+        }
+    }
+
+    /**
+     * Das Anfragelimit der API (S-24) — die Zusage des eingefrorenen Vertrags
+     * (HTTP 429 {@code rate_limit_exceeded} mit {@code Retry-After}).
+     *
+     * <p>Der Zaehler gilt je Mandant. Das Endpunkt-Limit aus FR-033 steht
+     * weiterhin unter {@code echobox.delivery.rate-limit}.
+     */
+    public static class ApiRateLimit {
+
+        private int limit = 240;
+
+        private int windowSeconds = 60;
+
+        /**
+         * Liefert die Zahl der erlaubten Anfragen je Mandant und Fenster.
+         *
+         * @return die Grenze
+         */
+        public int getLimit() {
+            return limit;
+        }
+
+        /**
+         * Setzt die Zahl der erlaubten Anfragen je Mandant und Fenster.
+         *
+         * @param limit die Grenze
+         */
+        public void setLimit(int limit) {
+            this.limit = limit;
+        }
+
+        /**
+         * Liefert die Laenge des Fensters in Sekunden.
+         *
+         * @return die Fensterlaenge
+         */
+        public int getWindowSeconds() {
+            return windowSeconds;
+        }
+
+        /**
+         * Setzt die Laenge des Fensters in Sekunden.
+         *
+         * @param windowSeconds die Fensterlaenge
+         */
+        public void setWindowSeconds(int windowSeconds) {
+            this.windowSeconds = windowSeconds;
         }
     }
 }

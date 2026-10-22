@@ -46,3 +46,14 @@ die Versionierung an [Semantic Versioning](https://semver.org/lang/de/).
   Leseweg, kein `BYPASSRLS`.
 - Die Nutzlast und die Endpunkt-Secrets erscheinen in keinem Log, keiner
   Fehlermeldung und keiner `toString()`.
+- **Nacharbeit Schritt 8 (S-19 bis S-27)** — die Befunde des Sicherheits-Audits
+  sind behoben: der eingebettete Container wurde auf Tomcat **10.1.55** gehoben
+  (S-19), die Grenze des Request-Bodies gilt unabhaengig von `Content-Length`
+  (S-20), der JWT-Decoder prueft **Zielgruppe** und **Ablaufzeit** (S-21), die
+  Schluessellaenge wird erzwungen (S-22), die Antwort des Empfaengers wird
+  begrenzt gelesen (S-23), das zugesagte **Anfragelimit** der API antwortet mit
+  **429** und `Retry-After` (S-24), die Pipeline hat Secret-Scan, SCA-Scan und
+  die Oberflaechen-Tests (S-25), die `apt`-Pakete sind gepinnt (S-26) und es
+  gibt ein eigenes Produktionsprofil mit Pflicht-Schluessel (S-27).
+- Der Build **erzwingt** die Coverage-Schwelle: JaCoCo bricht den Build ab,
+  wenn die Zeilenabdeckung unter 80 % faellt (A-1).

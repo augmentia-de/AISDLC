@@ -12,8 +12,8 @@ import java.util.Set;
  * {@code docs/architecture/domain_model.md} Abschnitt 3.3:
  *
  * <pre>
- *   pending   -&gt; scheduled, cancelled, no_subscriber
- *   scheduled -&gt; sent, rejected, failed, cancelled
+ *   pending   -&gt; scheduled, cancelled, no_subscriber, delayed
+ *   scheduled -&gt; sent, rejected, failed, cancelled, delayed
  *   failed    -&gt; scheduled, delayed, abandoned, cancelled
  *   delayed   -&gt; scheduled, abandoned, cancelled
  * </pre>
@@ -21,14 +21,20 @@ import java.util.Set;
  * <p>Ein **endgueltiger** Zustand hat **keinen** Ausgang: eine abgebrochene,
  * aufgegebene, abgelehnte oder zugestellte Zustellung wird nie wieder
  * eingeplant.
+ *
+ * <p><strong>Der Weg in den Zustand {@code delayed} (A-6 / B-17):</strong> der
+ * Ratenbegrenzungs-Pfad verschiebt einen Lauf auch dann, wenn er gerade
+ * beansprucht wurde — der Uebergang {@code scheduled -&gt; delayed} ist deshalb
+ * zulaessig. Die Tabelle in {@code docs/architecture/domain_model.md} §3.3
+ * nennt diesen Uebergang noch nicht; sie wird in Schritt 2 nachgezogen.
  */
 public final class DeliveryStateMachine {
 
     private static final Map<DeliveryStatus, Set<DeliveryStatus>> TRANSITIONS = Map.of(
             DeliveryStatus.PENDING, EnumSet.of(DeliveryStatus.SCHEDULED, DeliveryStatus.CANCELLED,
-                    DeliveryStatus.NO_SUBSCRIBER),
+                    DeliveryStatus.NO_SUBSCRIBER, DeliveryStatus.DELAYED),
             DeliveryStatus.SCHEDULED, EnumSet.of(DeliveryStatus.SENT, DeliveryStatus.REJECTED,
-                    DeliveryStatus.FAILED, DeliveryStatus.CANCELLED),
+                    DeliveryStatus.FAILED, DeliveryStatus.CANCELLED, DeliveryStatus.DELAYED),
             DeliveryStatus.FAILED, EnumSet.of(DeliveryStatus.SCHEDULED, DeliveryStatus.DELAYED,
                     DeliveryStatus.ABANDONED, DeliveryStatus.CANCELLED),
             DeliveryStatus.DELAYED, EnumSet.of(DeliveryStatus.SCHEDULED, DeliveryStatus.ABANDONED,
@@ -106,19 +112,19 @@ public final class DeliveryStateMachine {
      * Versuchszeitpunkt — der Versuch geht <strong>nicht</strong> verloren
      * (AC-018-1).
      *
-     * <p><strong>Hinweis auf eine Luecke in der Uebergangstabelle:</strong> das
-     * Domänenmodell (§3.3) nennt nur den Uebergang {@code failed -> delayed}.
-     * Das Endpunkt-Limit wirkt aber auch auf den <strong>ersten</strong>
-     * Versuch eines frischen Laufs — sonst kaeme ein Endpunkt in der ersten
-     * Minute ueber das Limit hinaus. Der Vertrag und ADR-010 nennen den
-     * Zustand {@code delayed} ohne Einschraenkung des Ausgangszustands; der
-     * Uebergang wird deshalb von jedem offenen Zustand aus zulaessig gemacht.
+     * <p>Der Uebergang ist <strong>aus jedem offenen Zustand</strong> zulaessig,
+     * den die Uebergangstabelle kennt: das Endpunkt-Limit wirkt auch auf den
+     * <strong>ersten</strong> Versuch eines frischen Laufs — sonst kaeme ein
+     * Endpunkt in der ersten Minute ueber das Limit hinaus. Der Vertrag und
+     * ADR-010 nennen den Zustand {@code delayed} ohne Einschraenkung des
+     * Ausgangszustands. Die Tabelle in {@code docs/architecture/domain_model.md}
+     * §3.3 wird in Schritt 2 nachgezogen (A-6 / B-17).
      *
      * @param status der Zustand vor der Verschiebung
      * @return der Zustand nach der Verschiebung
      */
     public static DeliveryStatus onRateLimited(DeliveryStatus status) {
-        if (status == null || isTerminal(status)) {
+        if (status == null || isTerminal(status) || !canTransition(status, DeliveryStatus.DELAYED)) {
             return status;
         }
         return DeliveryStatus.DELAYED;

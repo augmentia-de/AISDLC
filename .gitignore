@@ -4,6 +4,8 @@
 /src/main/frontend/.next/
 /src/main/frontend/test-results/
 /src/main/frontend/playwright-report/
+/test-results/
+/playwright-report/
 /node_modules/
 *.tsbuildinfo
 .env
