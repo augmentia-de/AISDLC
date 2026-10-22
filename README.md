@@ -106,7 +106,7 @@ positiven Regeln in die Framework-Schicht.
 
 ## Nutzung
 
-1. Orchestrator startet mit `.agent/prompts/01_orchestrator_requirements.md`, liest die Anforderung und legt PRD, Stories, `.feature`-Dateien und die Traceability Matrix an.
+1. Orchestrator startet mit `.agent/prompts/orchestrator/01_orchestrator_requirements.md`, liest die Anforderung und legt PRD, Stories, `.feature`-Dateien und die Traceability Matrix an.
 2. Phase 2 (`02_orchestrator_architecture.md`, Plan-Modus): Architekturdiagramme, `openapi.yaml`, ADRs entstehen.
 3. Phase 3 (`03_orchestrator_implementation.md`, Build-Modus): OpenCode bekommt atomare Tasks, der Orchestrator validiert Linter/Build und bereitet Commits & PRs vor.
 4. Phase 4 (`04_orchestrator_testing.md`): Test-Suiten schreiben und ausführen; bei Fehlern übergibt der Orchestrator `{{TEST_RESULTS_JSON}}` an `opencode_task_self_correction.md` (Self-Correction-Loop).

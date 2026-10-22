@@ -319,7 +319,7 @@ Die 426 Skripte sind genau zwei Muster:
 
 - Die **Rechen**-Skripte: nein. Sie sind richtig und effizient.
 - Der **Generator**: ja, durch einen Ort und eine Konvention — er lag in
-  `docs/requirements/tools/`, also mitten in der Spezifikation, die ein Mensch liest.
+  `docs/requirements/tools/`, also mitten in der Spezifikation, die ein Mensch liest. Im Framework selbst gibt es keinen solchen Generator — die Werkzeug-Konvention (`.agent/tools/README.md`) verhindert, dass das wieder passiert.
   Jetzt in `.agent/tools/`.
 - Der **Konsistenzcheck**: ja, als Skill. Jetzt `aisdlc-traceability-check` mit dem
   Werkzeug `.agent/tools/traceability_check.py`.
@@ -408,7 +408,7 @@ Leerlaufrunden aus der Permission-Matrix.
 | `.opencode/skills/aisdlc-openapi-first/SKILL.md` | Einfrierpunkt nach Schritt 4; Abschnitt „Abgleich mit der Traceability" |
 | `.opencode/skills/aisdlc-traceability-check/SKILL.md` | **neu** — der Konsistenzcheck als Verfahrens-Schritt |
 | `.agent/tools/traceability_check.py` | **neu** — prüft Anforderung → Story → Feature → Test → Code |
-| `.agent/tools/generate_requirements.py` | **verschoben** aus `docs/requirements/tools/` |
+| *(projektspezifisch)* | ein projektspezifischer Generator gehört nach `src/<modul>/tools/`, nicht ins Framework |
 | `.agent/tools/README.md` | **neu** — die Werkzeug-Konvention |
 | `.agent/artifacts/briefing.md` | **neu** — der Steckbrief als lebendes Beispiel |
 | `how-to.md` | Abschnitt „Modell wählen" (P2) |

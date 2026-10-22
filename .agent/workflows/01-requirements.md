@@ -8,7 +8,7 @@ description: Phase 1 — Requirements gathering for AI SDLC
 
 - Read `AGENTS.md` in project root first.
 - Read `.agent/artifacts/briefing.md` **first** — it names the files this step needs. Read only those, not the whole repository.
-- Read the orchestrator prompt: `.agent/prompts/01_orchestrator_requirements.md`.
+- Read the orchestrator prompt: `.agent/prompts/orchestrator/01_orchestrator_requirements.md`.
 
 ## Agent & Skill
 
