@@ -1,0 +1,27 @@
+{
+  "id": "BUG-S-23",
+  "title": "Die Antwort des Empfaengers wird ohne Groessengrenze gelesen",
+  "severity": "medium",
+  "category": "resource-exhaustion",
+  "component": "src/main/java/com/echobox/delivery/DeliveryHttpClient.java",
+  "path": "src/main/java/com/echobox/delivery/DeliveryHttpClient.java",
+  "line": 53,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/delivery/DeliveryResponse.java", "line": 20 }
+  ],
+  "cause": "HttpResponse.BodyHandlers.ofString() liest den Antwortkoerper ohne Obergrenze. Der Body wird zwar nicht ausgewertet und nirgends gespeichert, aber vollstaendig in den Speicher geladen.",
+  "impact": "Speicherdruck im Zustell-Worker; die Zustellung an den Endpunkt stoesst. Der Antwortkoerper ist vertragsseitig bedeutungslos - nur Statuscode und Ablehnungssignal zaehlen.",
+  "exploitability": "authentifiziert (der Angreifer muss einen Endpunkt auf einen bösartigen Server zeigen duerfen - das setzt die Rolle receiver_admin im eigenen Mandant voraus). Der Worker-Prozess ist die Trust-Grenze (ADR-003).",
+  "reproduction": {
+    "command": "mvn -B test -Dtest=SecurityGapTest -DfailIfNoSpecifiedTests=false",
+    "test": "tests/unit/security/SecurityGapTest.java#the_response_body_of_the_receiver_must_be_read_with_a_limit",
+    "expected": "Body <= 1048576 Byte",
+    "actual": "5242880 Byte",
+    "evidence": "org.assertj.core.api.AssertionFailedError: Expecting actual: 5242880 to be less than or equal to: 1048576"
+  },
+  "recommendation": "BodyHandlers.limiting(...) mit fester Obergrenze verwenden und den Body oberhalb der Grenze verwerfen.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance",
+  "security_finding": "S-23",
+  "status": "offen"
+}

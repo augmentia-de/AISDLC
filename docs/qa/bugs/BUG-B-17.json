@@ -1,0 +1,30 @@
+{
+  "id": "BUG-B-17",
+  "title": "Die Uebergangstabelle des Zustaelllaufs erlaubt 'delayed' nur aus 'failed' - der Ratenbegrenzungs-Pfad setzt aber jeden offenen Zustand auf 'delayed'",
+  "severity": "medium",
+  "category": "domain-model-inconsistency",
+  "component": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java",
+  "path": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java",
+  "line": 27,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java", "line": 120 },
+    { "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java", "line": 334 },
+    { "path": "src/main/java/com/echobox/delivery/DeliveryRepository.java", "line": 315 },
+    { "path": "docs/architecture/domain_model.md", "line": 0 }
+  ],
+  "cause": "Die Uebergangstabelle TRANSITIONS erlaubt DeliveryStatus.DELAYED nur als Uebergang aus FAILED; docs/architecture/domain_model.md §3.3 (Zeile 188) nennt ebenfalls nur 'failed -> delayed'. Die Methode onRateLimited(status) setzt dagegen jeden nicht endgueltigen Zustand auf DELAYED - auch SCHEDULED, den ein beanspruchter Lauf traegt (onClaimed, Zeile 94-99). canTransition(SCHEDULED, DELAYED) liefert false, wird im Produktivcode aber nirgends aufgerufen (nur in Tests).",
+  "impact": "Kein Datenfehler: der DB-CHECK erlaubt den Zustand 'delayed', next_attempt_at wird gesetzt, die Zustellung wird nach dem Zeitfenster nachgeholt. Kein Vertragsdefekt: Vertrag und ADR-010 nennen den Zustand 'delayed' ohne Einschraenkung des Ausgangszustands. Das Verhalten ist bewusst gewaehlt und im Code dokumentiert (DeliveryStateMachine.java:109-115: 'Hinweis auf eine Luecke in der Uebergangstabelle ... Das Endpunkt-Limit wirkt aber auch auf den ersten Versuch eines frischen Laufs'). Offen ist allein die dokumentierte Tabelle: sie weicht vom Verhalten ab, und die Klasse beansprucht im Javadoc, die 'einzige Stelle, die Zustaende aendert' zu sein.",
+  "exploitability": "kein Sicherheitsbefund und kein Gate-Effekt; die Wirkung ist eine Dokumentationsinkonsistenz in einem Kernbaustein. B-17 war ausdruecklich Schritt 8 zugewiesen.",
+  "reproduction": {
+    "command": "mvn -B test -Dtest=AttemptLimitTest -DfailIfNoSpecifiedTests=false",
+    "test": "DeliveryStateMachine.canTransition(DeliveryStatus.SCHEDULED, DeliveryStatus.DELAYED)",
+    "expected": "true (konsistent mit onRateLimited)",
+    "actual": "false, waehrend onRateLimited(SCHEDULED) DELAYED liefert",
+    "evidence": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java:32 (Tabelle) vs. :120-125 (onRateLimited) und src/main/java/com/echobox/delivery/DeliveryDispatcher.java:334-339"
+  },
+  "recommendation": "Ubergangstabelle in DeliveryStateMachine und in docs/architecture/domain_model.md §3.3 um 'pending -> delayed' und 'scheduled -> delayed' ergaenzen - oder onRateLimited auf die Tabelle beschränken. Beide Dateien sind in Schritt 8 nicht schreibbar (src/ und docs/architecture/).",
+  "owner": "Architektur + Schritt 6/7",
+  "found_in": "Schritt 8 - Sicherheit & Compliance",
+  "security_finding": null,
+  "status": "offen"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "BUG-S-19",
+  "title": "Der Abhaengigkeitsbaum traegt 96 versionsgebundene Advisories; drei davon sind im HTTP/1.1-Pfad erreichbar",
+  "severity": "high",
+  "category": "vulnerable-components",
+  "component": "pom.xml",
+  "path": "pom.xml",
+  "line": 16,
+  "secondary_locations": [
+    { "path": "pom.xml", "line": 40 },
+    { "path": "pom.xml", "line": 43 },
+    { "path": "pom.xml", "line": 53 }
+  ],
+  "cause": "Spring Boot 3.3.5 bringt tomcat-embed-core 10.1.31, spring-framework 6.1.14, spring-security 6.3.4, jackson 2.17.2 und postgresql-jdbc 42.7.4. OSV meldet dafuer 96 versionsgebundene Advisories (9 Critical, 36 High, 35 Moderate, 16 Low). Erreichbar sind davon drei: CVE-2026-24880 (Request/Response-Smuggling via invalid chunk extension, behoben in 10.1.52), CVE-2025-48988 (DoS in multipart upload, behoben in 10.1.42), CVE-2025-48989 ('made you reset', behoben in 10.1.44).",
+  "impact": "Request-Smuggling: ein HTTP/1.1-Client mit ungueltiger Chunk-Extension kann die Request-Grenzen zwischen Tomcat und einem vorgeschalteten Proxy desynchronisieren. Multipart-DoS: ein angemeldeter Mandant loest ueber Content-Type: multipart/form-data eine Tomcat-Verarbeitung ohne wirksame Ressourcenbegrenzung aus. Die uebrigen 93 Advisories sind in dieser Konfiguration nicht erreichbar (Nachweis je Advisory in docs/qa/security-audit.md, Anhang A).",
+  "exploitability": "Smuggling: unauthentifiziert erreichbar auf HTTP/1.1; die tatsaechliche Ausnutzbarkeit haengt von der Auslegung durch den vorgeschalteten Proxy ab (Topologie: Schritt 9). Multipart-DoS: authentifiziert.",
+  "reproduction": {
+    "command": "mvn -B dependency:tree -DoutputFile=deptree.txt && python3 (OSV querybatch ueber alle Koordinaten)",
+    "expected": "keine versionsgebundene Advisory in einer erreichbaren Konfiguration",
+    "actual": "96 Advisories, davon 3 erreichbar",
+    "evidence": "OSV /v1/querybatch gegen 76 Koordinaten aus mvn dependency:tree, 2026-10-22; Auswertung in docs/qa/security-audit.md, Anhang A"
+  },
+  "recommendation": "Spring Boot auf eine Version heben, die tomcat-embed-core >= 10.1.55 mitbringt (Spring Boot >= 3.5.15 bzw. 4.0.7 - im Rahmen des Ruesprungs zu pruefen). Zusaetzlich die Frontend-Werkzeuge (vitest, eslint-config-next) aktualisieren und ein SCA-Gate in der CI aufnehmen.",
+  "owner": "Schritt 6/7 (aisdlc-execution), CI-Gates in Schritt 9",
+  "found_in": "Schritt 8 - Sicherheit & Compliance",
+  "security_finding": "S-19",
+  "status": "offen"
+}

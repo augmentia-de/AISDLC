@@ -1,0 +1,29 @@
+{
+  "id": "BUG-S-24",
+  "title": "Die im eingefrorenen Vertrag zugesagte API-Ratenbegrenzung (HTTP 429 mit Retry-After) ist nicht implementiert",
+  "severity": "medium",
+  "category": "contract-violation",
+  "component": "docs/api/openapi.yaml",
+  "path": "docs/api/openapi.yaml",
+  "line": 89,
+  "secondary_locations": [
+    { "path": "docs/api/openapi.yaml", "line": 1979 },
+    { "path": "src/main/java/com/echobox/common/ProblemFactory.java", "line": 46 },
+    { "path": "src/main/java/com/echobox/common/GlobalExceptionHandler.java", "line": 46 }
+  ],
+  "cause": "Der Vertrag nennt HTTP 429 'rate_limit_exceeded' mit dem Header 'Retry-After' als Antwort jeder Operation ('API-seitiges Anfragelimit, nicht das Endpunkt-Limit aus FR-033'). Die Implementierung hat keine eingehende Ratenbegrenzung: ProblemFactory.RATE_LIMIT_EXCEEDED wird nirgends geworfen, ein Retry-After wird nie gesetzt. Die ausgehende Begrenzung (F-01, je Endpunkt) ist davon unberuehrt und vorhanden.",
+  "impact": "Ein angemeldeter Mandant ruft die API beliebig haeufig auf; es gibt keinen Mechanismus, die Last zu drosseln, obwohl der Vertrag genau das verspricht. Zusaetzlich weicht das Fehlerbild des Vertrags von der Implementierung ab - der Vertrag wird nicht eingehalten.",
+  "exploitability": "authentifiziert; jede Rolle genuegt. Der Effekt ist ungebremste Last auf Datenbank und CPU.",
+  "reproduction": {
+    "command": "mvn -B verify -Dtest=NoSuchUnitTest -Dit.test=SecurityGapIT -DfailIfNoSpecifiedTests=false",
+    "test": "tests/integration/security/SecurityGapIT.java#the_request_limit_must_answer_with_429",
+    "expected": "mindestens eine Antwort 429 mit Retry-After nach 300 Anfragen",
+    "actual": "keine einzige 429",
+    "evidence": "org.opentest4j.AssertionFailedError: Expecting value to be true but was false"
+  },
+  "recommendation": "Zwei Wege, einer ist zwingend: (a) die Implementierung nachziehen - Bucket je Mandant/Identitaet, Retry-After setzen, Ablehnung mit dem Problem-Schema; oder (b) den Vertrag in Schritt 2 aendern (429 aus dem Antwortsatz nehmen). Der Vertrag ist seit 8627bb6 eingefroren - eine stillschweigende Aenderung in diesem Schritt ist nicht zulaessig.",
+  "owner": "Schritt 6/7 (Implementierung) bzw. Schritt 2 (Vertrag)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance",
+  "security_finding": "S-24",
+  "status": "offen"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "BUG-S-21",
+  "title": "Der JWT-Decoder prueft weder die Zielgruppe (Audience) noch das Vorhandensein einer Ablaufzeit",
+  "severity": "medium",
+  "category": "authentication-hardening",
+  "component": "src/main/java/com/echobox/config/SecurityConfiguration.java",
+  "path": "src/main/java/com/echobox/config/SecurityConfiguration.java",
+  "line": 90,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/config/SecurityConfiguration.java", "line": 83 },
+    { "path": "src/main/resources/application.yml", "line": 88 }
+  ],
+  "cause": "NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build() wird ohne eigenen JwtValidator erzeugt. Der Default-Validator (JwtValidators.createDefault()) prueft nur die Zeitstempel: eine Audience wird nicht geprueft und ein 'exp' ist nicht erforderlich - ein Token ohne 'exp' bleibt unbegrenzt gueltig.",
+  "impact": "Ein Token, das derselbe Identity Provider fuer eine andere Zielgruppe (aud) ausgestellt hat, wird von EchoBox angenommen, sofern er organisation_id und eine Rolle enthaelt. Ein fremder Client desselben IdP erhaelt damit Zugriff auf die EchoBox-API. Ein Token ohne Ablaufzeit wirkt unbefristet.",
+  "exploitability": "Der Angreifer braucht ein vom selben IdP signiertes Token. Ist der IdP mandanten- oder clientuebergreifend im Einsatz (typisch), genuegt ein Token, das fuer einen anderen Client desselben IdP ausgestellt wurde.",
+  "reproduction": {
+    "command": "mvn -B test -Dtest=SecurityGapTest -DfailIfNoSpecifiedTests=false",
+    "test": "tests/unit/security/SecurityGapTest.java#a_token_with_a_foreign_audience_must_be_rejected",
+    "expected": "JwtException",
+    "actual": "Token wird angenommen",
+    "evidence": "org.assertj.core.api.AssertionFailedError: Expecting code to raise a throwable."
+  },
+  "recommendation": "JwtValidators.createDefaultWithValidators(...) mit einem JwtClaimValidator<List<String>> auf 'aud' setzen; 'aud' als Konfiguration (echobox.security.audience) ergaenzen; das Vorhandensein von 'exp' verpflichtend machen.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance",
+  "security_finding": "S-21",
+  "status": "offen"
+}

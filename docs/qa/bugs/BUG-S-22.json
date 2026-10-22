@@ -1,0 +1,29 @@
+{
+  "id": "BUG-S-22",
+  "title": "Die Laenge des Verschluesselungsschluessels wird nicht geprueft - ein 16-Byte-Schluessel fuehrt still zu AES-128",
+  "severity": "medium",
+  "category": "cryptographic-hardening",
+  "component": "src/main/java/com/echobox/config/CoreConfiguration.java",
+  "path": "src/main/java/com/echobox/config/CoreConfiguration.java",
+  "line": 69,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/config/CoreConfiguration.java", "line": 55 },
+    { "path": "docs/adr/ADR-003-verschluesselung-ruhezustand.md", "line": 34 },
+    { "path": "src/main/resources/application.yml", "line": 85 }
+  ],
+  "cause": "new SecretKeySpec(decode(configured), \"AES\") akzeptiert jede gueltige AES-Laenge. Die in ADR-003 §1 festgelegte Schluessellaenge von 256 Bit (32 Byte) wird nicht geprueft.",
+  "impact": "Ein 16-Byte-Schluessel wird stillschweigend akzeptiert; der Dienst schuetzt die Nutzlasten dann mit AES-128 statt AES-256. Die Zusage aus FR-012 / NFR-004 / ADR-003 ist nicht mehr eingehalten, ohne dass jemand es bemerkt.",
+  "exploitability": "kein direkter Angreiferzugriff; die Ausloesung ist eine Fehlkonfiguration des Secret-Stores oder ein Tippfehler in der Base64-/Hex-Kodierung. Die Wirkung ist eine stille Schwaechung der Schutzschaerfe, kein Zugriff.",
+  "reproduction": {
+    "command": "mvn -B test -Dtest=SecurityGapTest -DfailIfNoSpecifiedTests=false",
+    "test": "tests/unit/security/SecurityGapTest.java#a_sixteen_byte_key_must_prevent_the_start",
+    "expected": "Startabbruch (RuntimeException)",
+    "actual": "Start mit AES-128, keine Meldung",
+    "evidence": "org.assertj.core.api.AssertionFailedError: Expecting code to raise a throwable."
+  },
+  "recommendation": "Laenge exakt auf 32 Byte pruefen und den Start sonst mit einer klaren Fehlermeldung abbrechen - analog zur vorhandenen Behandlung von key-required (CoreConfiguration.java:58-62).",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance",
+  "security_finding": "S-22",
+  "status": "offen"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "BUG-S-20",
+  "title": "Die Grenze des Request-Bodies greift bei Transfer-Encoding: chunked nicht",
+  "severity": "high",
+  "category": "resource-exhaustion",
+  "component": "src/main/java/com/echobox/tenant/TenantParameterFilter.java",
+  "path": "src/main/java/com/echobox/tenant/TenantParameterFilter.java",
+  "line": 70,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/tenant/TenantParameterFilter.java", "line": 81 },
+    { "path": "src/main/java/com/echobox/event/PayloadSize.java", "line": 20 }
+  ],
+  "cause": "Die Body-Grenze (2 MiB) wird ausschliesslich gegen request.getContentLengthLong() geprueft. Bei Transfer-Encoding: chunked (ohne Content-Length) liefert die Methode -1; die Bedingung -1 > 2097152 ist falsch, die Grenze greift nicht. Zeile 81 liest den Body anschliessend mit request.getInputStream().readAllBytes() ohne jede Begrenzung in den Heap. Tomcat setzt hier keine wirksame Grenze: maxPostSize gilt nur fuer Form-POSTs, server.tomcat.max-swallow-size (4 MB) greift nur beim Schlucken eines nicht gelesenen Rests.",
+  "impact": "Ein angemeldeter Mandant (jede Rolle) sendet einen chunked POST mit einem sehr grossen JSON-Body. Der Dienst allokiert den Body vollstaendig im Heap -> OutOfMemoryError im geteilten JVM -> Ausfall fuer alle Mandanten.",
+  "exploitability": "authentifiziert; beliebiges Token genuegt (jede Rolle, jeder Mandant). Der Security-Filter laeuft vor dem Mandantenfilter, ein gueltiges Token ist aber Voraussetzung und fuer jeden Mandanten erhaltbar.",
+  "reproduction": {
+    "command": "mvn -B verify -Dtest=NoSuchUnitTest -Dit.test=SecurityGapIT -DfailIfNoSpecifiedTests=false",
+    "test": "tests/integration/security/SecurityGapIT.java#a_chunked_request_body_above_two_mebibytes_must_be_rejected",
+    "expected": "413",
+    "actual": "202",
+    "evidence": "org.opentest4j.AssertionFailedError: expected: 413 but was: 202"
+  },
+  "recommendation": "Body-Grenze unabhaengig von Content-Length durchsetzen: serverseitig begrenzt lesen (maximal N Bytes, danach abbrechen) und/oder die Chunked-Uebertragung fuer JSON-Bodies ablehnen bzw. eine Container-Grenze erzwingen.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance",
+  "security_finding": "S-20",
+  "status": "offen"
+}
