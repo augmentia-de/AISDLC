@@ -1,6 +1,6 @@
 ---
 name: aisdlc-openapi-first
-description: Contract-First-Arbeit - der API-Vertrag ist die Single Source of Truth. Steuert, WANN und WELCHE Artefakte entstehen; das Handwerk liefert der Stack-Skill (api-design). Nutze diesen Skill in Phase 2 (Konzept & Architektur) beim Entwurf des Vertrags und in Phase 6 bei der Umsetzung gegen ihn.
+description: Phase 2/6: API-Vertrag entwerfen und gegen ihn implementieren.
 metadata:
   origin: eigenes Framework-Verfahren; Handwerk aus ECC/api-design + ECC/api-design-principles
 ---

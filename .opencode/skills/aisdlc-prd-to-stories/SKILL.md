@@ -1,6 +1,6 @@
 ---
 name: aisdlc-prd-to-stories
-description: Treibt Phase 1: aus einem unscharfen Auftrag ein PRD, User Stories mit Akzeptanzkriterien, Gherkin-Features und eine Traceability-Matrix machen. Sagt, WANN und WELCHE Artefakte entstehen und wie die Akzeptanzkriterien beschaffen sein muessen. Nutze diesen Skill in Phase 1 (Anforderungserhebung) direkt nach dem Grill-Me.
+description: Phase 1: aus einem Auftrag PRD, Stories, Features und Traceability-Matrix erzeugen.
 metadata:
   origin: eigenes Framework-Verfahren; Entwurf aus example/skills-to-create/aisdlc-prd-to-stories
 ---

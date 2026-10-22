@@ -1,6 +1,6 @@
 ---
 name: test-self-correction
-description: Behebt fehlgeschlagene Unit-/Integrationstests - analysiert Stacktraces, repariert Code oder Tests, wiederholt bis alle Tests gruen sind. Nutze diesen Skill, wenn Tests fehlschlagen und eine Self-Correction-Schleife noetig ist.
+description: Fehlgeschlagene Tests reparieren.
 metadata:
   origin: AISDLC
 ---

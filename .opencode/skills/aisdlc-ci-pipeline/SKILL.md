@@ -1,6 +1,6 @@
 ---
 name: aisdlc-ci-pipeline
-description: Steuert Phase 9: die CI-Pipeline mit Test-, Coverage-, Security- und Deploy-Gates. Sagt, WELCHE Gates die Pipeline durchsetzen muss. Nutze diesen Skill in Phase 9 vor dem ersten Deployment und immer, wenn sich der Stack aendert.
+description: Phase 9: CI-Pipeline mit Test-, Coverage-, Security- und Deploy-Gates erzeugen.
 metadata:
   origin: eigenes Framework-Verfahren; Handwerk aus ECC/deployment-patterns + ECC/github-actions-templates
 ---

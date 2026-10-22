@@ -1,6 +1,6 @@
 ---
 name: aisdlc-deploy
-description: Deployment und Betrieb - Pipeline-Stufen mit Approval-Gates, Rollout-Strategien, Validierung, Smoke-Tests, Promotion, Rollback, SLIs/SLOs und Runbook. Nutze diesen Skill in Phase 9 nach bestandenem Security-Gate.
+description: Phase 9: Deployment-Pipeline, Rollout, Smoke-Tests, Runbook, Rollback.
 metadata:
   origin: adaptiert aus wshobson/deployment-pipeline-design + wshobson/deployment-strategies + wshobson/deployment-validation + wshobson/slo-implementation + wshobson/incident-runbook-templates + ECC/deployment-patterns + ECC/docker-patterns
 ---

@@ -1,6 +1,6 @@
 ---
 name: aisdlc-test-matrix
-description: Steuert Phase 5: bildet jedes Akzeptanzkriterium auf Testebene, Testdatei und Testfall ab und schliesst die Luecken. Sagt, WANN welche Tests entstehen muessen. Nutze diesen Skill in Phase 5 (Test-Driven Setup) vor der Implementierung.
+description: Phase 5: Akzeptanzkriterien auf Testebene, -datei und -fall abbilden.
 metadata:
   origin: eigenes Framework-Verfahren; Handwerk aus ECC/springboot-tdd + ECC/e2e-testing
 ---

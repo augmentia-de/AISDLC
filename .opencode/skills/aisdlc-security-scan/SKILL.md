@@ -1,6 +1,6 @@
 ---
 name: aisdlc-security-scan
-description: Read-only Sicherheits- und Compliance-Audit - Authentifizierung, Autorisierung, Secrets, Injection, XSS, Container, Abhaengigkeiten. Bewertet mit Critical/High/Medium/Low. Nutze diesen Skill in Phase 8 vor dem Deployment.
+description: Phase 8: Read-only Security- und Compliance-Audit.
 metadata:
   origin: adaptiert aus ECC/security-review + wshobson/security-scanning + wshobson/backend-api-security + superpowers/requesting-code-review
 ---

@@ -1,6 +1,6 @@
 ---
 name: aisdlc-grill-stress
-description: Stresstest fuer Konzept und Architektur vor der Implementierung - Designbaum abfragen, Deepening-Opportunitaeten finden, Standards und Spezifikation als zwei getrennte Achsen pruefen. Nutze diesen Skill in Phase 4 (Grill-Me-Stresstest) nach der Architekturentscheidung.
+description: Phase 1a/4: Designbaum abfragen, Deepening finden, Standards- und Spec-Achse pruefen.
 metadata:
   origin: adaptiert aus mattpocock/grilling + mattpocock/improve-codebase-architecture + mattpocock/codebase-design + wshobson/architecture-patterns
 ---

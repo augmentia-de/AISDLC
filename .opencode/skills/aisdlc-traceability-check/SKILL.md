@@ -1,6 +1,6 @@
 ---
 name: aisdlc-traceability-check
-description: Prueft die Traceability-Kette Anforderung -> Story -> Feature -> Test -> Code und meldet jede Luecke als Liste; --fill schreibt den Beleg aus dem Dateisystem. Sagt, WANN geprueft wird (vor jedem Gate) und WIE die Zuordnung mechanisch belegt wird. Nutze diesen Skill in Phase 5 nach den Tests, in Phase 6 nach der Implementierung und vor jedem Gate.
+description: Phase 1/5: Traceability-Kette Anforderung->Story->Feature->Test->Code pruefen.
 metadata:
   origin: Werkzeug .agent/tools/traceability_check.py; abgeleitet aus den Inline-Konsistenzpruefungen des Requirements-Laufs
 ---

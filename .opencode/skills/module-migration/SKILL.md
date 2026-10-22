@@ -1,6 +1,6 @@
 ---
 name: module-migration
-description: Migriert ein einzelnes Modul aus der Legacy-Codebasis nach /src/ (Strangler-Fig-Pattern) - mit Characterization Tests, Neu-Implementierung und Routing-Umlenkung. Nutze diesen Skill, wenn ein Legacy-Modul schrittweise ersetzt werden soll.
+description: Legacy-Modul umsetzen (Characterization Tests).
 metadata:
   origin: AISDLC
 ---

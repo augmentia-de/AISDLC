@@ -1,6 +1,6 @@
 ---
 name: aisdlc-tdd
-description: Testgetriebene Entwicklung - Test zuerst, rot sehen, minimal gruen machen, refactoren. Mit Failure-Path-Tests und Workflow-Invarianten. Nutze diesen Skill in Phase 5 (TDD-Setup) vor der Code-Generierung und waehrend der Implementierung.
+description: Phase 5: RED/GREEN/REFACTOR, Failure-Paths, Workflow-Invarianten.
 metadata:
   origin: adaptiert aus superpowers/test-driven-development + ECC/tdd-workflow + nnennandukwe/failure-path-testing + nnennandukwe/workflow-invariants
 ---

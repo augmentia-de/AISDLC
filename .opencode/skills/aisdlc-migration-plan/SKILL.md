@@ -1,6 +1,6 @@
 ---
 name: aisdlc-migration-plan
-description: Steuert Schema-Aenderungen: Expand/Contract, Rueckwaerts-Kompatibilitaet und Rollback-Pfad. Sagt, WANN eine Migration geplant wird und welche Phasen sie durchlaeuft. Nutze diesen Skill in Phase 2 bei der Schema-Entscheidung und in Phase 6 vor jeder Migration.
+description: Phase 2/6: Schema-Migrationen planen (Expand/Contract, Rollback).
 metadata:
   origin: eigenes Framework-Verfahren; Handwerk aus ECC/database-migrations + ECC/postgresql-table-design
 ---

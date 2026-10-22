@@ -1,6 +1,6 @@
 ---
 name: aisdlc-feature-scaffold
-description: Steuert Phase 6: baut eine Feature-Slice end-to-end (Modell, Repository, Service, Route, Validierung, Test) nach den Konventionen, die bereits im Code stehen. Sagt, WIE eine Story geschnitten wird. Nutze diesen Skill in Phase 6 bei der Umsetzung einer Story.
+description: Phase 6: eine Story als vertikaler Slice (Modell, Repo, Service, Route, Test).
 metadata:
   origin: eigenes Framework-Verfahren; Handwerk aus ECC/contract-first + Stack-Skills
 ---

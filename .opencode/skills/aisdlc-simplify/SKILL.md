@@ -1,6 +1,6 @@
 ---
 name: aisdlc-simplify
-description: Vereinfacht Code verhaltenserhaltend und entfernt nachweislich ungenutzten Code - klarer, wartbarer, ohne Funktionsaenderung. Nutze diesen Skill in Phase 3 (Simplify vor dem Stresstest) und in Phase 7 (zweiter Durchlauf nach der Implementierung).
+description: Phase 3/7: Code verhaltenserhaltend vereinfachen, Dead Code entfernen.
 metadata:
   origin: adaptiert aus ECC/code-simplifier + ECC/refactor-cleaner + wshobson/refactor-clean + wshobson/tech-debt
 ---

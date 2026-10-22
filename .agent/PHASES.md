@@ -7,14 +7,13 @@ jetzt hier an einer Stelle zusammengeführt.
 
 ## Die drei Ebenen
 
-| Ebene | Was sie beschreibt | Wo sie liegt | Anzahl |
+| Ebene | Was sie beschreibt | Wo | Anzahl |
 |---|---|---|---|
-| **Schritt** | Eine konkrete Arbeits-Aktion mit Vorbedingung und Ergebnis | `.agent/workflows/` | 9 |
+| **Schritt** | Eine konkrete Arbeits-Aktion | `.agent/workflows/` | 9 |
 | **Instanz** | Ein dauerhaft laufender Orchestrator-Prozess (REST-aktiviert) | `.agent/prompts/multi-instance/` | 5 (phase0–4) |
-| **Agent** | Eine OpenCode-Rolle, die ein Nutzer direkt wählt | `.opencode/agents/` | 6 |
+| **Agent** | Eine OpenCode-Rolle, die ein Nutzer direkt wählt | `.opencode/agents/` | 7 |
 
-Ein Schritt ist **keine** Instanz und **kein** Agent. Instanzen fassen Schritte zusammen;
-Agenten sind Rollen, die unabhängig vom Betriebsmodus existieren.
+Ein Schritt ist **keine** Instanz und **kein** Agent.
 
 ## Schritt → Instanz → Agent → Skill
 
@@ -133,88 +132,44 @@ Regeln:
 | **statisch** | Anforderung → Story → Feature | Schritt 1 | `docs/requirements/traceability_matrix.json` |
 | **dynamisch** | Anforderung → Test → Code | Schritt 5/6, jederzeit neu | `.agent/artifacts/traceability.md` |
 
-Die Matrix trägt **nur** die statische Hälfte. Die dynamische wird **aus dem
-Dateisystem ermittelt** — von `.agent/tools/traceability_check.py --fill`. Damit
-kann kein Schritt ein Feld füllen, das er nicht belegen kann, und kein späterer
-Schritt muss die Matrix nachtragen.
+Die Matrix trägt **nur** die statische Hälfte. Die dynamische wird aus dem
+Dateisystem ermittelt (`traceability_check.py --fill`). Im Referenzlauf war die
+Matrix über den gesamten Lauf ein Gerüst (0/89 mit Test-Referenz) und wurde erst
+nach Schritt 7 gefüllt — weil `tests`/`code` erst Schritt 5/6 kennt, die Datei
+aber dem Requirements-Agenten gehört.
 
-**Warum das so ist:** Die Matrix mit den Feldern `tests` und `code` war im
-Referenzlauf über den gesamten Lauf ein Gerüst (0 von 89 Anforderungen mit
-Test-Referenz) und wurde erst nach Schritt 7 gefüllt — drei Schritte zu spät, mit
-zwei zusätzlichen Commits in Schritt 1. Der Grund: `tests` und `code` sind Werte,
-die erst Schritt 5/6 kennt, die Datei aber dem Requirements-Agenten gehört. Ein
-Cross-Step-Artefakt, das der Commit-Scope nicht auflösen kann.
-
-**Akzeptanzkriterien-Kennungen (E):** Jedes Kriterium trägt `AC-<story>-<nr>` — im
-Feature-Szenario als Kommentar (`Scenario: Rotation  # AC-003-1`), in der Story-JSON
-als `id`, im Testfall als Methodenname oder Kommentar (`ac003_1_...`). Nur damit
-ist die Zuordnung Test → Anforderung **mechanisch** und nicht geraten.
+**AC-Kennungen (E):** Jedes Kriterium trägt `AC-<story>-<nr>` — im Feature-Szenario
+als Kommentar, in der Story-JSON als `id`, im Testfall als Methodenname. Nur damit
+ist die Zuordnung mechanisch und nicht geraten.
 
 ## Steckbrief zwischen den Schritten
 
-`.agent/artifacts/briefing.md` ist der Steckbrief, den der Orchestrator am Ende jedes
-Schritts schreibt und mit dem Schritt-Commit committet. Er ist der **Einstiegspunkt**
-des nächsten Schritts: der Rollen-Agent liest zuerst das Briefing und danach **nur die
-darin genannten Dateien**.
-
-| Feld | Inhalt |
-|---|---|
-| Stand | letzter Schritt, sein Commit, nächster Schritt, dessen Agent |
-| Was du lesen musst | die Dateien — und sonst nichts |
-| Entscheidungen, die gelten | F-x / ADR-x, die diesen Schritt binden |
-| Offene Punkte | O-xx mit Owner |
-| Was du nicht tust | z. B. „der Vertrag ist eingefroren" |
-
-Regeln:
-- Das Briefing ist **nie** die Wahrheit — die Dateien sind es. Bei Widerspruch gewinnt
-  die Datei, und das Briefing wird im nächsten Commit korrigiert.
-- Das Briefing ist ein **Zeiger**: Status, Commit, offene Punkte. Keine Auszüge, keine
-  Herleitungen.
-- Es existiert, weil der Kontext im ersten Volllauf über vier Schritte um den Faktor
-  80 wuchs (173k → 14,08M Input-Token): jeder Schritt las alles neu.
+`.agent/artifacts/briefing.md` schreibt der Orchestrator am Ende jedes Schritts und
+committet ihn mit. Er ist der **Einstiegspunkt** des nächsten Schritts: der
+Rollen-Agent liest zuerst das Briefing, dann nur die genannten Dateien. Das Briefing
+ist **nie** die Wahrheit — die Dateien sind es. Keine Auszüge, keine Herleitungen.
 
 ## Lauf-Protokoll
 
 `.agent/artifacts/run-log.jsonl` — **eine JSON-Zeile je Ereignis**, append-only.
 Geschrieben vom `aisdlc-orchestrator`; er ist der Einzige, der Schrittgrenzen und
-Gates sieht.
-
-```json
-{"ts":"2026-10-22T01:41:03Z","event":"step_start","step":6,"agent":"aisdlc-execution"}
-{"ts":"2026-10-22T02:18:41Z","event":"step_end","step":6,"commit":"825656a","duration_s":2258}
-{"ts":"2026-10-22T02:28:11Z","event":"jump_back","from":7,"to":1,"reason":"Traceability-Matrix unvollstaendig"}
-{"ts":"2026-10-22T02:29:02Z","event":"gate","gate":1,"result":"approved","by":"human"}
-{"ts":"2026-10-22T02:30:00Z","event":"check","name":"traceability_check","result":"fail","gaps":178}
-```
-
-**Warum:** Der Ablauf lag bisher nur in der Git-Historie und in Prosa. Ohne Daten
-sind Leerlauf, Ruecksprung-Zyklen und Schritt-Dauern nicht messbar — und jede
-Verbesserung wurde aus dem Gefuehl entschieden statt aus der Historie. Im
-EchoBox-Lauf: 23 Artefakte, davon **0** maschinenlesbar; `ruecksprung-bilanz.md`
-mit 102 KB Prosa.
+Gates sieht. Ereignisse: `step_start`, `step_end`, `jump_back`, `gate`, `check`,
+`retry`. Format und Begruendung: `AGENTS.md` (Regel 14).
 
 ## Werkzeuge
 
-| Ort | Art |
-|---|---|
-| `.agent/tools/` | Phasen-Werkzeuge (gehören dem Schritt, nicht der Anwendung) |
-| `src/<modul>/tools/` | Code-Generatoren (gehören neben den Code, den sie erzeugen) |
-
-| Werkzeug | Zweck |
-|---|---|
-| `.agent/tools/traceability_check.py` | prueft die Kette; `--fill` schreibt den Beleg |
-
-Konvention und Bestand: `.agent/tools/README.md`.
+Phasen-Werkzeuge: `.agent/tools/` (z. B. `traceability_check.py`).
+Code-Generatoren: `src/<modul>/tools/`. Konvention: `.agent/tools/README.md`.
 
 ## Betriebsmodi
 
-| Modus | Prompt-Familie | Nutzung | Session-Steuerung |
-|---|---|---|---|
-| **Ein-Orchestrator** | `.agent/prompts/orchestrator/` | lokal, interaktiv, ein Agent wechselt die Schritte | keine |
-| **Multi-Instanz** | `.agent/prompts/multi-instance/` | Server-Betrieb, 0–4 parallele Phasen | REST `POST /api/messages`, `session_create` |
+| Modus | Prompt-Familie | Nutzung |
+|---|---|---|
+| **Ein-Orchestrator** | `.agent/prompts/orchestrator/` | lokal, interaktiv, ein Agent wechselt die Schritte |
+| **Multi-Instanz** | `.agent/prompts/multi-instance/` | Server-Betrieb, 0–4 parallele Phasen, REST-Steuerung |
 
 Beide Familien beschreiben **dieselben Schritte** — sie unterscheiden sich nur in der
-Aktivierung und im Session-Handling, nicht im Inhalt.
+Aktivierung und im Session-Handling.
 
 ## Agenten
 
@@ -233,38 +188,19 @@ Aktivierung und im Session-Handling, nicht im Inhalt.
 ## Stack-Schicht
 
 Das Framework ist stackagnostisch. Alles Stack-spezifische liegt in
-`opencode.jsonc` im Projekt-Root:
-
-| Was | Wo | Wer pflegt es |
-|---|---|---|
-| `skills.paths` (Bibliotheken) | `opencode.jsonc` | das Projekt |
-| `skill`-Allowlist des Stacks | `opencode.jsonc` | das Projekt |
-| Stack-Agenten | `.opencode/agents/stack/<tech>/` | das Projekt |
-| Stack-Wissen (Stack, Schema) | `.agent/knowledge/` | der Architecture Orchestrator im Projekt |
+`opencode.jsonc` im Projekt-Root: `skills.paths`, `skill`-Allowlist und
+Stack-Agenten unter `.opencode/agents/stack/<tech>/`.
 
 **Merge-Regel (OpenCode):** Root-Config zuerst, `.opencode/`-Config danach,
 Agent-Frontmatter zuletzt — letzter Treffer gewinnt. Daraus folgt: der
 Catch-all-Deny steht in der **Stack-Schicht**, die positiven Regeln des
-Frameworks in `.opencode/opencode.jsonc`. Sonst hebt die Framework-Regel die
-Stack-Erlaubnisse wieder auf.
+Frameworks in `.opencode/opencode.jsonc`.
 
 ## Stack-Ebene
 
-Stack-Wissen kommt **nicht** aus eigenen Dateien, sondern per `skills.paths` direkt aus
-den Bibliotheken — kein Kopieren, keine Drift, kein Kontext-Ballast:
-
-```jsonc
-"skills": { "paths": ["/…/ECC/skills", "/…/wshobson-agents/plugins/backend-development/skills", …] }
-```
-
-Weil ECC 311 und wshobson 185 Skills mitbringen, filtert die `skill`-Permission auf
-Stack-Präfixe. Gemessene Kosten der geladenen Beschreibungen:
-
-| Stack | Skills | ≈ Token |
-|---|---|---|
-| Java + Spring | 5 | 342 |
-| React / TypeScript | 15 | 1.029 |
-| alle Backends | 36 | 2.281 |
+Stack-Wissen kommt **per `skills.paths`** direkt aus den Bibliotheken — kein Kopieren,
+keine Drift. Weil ECC 311 und wshobson 185 Skills mitbringen, filtert die
+`skill`-Permission auf Stack-Präfixe.
 
 ## Eigenes Skill schreiben (Konvention)
 
@@ -277,11 +213,7 @@ metadata:
 ---
 ```
 
-Regeln:
-- `name` = Verzeichnisname, Präfix `aisdlc-` für projekteigene Skills.
-- `description` nennt **wann** der Skill greift — er ist das Auswahlkriterium des Modells.
-- Stack-unabhängig formulieren: keine Sprach-Spezifika, wenn der Skill projektabhängig
-  sein soll.
-- `metadata.origin` nennt die Quellen aus den Bibliotheken (siehe `metadata.source`
-  in den kopierten Skills).
-- Nach dem Anlegen: `name` in der `skill`-Allowlist von `opencode.jsonc` ergänzen.
+Regeln: `name` = Verzeichnisname; `description` nennt **wann** der Skill greift (das ist
+das Auswahlkriterium des Modells); Stack-unabhängig formulieren; `metadata.origin` nennt
+die Quellen. Nach dem Anlegen: `name` in der `skill`-Allowlist von `opencode.jsonc`
+ergänzen.

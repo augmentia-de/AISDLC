@@ -1,6 +1,6 @@
 ---
 name: strangler-fig
-description: Entwirft eine Strangler-Fig-Migration - identifiziert ein isoliertes Fachmodul aus der Legacy-Codebasis, entwirft das Zielmodul und definiert die Routing-Logik für die Interzeption. Nutze diesen Skill, wenn ein Legacy-Modul schrittweise ersetzt werden soll, ohne dass bestehende Funktionalitäten brechen.
+description: Legacy-Modul-Migration entwerfen.
 metadata:
   origin: AISDLC
 ---

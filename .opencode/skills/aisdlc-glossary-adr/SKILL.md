@@ -1,6 +1,6 @@
 ---
 name: aisdlc-glossary-adr
-description: Schreibt das Fachglossar und die Architecture Decision Records. Sagt, WANN eine Entscheidung festgeschrieben wird und in welchem Format. Nutze diesen Skill in Phase 2 fuer jede Entscheidung mit Folgen und danach, wenn ein Begriff geschaerft wird.
+description: Phase 2: Fachglossar und ADRs schreiben.
 metadata:
   origin: eigenes Framework-Verfahren; Handwerk aus ECC/architecture-decision-records
 ---

@@ -1,6 +1,6 @@
 ---
 name: aisdlc-containerize
-description: Steuert den Container-Build: Multi-Stage, non-root, gepinnte Basis-Images, keine Secrets im Image, Health-Check. Sagt, WELCHE Eigenschaften ein Image haben muss. Nutze diesen Skill in Phase 6 (Infra-Stream) und in Phase 9 vor dem ersten Deployment.
+description: Phase 6/9: Container-Image (Multi-Stage, non-root, gepinnt) + Compose.
 metadata:
   origin: eigenes Framework-Verfahren; Handwerk aus ECC/docker-patterns
 ---
