@@ -1,10 +1,19 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "step": "1 - Anforderungserhebung",
   "agent": "aisdlc-requirements",
   "source_document": "docs/Anforderung.md",
   "generated": "2026-10-21",
-  "note": "Zeilen 'tests' und 'code' sind in Schritt 1 Platzhalter. Schritt 5 (Test-Driven Setup) füllt die Testbezüge, Schritt 6 (Implementierung) die Codebezüge. Der Check .agent/tools/traceability_check.py vergleicht die Matrix mit dem Dateisystem.",
+  "updated": "2026-10-22",
+  "note": "Stand 2026-10-22: Die Matrix ist als Nachzug auf den umgesetzten Stand gezogen (Schritt 6 e9e1bc1, Schritt 7 bd15f19). Die Zeilen tests und code fuehren echte Pfade aus dem Repository - keine Platzhalter mehr. Quellen: Testmatrix (Schritt 5, .agent/artifacts/test-matrix.md) und Beleg .agent/artifacts/traceability-verification.md (Schritt 7). Jeder Pfad wurde maschinell gegen das Dateisystem geprueft. acceptance_criteria_index fuehrt je Akzeptanzkriterium Story, Anforderung und die Testdateien, die es belegen.",
+  "state_vocabulary": {
+    "implemented": "Die Datei existiert im Repository (Schritt 5 fuer Tests, Schritt 6/7 fuer Code).",
+    "open": "Die Datei existiert noch nicht - owner und step nennen, wer sie erstellt."
+  },
+  "coverage_state_vocabulary": {
+    "verified": "Alle AK des Eintrags sind durch existierende Testfaelle belegt und alle Codeverweise existieren.",
+    "partial": "Die AK sind vollstaendig belegt, mindestens ein Codeverweis ist noch offen (siehe gaps)."
+  },
   "epics": [
     {
       "id": "E1",
@@ -727,60 +736,70 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/endpoint/EndpointRegistrationTest.java",
-          "state": "planned",
+          "path": "tests/e2e/endpoints.spec.ts",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/endpoint/EndpointRegistrationIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
-          "path": "tests/e2e/endpoints.spec.ts",
-          "state": "planned",
+          "path": "tests/integration/security/ForeignResourceIsolationIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/endpoint/EndpointRegistrationTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/frontend/EndpointsPage.test.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/endpoint/Endpoint.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/app/endpoints/page.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/endpoints/EndpointForm.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/endpoints/EndpointList.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Vollstaendig: ForeignResourceIsolationIT und RoleCapabilityMatrixIT ergaenzt - sie belegen AC-001-1 und AC-001-2 mit. Alle Pfade am 2026-10-22 gegen das Repository geprueft."
     },
     {
       "requirement_id": "FR-002",
@@ -804,60 +823,65 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/endpoint/EndpointPauseTest.java",
-          "state": "planned",
+          "path": "tests/e2e/endpoints.spec.ts",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/endpoint/EndpointPauseIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
-          "path": "tests/e2e/endpoints.spec.ts",
-          "state": "planned",
+          "path": "tests/integration/security/ForeignResourceIsolationIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/endpoint/EndpointPauseTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/frontend/EndpointsPage.test.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/app/endpoints/page.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/endpoints/EndpointForm.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/endpoints/EndpointList.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Vollstaendig: ForeignResourceIsolationIT ergaenzt - sie belegt AC-002-2 und AC-002-3 (fremder Mandant => 404) mit."
     },
     {
       "requirement_id": "FR-003",
@@ -880,60 +904,83 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/endpoint/SecretRotationTest.java",
-          "state": "planned",
+          "path": "tests/e2e/endpoints.spec.ts",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/endpoint/SecretRotationIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
-          "path": "tests/e2e/endpoints.spec.ts",
-          "state": "planned",
+          "path": "tests/integration/security/ForeignResourceIsolationIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/endpoint/SecretRotationTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/frontend/EndpointsPage.test.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
-          "path": "src/main/java/com/echobox/crypto/SecretStore.java",
-          "state": "planned",
-          "step": "6"
+          "path": "src/main/java/com/echobox/crypto/PayloadCipher.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante crypto/SecretStore.java existiert nicht - die Chiffre des Endpunkt-Secrets liegt in PayloadCipher (EndpointService.rotateSecret(...))."
+        },
+        {
+          "path": "src/main/java/com/echobox/endpoint/EndpointRepository.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante crypto/SecretStore.java existiert nicht - die Ablage (Spalten secret_ciphertext/secret_nonce) liegt im Endpunkt-Repository."
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante crypto/SecretStore.java existiert nicht - die Entschluesselung des Secrets erfolgt unmittelbar vor der Signatur in DeliveryDispatcher.secret(...)."
         },
         {
           "path": "src/main/frontend/src/app/endpoints/page.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/endpoints/EndpointForm.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/endpoints/EndpointList.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Pfad umhaengt (crypto/SecretStore.java => crypto/PayloadCipher.java, endpoint/EndpointRepository.java, delivery/DeliveryDispatcher.java). Querschnitt ergaenzt: ForeignResourceIsolationIT und RoleCapabilityMatrixIT belegen AC-003-3 mit."
     },
     {
       "requirement_id": "FR-004",
@@ -951,30 +998,50 @@
       ],
       "tests": [
         {
+          "path": "tests/contract/AlwaysPresentFieldsContractTest.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
           "path": "tests/integration/endpoint/EndpointVisibilityIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/AlwaysPresentFieldsIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/ForeignResourceIsolationIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/endpoint/EndpointQueryService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/tenant/TenantContext.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Vollstaendig: die vier querschnittlichen Dateien (AlwaysPresentFieldsContractTest, AlwaysPresentFieldsIT, ForeignResourceIsolationIT, RoleCapabilityMatrixIT) ergaenzt - sie belegen AC-004-2 und AC-004-3 mit."
     },
     {
       "requirement_id": "FR-010",
@@ -994,45 +1061,55 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/event/EventIntakeTest.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
           "path": "tests/integration/event/EventIntakeIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/event/EventIntakePerformanceIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/performance/EventIntakeLoadTest.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/event/EventIntakeTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/event/EventController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/EventService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/Event.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: RoleCapabilityMatrixIT (AC-005-1) und der Lasttest EventIntakeLoadTest (AC-005-5)."
     },
     {
       "requirement_id": "FR-011",
@@ -1050,30 +1127,30 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/event/EventIdempotencyTest.java",
-          "state": "planned",
+          "path": "tests/integration/event/EventIdempotencyIT.java",
+          "state": "implemented",
           "step": "5"
         },
         {
-          "path": "tests/integration/event/EventIdempotencyIT.java",
-          "state": "planned",
+          "path": "tests/unit/event/EventIdempotencyTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/event/EventService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/IdempotencyStore.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Unveraendert: beide Testdateien existieren und tragen die vier AK; keine Querschnittsdatei belegt ein AK dieser Anforderung."
     },
     {
       "requirement_id": "FR-012",
@@ -1093,29 +1170,34 @@
       "tests": [
         {
           "path": "tests/integration/event/PayloadEncryptionAtRestIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/protocol/DeliveryProtocolIT.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/crypto/PayloadCipherTest.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/crypto/PayloadCipher.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/EventRepository.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: DeliveryProtocolIT belegt AC-007-5 (Protokollsuche nur ueber Metadaten)."
     },
     {
       "requirement_id": "FR-013",
@@ -1132,35 +1214,36 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/event/PreEncryptedEventTest.java",
-          "state": "planned",
+          "path": "tests/integration/event/PreEncryptedEventIT.java",
+          "state": "implemented",
           "step": "5"
         },
         {
-          "path": "tests/integration/event/PreEncryptedEventIT.java",
-          "state": "planned",
+          "path": "tests/unit/event/PreEncryptedEventTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/event/EventService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/Event.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
-          "path": "src/main/java/com/echobox/delivery/PayloadSource.java",
-          "state": "planned",
-          "step": "6"
+          "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante delivery/PayloadSource.java existiert nicht - das Entschluesseln bzw. das unveraenderte Weiterreichen der Chiffre (FR-013) liegt in DeliveryDispatcher.payloadBytes(...)."
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Pfad umhaengt (delivery/PayloadSource.java => delivery/DeliveryDispatcher.java, payloadBytes(...))."
     },
     {
       "requirement_id": "FR-020",
@@ -1179,35 +1262,45 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/crypto/SignatureTest.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
-          "path": "tests/integration/delivery/SignedDeliveryIT.java",
-          "state": "planned",
+          "path": "tests/contract/SignatureContractTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/contract/openapi_signature_contract_test.yaml",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/delivery/SignedDeliveryIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/crypto/SignatureTest.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/delivery/DeliveryIdentifiersTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/crypto/SignatureService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryHttpClient.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: SignatureContractTest, DeliveryIdentifiersTest und die maschinenlesbare Vertragsspezifikation openapi_signature_contract_test.yaml belegen AC-009-3 mit."
     },
     {
       "requirement_id": "FR-021",
@@ -1225,30 +1318,35 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/delivery/DeliveryIdentifiersTest.java",
-          "state": "planned",
+          "path": "tests/integration/delivery/AtLeastOnceDeliveryIT.java",
+          "state": "implemented",
           "step": "5"
         },
         {
-          "path": "tests/integration/delivery/AtLeastOnceDeliveryIT.java",
-          "state": "planned",
+          "path": "tests/unit/delivery/DeliveryIdentifiersTest.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/delivery/PermanentRejectionTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryHeaders.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: PermanentRejectionTest belegt AC-010-3 (nach 2xx kein weiterer Versuch) mit."
     },
     {
       "requirement_id": "FR-022",
@@ -1267,40 +1365,41 @@
       ],
       "tests": [
         {
+          "path": "tests/integration/delivery/RetryDeliveryIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
           "path": "tests/unit/delivery/BackoffPolicyTest.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/delivery/JitterTest.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
-          "path": "tests/integration/delivery/RetryDeliveryIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/delivery/BackoffPolicy.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryWorker.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
-          "path": "src/main/java/com/echobox/delivery/RetryScheduler.java",
-          "state": "planned",
-          "step": "6"
+          "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante delivery/RetryScheduler.java existiert nicht - das Setzen von next_attempt_at liegt in DeliveryDispatcher.record(...) zusammen mit delivery/BackoffPolicy.java."
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Pfad umhaengt (delivery/RetryScheduler.java => delivery/DeliveryDispatcher.java, record(...))."
     },
     {
       "requirement_id": "FR-023",
@@ -1318,30 +1417,35 @@
       ],
       "tests": [
         {
+          "path": "tests/integration/delivery/AttemptLimitIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
           "path": "tests/integration/delivery/DeadLetterIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/delivery/AttemptLimitTest.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryWorker.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: AttemptLimitIT belegt AC-012-4 (konfigurierte Grenze 1) mit."
     },
     {
       "requirement_id": "FR-024",
@@ -1361,24 +1465,34 @@
       "tests": [
         {
           "path": "tests/integration/delivery/RedeliveryIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/ForeignResourceIsolationIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: ForeignResourceIsolationIT und RoleCapabilityMatrixIT belegen AC-013-1 und AC-013-3 mit."
     },
     {
       "requirement_id": "FR-025",
@@ -1396,35 +1510,40 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/delivery/PermanentRejectionTest.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
-          "path": "tests/integration/delivery/RejectionDeliveryIT.java",
-          "state": "planned",
+          "path": "tests/contract/RejectionContractTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/contract/openapi_rejection_contract_test.yaml",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/delivery/RejectionDeliveryIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/delivery/PermanentRejectionTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryHttpClient.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryOutcome.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: RejectionContractTest und die maschinenlesbare Vertragsspezifikation openapi_rejection_contract_test.yaml belegen AC-014-2 mit."
     },
     {
       "requirement_id": "FR-030",
@@ -1447,55 +1566,70 @@
       ],
       "tests": [
         {
-          "path": "tests/integration/protocol/DeliveryProtocolIT.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
-          "path": "tests/e2e/protocol.spec.ts",
-          "state": "planned",
+          "path": "tests/contract/AlwaysPresentFieldsContractTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/e2e/dead-deliveries.spec.ts",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/protocol.spec.ts",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/protocol/DeliveryProtocolIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/AlwaysPresentFieldsIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/DeadDeliveryPage.test.tsx",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/frontend/DeliveryProtocolPage.test.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/protocol/ProtocolController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/protocol/ProtocolQueryService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/app/deliveries/page.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/app/dead-deliveries/page.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/protocol/DeliveryTable.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: AlwaysPresentFieldsContractTest und AlwaysPresentFieldsIT belegen AC-015-1/AC-015-2 mit; die Oberflaechentests DeadDeliveryPage und DeliveryProtocolPage tragen die AC-020-* mit."
     },
     {
       "requirement_id": "FR-031",
@@ -1519,65 +1653,85 @@
       ],
       "tests": [
         {
-          "path": "tests/integration/protocol/DeadDeliveryListIT.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
-          "path": "tests/integration/protocol/RetentionEnforcementIT.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
-          "path": "tests/e2e/protocol.spec.ts",
-          "state": "planned",
+          "path": "tests/contract/AlwaysPresentFieldsContractTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/e2e/dead-deliveries.spec.ts",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/e2e/protocol.spec.ts",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/protocol/DeadDeliveryListIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/protocol/RetentionEnforcementIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/AlwaysPresentFieldsIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/frontend/DeadDeliveryPage.test.tsx",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/frontend/DeliveryProtocolPage.test.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/protocol/ProtocolController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/protocol/DeadDeliveryQueryService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/protocol/RetentionService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/app/deliveries/page.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/app/dead-deliveries/page.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/features/protocol/DeliveryTable.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Vollstaendig (neun Testdateien) - jede belegt mindestens ein AK dieser Anforderung."
     },
     {
       "requirement_id": "FR-032",
@@ -1595,25 +1749,30 @@
       ],
       "tests": [
         {
+          "path": "tests/contract/AlwaysPresentFieldsContractTest.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
           "path": "tests/integration/protocol/EndpointMetricsIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/protocol/EndpointMetricsService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/protocol/MetricsController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: AlwaysPresentFieldsContractTest belegt AC-017-3 (data_available pflicht) mit."
     },
     {
       "requirement_id": "FR-033",
@@ -1631,30 +1790,45 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/delivery/RateLimiterTest.java",
-          "state": "planned",
+          "path": "tests/contract/AlwaysPresentFieldsContractTest.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/delivery/RateLimitedDeliveryIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/protocol/EndpointMetricsIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/AlwaysPresentFieldsIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/delivery/RateLimiterTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/delivery/EndpointRateLimiter.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryWorker.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: AlwaysPresentFieldsContractTest, EndpointMetricsIT und AlwaysPresentFieldsIT belegen AC-018-4 mit."
     },
     {
       "requirement_id": "NFR-001",
@@ -1674,45 +1848,55 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/event/EventIntakeTest.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
           "path": "tests/integration/event/EventIntakeIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/event/EventIntakePerformanceIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/performance/EventIntakeLoadTest.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/event/EventIntakeTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/event/EventController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/EventService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/Event.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Gleiche AK wie FR-010 - dieselben fuenf Testdateien; RoleCapabilityMatrixIT und EventIntakeLoadTest mitgenommen."
     },
     {
       "requirement_id": "NFR-002",
@@ -1732,45 +1916,55 @@
       ],
       "tests": [
         {
-          "path": "tests/unit/event/EventIntakeTest.java",
-          "state": "planned",
-          "step": "5"
-        },
-        {
           "path": "tests/integration/event/EventIntakeIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/event/EventIntakePerformanceIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/performance/EventIntakeLoadTest.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/unit/event/EventIntakeTest.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/event/EventController.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/EventService.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/Event.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/delivery/DeliveryDispatcher.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Gleiche AK wie FR-010 - dieselben fuenf Testdateien; RoleCapabilityMatrixIT und EventIntakeLoadTest mitgenommen."
     },
     {
       "requirement_id": "NFR-003",
@@ -1788,35 +1982,51 @@
       ],
       "tests": [
         {
-          "path": "tests/integration/tenant/TenantIsolationIT.java",
-          "state": "planned",
+          "path": "tests/integration/schema/SchemaMirrorIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/ForeignResourceIsolationIT.java",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/security/RoleCapabilityMatrixIT.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/tenant/RowLevelSecurityIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/tenant/TenantIsolationIT.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/tenant/TenantContext.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
-          "path": "src/main/java/com/echobox/tenant/TenantConnectionInitializer.java",
-          "state": "planned",
-          "step": "6"
+          "path": "src/main/java/com/echobox/tenant/TenantTransactionRunner.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante tenant/TenantConnectionInitializer.java existiert nicht - setTenant(...) laeuft transaktionsgebunden in TenantTransactionRunner (ADR-002 Paragraf 3). Der historische Name bleibt in docs/architecture/folder-structure.md Paragraf 2.6 stehen."
         },
         {
           "path": "src/main/resources/db/migration/V1__initial_schema.sql",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Querschnitt ergaenzt: SchemaMirrorIT, ForeignResourceIsolationIT und RoleCapabilityMatrixIT belegen AC-022-1 und AC-022-4 mit. Pfad umhaengt (tenant/TenantConnectionInitializer.java => tenant/TenantTransactionRunner.java, transaktionsgebunden nach ADR-002 Paragraf 3)."
     },
     {
       "requirement_id": "NFR-004",
@@ -1836,29 +2046,34 @@
       "tests": [
         {
           "path": "tests/integration/event/PayloadEncryptionAtRestIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/protocol/DeliveryProtocolIT.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/crypto/PayloadCipherTest.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/java/com/echobox/crypto/PayloadCipher.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/java/com/echobox/event/EventRepository.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Gleiche AK wie FR-012 - dieselben drei Testdateien; DeliveryProtocolIT (AC-007-5) mitgenommen."
     },
     {
       "requirement_id": "NFR-005",
@@ -1877,29 +2092,29 @@
       "tests": [
         {
           "path": "tests/e2e/a11y.spec.ts",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/unit/frontend/a11y.test.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "src/main/frontend/src/app/layout.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "src/main/frontend/src/components/DataTable.tsx",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "verified",
+      "note": "Unveraendert: beide Dateien existieren und tragen die vier AK."
     },
     {
       "requirement_id": "NFR-006",
@@ -1918,42 +2133,1293 @@
       ],
       "tests": [
         {
+          "path": "tests/e2e/health.spec.ts",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
           "path": "tests/integration/deployment/ContainerStartupIT.java",
-          "state": "planned",
+          "state": "implemented",
+          "step": "5"
+        },
+        {
+          "path": "tests/integration/deployment/EnvironmentSeparationIT.java",
+          "state": "implemented",
           "step": "5"
         },
         {
           "path": "tests/integration/deployment/HorizontalScalingIT.java",
-          "state": "planned",
+          "state": "implemented",
           "step": "5"
         },
         {
-          "path": "tests/e2e/health.spec.ts",
-          "state": "planned",
+          "path": "tests/integration/deployment/TenantInstanceIT.java",
+          "state": "implemented",
           "step": "5"
         }
       ],
       "code": [
         {
           "path": "Dockerfile",
-          "state": "planned",
+          "state": "implemented",
           "step": "6"
         },
         {
           "path": "docker-compose.yml",
-          "state": "planned",
-          "step": "6"
+          "state": "open",
+          "step": "9",
+          "owner": "aisdlc-qa - Schritt 9 (Deployment & Betrieb)",
+          "note": "Echte Luecke: die Datei existiert nicht, ist aber in docs/architecture/folder-structure.md Paragraf 1 und .agent/knowledge/stack.md vorgesehen. Kein Test verlangt sie (EnvironmentSeparationIT prueft Konfiguration und Bereitstellungsdeskriptor, nicht Compose). Befund S-22 (Schritt 7, refactoring-report)."
         },
         {
-          "path": "src/main/java/com/echobox/config/TenantInstanceConfiguration.java",
-          "state": "planned",
-          "step": "6"
+          "path": "src/main/java/com/echobox/config/EchoBoxProperties.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante config/TenantInstanceConfiguration.java existiert nicht - die Bindung einer Instanz an einen Mandanten liegt in der Konfiguration echobox.tenant.id (Tenant.id)."
+        },
+        {
+          "path": "src/main/java/com/echobox/delivery/DeliveryWorker.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Pfad umhaengt: der geplante config/TenantInstanceConfiguration.java existiert nicht - die Instanz-Kennung entsteht in DeliveryWorker.buildInstanceId(...)."
+        },
+        {
+          "path": "src/main/java/com/echobox/tenant/TenantInstanceFilter.java",
+          "state": "implemented",
+          "step": "6",
+          "note": "Setzt die gebundene Instanz durch: eine an einen Mandanten gebundene Instanz bedient nur diesen (AC-023-2)."
         }
       ],
-      "coverage_state": "seeded",
-      "note": "Tests und Code sind Platzhalter — sie entstehen in Schritt 5 (Tests) und Schritt 6 (Implementierung) und werden dort gegen das Dateisystem geprüft."
+      "coverage_state": "partial",
+      "note": "Fehlende Testeintraege ergaenzt: AC-023-2 (Mandanteninstanz) => TenantInstanceIT, AC-023-5 (getrennte Umgebungen) => EnvironmentSeparationIT - Story US-023, Anforderung NFR-006. Pfad umhaengt (config/TenantInstanceConfiguration.java => config/EchoBoxProperties.java, delivery/DeliveryWorker.java, tenant/TenantInstanceFilter.java). OFFEN: docker-compose.yml existiert nicht (S-22, Owner Schritt 9)."
     }
   ],
+  "acceptance_criteria_index": {
+    "AC-001-1": {
+      "stories": [
+        "US-001"
+      ],
+      "requirements": [
+        "FR-001"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointRegistrationIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java",
+        "tests/unit/endpoint/EndpointRegistrationTest.java"
+      ]
+    },
+    "AC-001-2": {
+      "stories": [
+        "US-001"
+      ],
+      "requirements": [
+        "FR-001"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointRegistrationIT.java",
+        "tests/integration/security/ForeignResourceIsolationIT.java",
+        "tests/unit/endpoint/EndpointRegistrationTest.java"
+      ]
+    },
+    "AC-001-3": {
+      "stories": [
+        "US-001"
+      ],
+      "requirements": [
+        "FR-001"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointRegistrationIT.java",
+        "tests/unit/endpoint/EndpointRegistrationTest.java"
+      ]
+    },
+    "AC-001-4": {
+      "stories": [
+        "US-001"
+      ],
+      "requirements": [
+        "FR-001"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointRegistrationIT.java"
+      ]
+    },
+    "AC-001-5": {
+      "stories": [
+        "US-001"
+      ],
+      "requirements": [
+        "FR-001"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointRegistrationIT.java"
+      ]
+    },
+    "AC-002-1": {
+      "stories": [
+        "US-002"
+      ],
+      "requirements": [
+        "FR-002"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointPauseIT.java",
+        "tests/unit/endpoint/EndpointPauseTest.java"
+      ]
+    },
+    "AC-002-2": {
+      "stories": [
+        "US-002"
+      ],
+      "requirements": [
+        "FR-002"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointPauseIT.java",
+        "tests/integration/security/ForeignResourceIsolationIT.java"
+      ]
+    },
+    "AC-002-3": {
+      "stories": [
+        "US-002"
+      ],
+      "requirements": [
+        "FR-002"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointPauseIT.java",
+        "tests/integration/security/ForeignResourceIsolationIT.java"
+      ]
+    },
+    "AC-002-4": {
+      "stories": [
+        "US-002"
+      ],
+      "requirements": [
+        "FR-002"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointPauseIT.java",
+        "tests/unit/endpoint/EndpointPauseTest.java"
+      ]
+    },
+    "AC-002-5": {
+      "stories": [
+        "US-002"
+      ],
+      "requirements": [
+        "FR-002"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointPauseIT.java"
+      ]
+    },
+    "AC-003-1": {
+      "stories": [
+        "US-003"
+      ],
+      "requirements": [
+        "FR-003"
+      ],
+      "tests": [
+        "tests/integration/endpoint/SecretRotationIT.java",
+        "tests/unit/endpoint/SecretRotationTest.java"
+      ]
+    },
+    "AC-003-2": {
+      "stories": [
+        "US-003"
+      ],
+      "requirements": [
+        "FR-003"
+      ],
+      "tests": [
+        "tests/integration/endpoint/SecretRotationIT.java"
+      ]
+    },
+    "AC-003-3": {
+      "stories": [
+        "US-003"
+      ],
+      "requirements": [
+        "FR-003"
+      ],
+      "tests": [
+        "tests/integration/endpoint/SecretRotationIT.java",
+        "tests/integration/security/ForeignResourceIsolationIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java"
+      ]
+    },
+    "AC-003-4": {
+      "stories": [
+        "US-003"
+      ],
+      "requirements": [
+        "FR-003"
+      ],
+      "tests": [
+        "tests/unit/endpoint/SecretRotationTest.java"
+      ]
+    },
+    "AC-004-1": {
+      "stories": [
+        "US-004"
+      ],
+      "requirements": [
+        "FR-004"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointVisibilityIT.java",
+        "tests/integration/security/AlwaysPresentFieldsIT.java"
+      ]
+    },
+    "AC-004-2": {
+      "stories": [
+        "US-004"
+      ],
+      "requirements": [
+        "FR-004"
+      ],
+      "tests": [
+        "tests/contract/AlwaysPresentFieldsContractTest.java",
+        "tests/integration/endpoint/EndpointVisibilityIT.java",
+        "tests/integration/security/AlwaysPresentFieldsIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java"
+      ]
+    },
+    "AC-004-3": {
+      "stories": [
+        "US-004"
+      ],
+      "requirements": [
+        "FR-004"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointVisibilityIT.java",
+        "tests/integration/security/AlwaysPresentFieldsIT.java",
+        "tests/integration/security/ForeignResourceIsolationIT.java"
+      ]
+    },
+    "AC-004-4": {
+      "stories": [
+        "US-004"
+      ],
+      "requirements": [
+        "FR-004"
+      ],
+      "tests": [
+        "tests/integration/endpoint/EndpointVisibilityIT.java"
+      ]
+    },
+    "AC-005-1": {
+      "stories": [
+        "US-005"
+      ],
+      "requirements": [
+        "FR-010",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "tests": [
+        "tests/integration/event/EventIntakeIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java"
+      ]
+    },
+    "AC-005-2": {
+      "stories": [
+        "US-005"
+      ],
+      "requirements": [
+        "FR-010",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "tests": [
+        "tests/integration/event/EventIntakeIT.java",
+        "tests/unit/event/EventIntakeTest.java"
+      ]
+    },
+    "AC-005-3": {
+      "stories": [
+        "US-005"
+      ],
+      "requirements": [
+        "FR-010",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "tests": [
+        "tests/integration/event/EventIntakeIT.java",
+        "tests/unit/event/EventIntakeTest.java"
+      ]
+    },
+    "AC-005-4": {
+      "stories": [
+        "US-005"
+      ],
+      "requirements": [
+        "FR-010",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "tests": [
+        "tests/integration/event/EventIntakePerformanceIT.java"
+      ]
+    },
+    "AC-005-5": {
+      "stories": [
+        "US-005"
+      ],
+      "requirements": [
+        "FR-010",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "tests": [
+        "tests/integration/event/EventIntakePerformanceIT.java",
+        "tests/performance/EventIntakeLoadTest.java"
+      ]
+    },
+    "AC-005-6": {
+      "stories": [
+        "US-005"
+      ],
+      "requirements": [
+        "FR-010",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "tests": [
+        "tests/integration/event/EventIntakeIT.java"
+      ]
+    },
+    "AC-006-1": {
+      "stories": [
+        "US-006"
+      ],
+      "requirements": [
+        "FR-011"
+      ],
+      "tests": [
+        "tests/integration/event/EventIdempotencyIT.java",
+        "tests/unit/event/EventIdempotencyTest.java"
+      ]
+    },
+    "AC-006-2": {
+      "stories": [
+        "US-006"
+      ],
+      "requirements": [
+        "FR-011"
+      ],
+      "tests": [
+        "tests/integration/event/EventIdempotencyIT.java",
+        "tests/unit/event/EventIdempotencyTest.java"
+      ]
+    },
+    "AC-006-3": {
+      "stories": [
+        "US-006"
+      ],
+      "requirements": [
+        "FR-011"
+      ],
+      "tests": [
+        "tests/integration/event/EventIdempotencyIT.java"
+      ]
+    },
+    "AC-006-4": {
+      "stories": [
+        "US-006"
+      ],
+      "requirements": [
+        "FR-011"
+      ],
+      "tests": [
+        "tests/integration/event/EventIdempotencyIT.java",
+        "tests/unit/event/EventIdempotencyTest.java"
+      ]
+    },
+    "AC-007-1": {
+      "stories": [
+        "US-007"
+      ],
+      "requirements": [
+        "FR-012",
+        "NFR-004"
+      ],
+      "tests": [
+        "tests/integration/event/PayloadEncryptionAtRestIT.java"
+      ]
+    },
+    "AC-007-2": {
+      "stories": [
+        "US-007"
+      ],
+      "requirements": [
+        "FR-012",
+        "NFR-004"
+      ],
+      "tests": [
+        "tests/integration/event/PayloadEncryptionAtRestIT.java",
+        "tests/unit/crypto/PayloadCipherTest.java"
+      ]
+    },
+    "AC-007-3": {
+      "stories": [
+        "US-007"
+      ],
+      "requirements": [
+        "FR-012",
+        "NFR-004"
+      ],
+      "tests": [
+        "tests/integration/event/PayloadEncryptionAtRestIT.java",
+        "tests/unit/crypto/PayloadCipherTest.java"
+      ]
+    },
+    "AC-007-4": {
+      "stories": [
+        "US-007"
+      ],
+      "requirements": [
+        "FR-012",
+        "NFR-004"
+      ],
+      "tests": [
+        "tests/unit/crypto/PayloadCipherTest.java"
+      ]
+    },
+    "AC-007-5": {
+      "stories": [
+        "US-007"
+      ],
+      "requirements": [
+        "FR-012",
+        "NFR-004"
+      ],
+      "tests": [
+        "tests/integration/event/PayloadEncryptionAtRestIT.java",
+        "tests/integration/protocol/DeliveryProtocolIT.java"
+      ]
+    },
+    "AC-008-1": {
+      "stories": [
+        "US-008"
+      ],
+      "requirements": [
+        "FR-013"
+      ],
+      "tests": [
+        "tests/integration/event/PreEncryptedEventIT.java",
+        "tests/unit/event/PreEncryptedEventTest.java"
+      ]
+    },
+    "AC-008-2": {
+      "stories": [
+        "US-008"
+      ],
+      "requirements": [
+        "FR-013"
+      ],
+      "tests": [
+        "tests/integration/event/PreEncryptedEventIT.java"
+      ]
+    },
+    "AC-008-3": {
+      "stories": [
+        "US-008"
+      ],
+      "requirements": [
+        "FR-013"
+      ],
+      "tests": [
+        "tests/integration/event/PreEncryptedEventIT.java",
+        "tests/unit/event/PreEncryptedEventTest.java"
+      ]
+    },
+    "AC-009-1": {
+      "stories": [
+        "US-009"
+      ],
+      "requirements": [
+        "FR-020"
+      ],
+      "tests": [
+        "tests/integration/delivery/SignedDeliveryIT.java",
+        "tests/unit/crypto/SignatureTest.java"
+      ]
+    },
+    "AC-009-2": {
+      "stories": [
+        "US-009"
+      ],
+      "requirements": [
+        "FR-020"
+      ],
+      "tests": [
+        "tests/integration/delivery/SignedDeliveryIT.java",
+        "tests/unit/crypto/SignatureTest.java"
+      ]
+    },
+    "AC-009-3": {
+      "stories": [
+        "US-009"
+      ],
+      "requirements": [
+        "FR-020"
+      ],
+      "tests": [
+        "tests/contract/SignatureContractTest.java",
+        "tests/contract/openapi_signature_contract_test.yaml",
+        "tests/unit/delivery/DeliveryIdentifiersTest.java"
+      ]
+    },
+    "AC-009-4": {
+      "stories": [
+        "US-009"
+      ],
+      "requirements": [
+        "FR-020"
+      ],
+      "tests": [
+        "tests/integration/delivery/SignedDeliveryIT.java",
+        "tests/unit/crypto/SignatureTest.java"
+      ]
+    },
+    "AC-009-5": {
+      "stories": [
+        "US-009"
+      ],
+      "requirements": [
+        "FR-020"
+      ],
+      "tests": [
+        "tests/integration/delivery/SignedDeliveryIT.java",
+        "tests/unit/crypto/SignatureTest.java"
+      ]
+    },
+    "AC-010-1": {
+      "stories": [
+        "US-010"
+      ],
+      "requirements": [
+        "FR-021"
+      ],
+      "tests": [
+        "tests/integration/delivery/AtLeastOnceDeliveryIT.java",
+        "tests/unit/delivery/DeliveryIdentifiersTest.java"
+      ]
+    },
+    "AC-010-2": {
+      "stories": [
+        "US-010"
+      ],
+      "requirements": [
+        "FR-021"
+      ],
+      "tests": [
+        "tests/integration/delivery/AtLeastOnceDeliveryIT.java",
+        "tests/unit/delivery/DeliveryIdentifiersTest.java"
+      ]
+    },
+    "AC-010-3": {
+      "stories": [
+        "US-010"
+      ],
+      "requirements": [
+        "FR-021"
+      ],
+      "tests": [
+        "tests/integration/delivery/AtLeastOnceDeliveryIT.java",
+        "tests/unit/delivery/PermanentRejectionTest.java"
+      ]
+    },
+    "AC-010-4": {
+      "stories": [
+        "US-010"
+      ],
+      "requirements": [
+        "FR-021"
+      ],
+      "tests": [
+        "tests/integration/delivery/AtLeastOnceDeliveryIT.java",
+        "tests/unit/delivery/DeliveryIdentifiersTest.java"
+      ]
+    },
+    "AC-011-1": {
+      "stories": [
+        "US-011"
+      ],
+      "requirements": [
+        "FR-022"
+      ],
+      "tests": [
+        "tests/integration/delivery/RetryDeliveryIT.java",
+        "tests/unit/delivery/BackoffPolicyTest.java"
+      ]
+    },
+    "AC-011-2": {
+      "stories": [
+        "US-011"
+      ],
+      "requirements": [
+        "FR-022"
+      ],
+      "tests": [
+        "tests/unit/delivery/JitterTest.java"
+      ]
+    },
+    "AC-011-3": {
+      "stories": [
+        "US-011"
+      ],
+      "requirements": [
+        "FR-022"
+      ],
+      "tests": [
+        "tests/integration/delivery/RetryDeliveryIT.java"
+      ]
+    },
+    "AC-011-4": {
+      "stories": [
+        "US-011"
+      ],
+      "requirements": [
+        "FR-022"
+      ],
+      "tests": [
+        "tests/integration/delivery/RetryDeliveryIT.java"
+      ]
+    },
+    "AC-011-5": {
+      "stories": [
+        "US-011"
+      ],
+      "requirements": [
+        "FR-022"
+      ],
+      "tests": [
+        "tests/integration/delivery/RetryDeliveryIT.java",
+        "tests/unit/delivery/BackoffPolicyTest.java"
+      ]
+    },
+    "AC-012-1": {
+      "stories": [
+        "US-012"
+      ],
+      "requirements": [
+        "FR-023"
+      ],
+      "tests": [
+        "tests/integration/delivery/DeadLetterIT.java",
+        "tests/unit/delivery/AttemptLimitTest.java"
+      ]
+    },
+    "AC-012-2": {
+      "stories": [
+        "US-012"
+      ],
+      "requirements": [
+        "FR-023"
+      ],
+      "tests": [
+        "tests/integration/delivery/DeadLetterIT.java"
+      ]
+    },
+    "AC-012-3": {
+      "stories": [
+        "US-012"
+      ],
+      "requirements": [
+        "FR-023"
+      ],
+      "tests": [
+        "tests/integration/delivery/DeadLetterIT.java",
+        "tests/unit/delivery/AttemptLimitTest.java"
+      ]
+    },
+    "AC-012-4": {
+      "stories": [
+        "US-012"
+      ],
+      "requirements": [
+        "FR-023"
+      ],
+      "tests": [
+        "tests/integration/delivery/AttemptLimitIT.java",
+        "tests/integration/delivery/DeadLetterIT.java",
+        "tests/unit/delivery/AttemptLimitTest.java"
+      ]
+    },
+    "AC-013-1": {
+      "stories": [
+        "US-013"
+      ],
+      "requirements": [
+        "FR-024"
+      ],
+      "tests": [
+        "tests/integration/delivery/RedeliveryIT.java",
+        "tests/integration/security/ForeignResourceIsolationIT.java"
+      ]
+    },
+    "AC-013-2": {
+      "stories": [
+        "US-013"
+      ],
+      "requirements": [
+        "FR-024"
+      ],
+      "tests": [
+        "tests/integration/delivery/RedeliveryIT.java"
+      ]
+    },
+    "AC-013-3": {
+      "stories": [
+        "US-013"
+      ],
+      "requirements": [
+        "FR-024"
+      ],
+      "tests": [
+        "tests/integration/delivery/RedeliveryIT.java",
+        "tests/integration/security/ForeignResourceIsolationIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java"
+      ]
+    },
+    "AC-013-4": {
+      "stories": [
+        "US-013"
+      ],
+      "requirements": [
+        "FR-024"
+      ],
+      "tests": [
+        "tests/integration/delivery/RedeliveryIT.java"
+      ]
+    },
+    "AC-013-5": {
+      "stories": [
+        "US-013"
+      ],
+      "requirements": [
+        "FR-024"
+      ],
+      "tests": [
+        "tests/integration/delivery/RedeliveryIT.java"
+      ]
+    },
+    "AC-014-1": {
+      "stories": [
+        "US-014"
+      ],
+      "requirements": [
+        "FR-025"
+      ],
+      "tests": [
+        "tests/integration/delivery/RejectionDeliveryIT.java",
+        "tests/unit/delivery/PermanentRejectionTest.java"
+      ]
+    },
+    "AC-014-2": {
+      "stories": [
+        "US-014"
+      ],
+      "requirements": [
+        "FR-025"
+      ],
+      "tests": [
+        "tests/contract/RejectionContractTest.java",
+        "tests/contract/openapi_rejection_contract_test.yaml"
+      ]
+    },
+    "AC-014-3": {
+      "stories": [
+        "US-014"
+      ],
+      "requirements": [
+        "FR-025"
+      ],
+      "tests": [
+        "tests/integration/delivery/RejectionDeliveryIT.java",
+        "tests/unit/delivery/PermanentRejectionTest.java"
+      ]
+    },
+    "AC-014-4": {
+      "stories": [
+        "US-014"
+      ],
+      "requirements": [
+        "FR-025"
+      ],
+      "tests": [
+        "tests/integration/delivery/RejectionDeliveryIT.java",
+        "tests/unit/delivery/PermanentRejectionTest.java"
+      ]
+    },
+    "AC-015-1": {
+      "stories": [
+        "US-015"
+      ],
+      "requirements": [
+        "FR-030"
+      ],
+      "tests": [
+        "tests/integration/protocol/DeliveryProtocolIT.java",
+        "tests/integration/security/AlwaysPresentFieldsIT.java"
+      ]
+    },
+    "AC-015-2": {
+      "stories": [
+        "US-015"
+      ],
+      "requirements": [
+        "FR-030"
+      ],
+      "tests": [
+        "tests/contract/AlwaysPresentFieldsContractTest.java",
+        "tests/integration/protocol/DeliveryProtocolIT.java"
+      ]
+    },
+    "AC-015-3": {
+      "stories": [
+        "US-015"
+      ],
+      "requirements": [
+        "FR-030"
+      ],
+      "tests": [
+        "tests/integration/protocol/DeliveryProtocolIT.java"
+      ]
+    },
+    "AC-015-4": {
+      "stories": [
+        "US-015"
+      ],
+      "requirements": [
+        "FR-030"
+      ],
+      "tests": [
+        "tests/integration/protocol/DeliveryProtocolIT.java"
+      ]
+    },
+    "AC-016-1": {
+      "stories": [
+        "US-016"
+      ],
+      "requirements": [
+        "FR-031"
+      ],
+      "tests": [
+        "tests/contract/AlwaysPresentFieldsContractTest.java",
+        "tests/integration/protocol/DeadDeliveryListIT.java",
+        "tests/integration/security/AlwaysPresentFieldsIT.java"
+      ]
+    },
+    "AC-016-2": {
+      "stories": [
+        "US-016"
+      ],
+      "requirements": [
+        "FR-031"
+      ],
+      "tests": [
+        "tests/integration/protocol/DeadDeliveryListIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java"
+      ]
+    },
+    "AC-016-3": {
+      "stories": [
+        "US-016"
+      ],
+      "requirements": [
+        "FR-031"
+      ],
+      "tests": [
+        "tests/integration/protocol/DeadDeliveryListIT.java"
+      ]
+    },
+    "AC-016-4": {
+      "stories": [
+        "US-016"
+      ],
+      "requirements": [
+        "FR-031"
+      ],
+      "tests": [
+        "tests/integration/protocol/DeadDeliveryListIT.java"
+      ]
+    },
+    "AC-016-5": {
+      "stories": [
+        "US-016"
+      ],
+      "requirements": [
+        "FR-031"
+      ],
+      "tests": [
+        "tests/integration/protocol/RetentionEnforcementIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java"
+      ]
+    },
+    "AC-017-1": {
+      "stories": [
+        "US-017"
+      ],
+      "requirements": [
+        "FR-032"
+      ],
+      "tests": [
+        "tests/integration/protocol/EndpointMetricsIT.java"
+      ]
+    },
+    "AC-017-2": {
+      "stories": [
+        "US-017"
+      ],
+      "requirements": [
+        "FR-032"
+      ],
+      "tests": [
+        "tests/integration/protocol/EndpointMetricsIT.java"
+      ]
+    },
+    "AC-017-3": {
+      "stories": [
+        "US-017"
+      ],
+      "requirements": [
+        "FR-032"
+      ],
+      "tests": [
+        "tests/contract/AlwaysPresentFieldsContractTest.java",
+        "tests/integration/protocol/EndpointMetricsIT.java"
+      ]
+    },
+    "AC-017-4": {
+      "stories": [
+        "US-017"
+      ],
+      "requirements": [
+        "FR-032"
+      ],
+      "tests": [
+        "tests/integration/protocol/EndpointMetricsIT.java"
+      ]
+    },
+    "AC-018-1": {
+      "stories": [
+        "US-018"
+      ],
+      "requirements": [
+        "FR-033"
+      ],
+      "tests": [
+        "tests/integration/delivery/RateLimitedDeliveryIT.java",
+        "tests/unit/delivery/RateLimiterTest.java"
+      ]
+    },
+    "AC-018-2": {
+      "stories": [
+        "US-018"
+      ],
+      "requirements": [
+        "FR-033"
+      ],
+      "tests": [
+        "tests/integration/delivery/RateLimitedDeliveryIT.java",
+        "tests/unit/delivery/RateLimiterTest.java"
+      ]
+    },
+    "AC-018-3": {
+      "stories": [
+        "US-018"
+      ],
+      "requirements": [
+        "FR-033"
+      ],
+      "tests": [
+        "tests/integration/delivery/RateLimitedDeliveryIT.java",
+        "tests/unit/delivery/RateLimiterTest.java"
+      ]
+    },
+    "AC-018-4": {
+      "stories": [
+        "US-018"
+      ],
+      "requirements": [
+        "FR-033"
+      ],
+      "tests": [
+        "tests/contract/AlwaysPresentFieldsContractTest.java",
+        "tests/integration/delivery/RateLimitedDeliveryIT.java",
+        "tests/integration/protocol/EndpointMetricsIT.java",
+        "tests/integration/security/AlwaysPresentFieldsIT.java"
+      ]
+    },
+    "AC-019-1": {
+      "stories": [
+        "US-019"
+      ],
+      "requirements": [
+        "FR-001",
+        "FR-002",
+        "FR-003"
+      ],
+      "tests": [
+        "tests/e2e/endpoints.spec.ts",
+        "tests/unit/frontend/EndpointsPage.test.tsx"
+      ]
+    },
+    "AC-019-2": {
+      "stories": [
+        "US-019"
+      ],
+      "requirements": [
+        "FR-001",
+        "FR-002",
+        "FR-003"
+      ],
+      "tests": [
+        "tests/e2e/endpoints.spec.ts",
+        "tests/unit/frontend/EndpointsPage.test.tsx"
+      ]
+    },
+    "AC-019-3": {
+      "stories": [
+        "US-019"
+      ],
+      "requirements": [
+        "FR-001",
+        "FR-002",
+        "FR-003"
+      ],
+      "tests": [
+        "tests/e2e/endpoints.spec.ts",
+        "tests/unit/frontend/EndpointsPage.test.tsx"
+      ]
+    },
+    "AC-019-4": {
+      "stories": [
+        "US-019"
+      ],
+      "requirements": [
+        "FR-001",
+        "FR-002",
+        "FR-003"
+      ],
+      "tests": [
+        "tests/e2e/endpoints.spec.ts",
+        "tests/unit/frontend/EndpointsPage.test.tsx"
+      ]
+    },
+    "AC-020-1": {
+      "stories": [
+        "US-020"
+      ],
+      "requirements": [
+        "FR-030",
+        "FR-031"
+      ],
+      "tests": [
+        "tests/e2e/protocol.spec.ts",
+        "tests/unit/frontend/DeliveryProtocolPage.test.tsx"
+      ]
+    },
+    "AC-020-2": {
+      "stories": [
+        "US-020"
+      ],
+      "requirements": [
+        "FR-030",
+        "FR-031"
+      ],
+      "tests": [
+        "tests/e2e/dead-deliveries.spec.ts",
+        "tests/unit/frontend/DeadDeliveryPage.test.tsx"
+      ]
+    },
+    "AC-020-3": {
+      "stories": [
+        "US-020"
+      ],
+      "requirements": [
+        "FR-030",
+        "FR-031"
+      ],
+      "tests": [
+        "tests/e2e/dead-deliveries.spec.ts",
+        "tests/e2e/protocol.spec.ts",
+        "tests/unit/frontend/DeadDeliveryPage.test.tsx",
+        "tests/unit/frontend/DeliveryProtocolPage.test.tsx"
+      ]
+    },
+    "AC-020-4": {
+      "stories": [
+        "US-020"
+      ],
+      "requirements": [
+        "FR-030",
+        "FR-031"
+      ],
+      "tests": [
+        "tests/e2e/protocol.spec.ts",
+        "tests/unit/frontend/DeliveryProtocolPage.test.tsx"
+      ]
+    },
+    "AC-021-1": {
+      "stories": [
+        "US-021"
+      ],
+      "requirements": [
+        "NFR-005"
+      ],
+      "tests": [
+        "tests/e2e/a11y.spec.ts"
+      ]
+    },
+    "AC-021-2": {
+      "stories": [
+        "US-021"
+      ],
+      "requirements": [
+        "NFR-005"
+      ],
+      "tests": [
+        "tests/e2e/a11y.spec.ts",
+        "tests/unit/frontend/a11y.test.tsx"
+      ]
+    },
+    "AC-021-3": {
+      "stories": [
+        "US-021"
+      ],
+      "requirements": [
+        "NFR-005"
+      ],
+      "tests": [
+        "tests/e2e/a11y.spec.ts"
+      ]
+    },
+    "AC-021-4": {
+      "stories": [
+        "US-021"
+      ],
+      "requirements": [
+        "NFR-005"
+      ],
+      "tests": [
+        "tests/e2e/a11y.spec.ts",
+        "tests/unit/frontend/a11y.test.tsx"
+      ]
+    },
+    "AC-022-1": {
+      "stories": [
+        "US-022"
+      ],
+      "requirements": [
+        "NFR-003"
+      ],
+      "tests": [
+        "tests/integration/schema/SchemaMirrorIT.java",
+        "tests/integration/tenant/RowLevelSecurityIT.java",
+        "tests/integration/tenant/TenantIsolationIT.java"
+      ]
+    },
+    "AC-022-2": {
+      "stories": [
+        "US-022"
+      ],
+      "requirements": [
+        "NFR-003"
+      ],
+      "tests": [
+        "tests/integration/tenant/RowLevelSecurityIT.java",
+        "tests/integration/tenant/TenantIsolationIT.java"
+      ]
+    },
+    "AC-022-3": {
+      "stories": [
+        "US-022"
+      ],
+      "requirements": [
+        "NFR-003"
+      ],
+      "tests": [
+        "tests/integration/tenant/TenantIsolationIT.java"
+      ]
+    },
+    "AC-022-4": {
+      "stories": [
+        "US-022"
+      ],
+      "requirements": [
+        "NFR-003"
+      ],
+      "tests": [
+        "tests/integration/security/ForeignResourceIsolationIT.java",
+        "tests/integration/security/RoleCapabilityMatrixIT.java",
+        "tests/integration/tenant/TenantIsolationIT.java"
+      ]
+    },
+    "AC-023-1": {
+      "stories": [
+        "US-023"
+      ],
+      "requirements": [
+        "NFR-006"
+      ],
+      "tests": [
+        "tests/e2e/health.spec.ts",
+        "tests/integration/deployment/ContainerStartupIT.java"
+      ]
+    },
+    "AC-023-2": {
+      "stories": [
+        "US-023"
+      ],
+      "requirements": [
+        "NFR-006"
+      ],
+      "tests": [
+        "tests/integration/deployment/TenantInstanceIT.java"
+      ]
+    },
+    "AC-023-3": {
+      "stories": [
+        "US-023"
+      ],
+      "requirements": [
+        "NFR-006"
+      ],
+      "tests": [
+        "tests/integration/deployment/HorizontalScalingIT.java"
+      ]
+    },
+    "AC-023-4": {
+      "stories": [
+        "US-023"
+      ],
+      "requirements": [
+        "NFR-006"
+      ],
+      "tests": [
+        "tests/integration/deployment/HorizontalScalingIT.java"
+      ]
+    },
+    "AC-023-5": {
+      "stories": [
+        "US-023"
+      ],
+      "requirements": [
+        "NFR-006"
+      ],
+      "tests": [
+        "tests/integration/deployment/EnvironmentSeparationIT.java"
+      ]
+    }
+  },
   "requirements_without_story": [],
   "architecture_constraints": [],
   "open_points": [
@@ -2086,5 +3552,17 @@
       "source": "Anforderung Abschnitt 11 - technische Größe"
     }
   ],
-  "gaps": []
+  "gaps": [
+    {
+      "id": "S-22",
+      "art": "matrix",
+      "requirement_id": "NFR-006",
+      "path": "docker-compose.yml",
+      "grund": "Die in docs/architecture/folder-structure.md Paragraf 1 und .agent/knowledge/stack.md vorgesehene lokale Compose-Datei existiert nicht.",
+      "decision": "Bleibt offen - die Datei gehoert zu Schritt 9 (Deployment & Betrieb). Kein Test verlangt sie: EnvironmentSeparationIT prueft die Konfigurationen und den Bereitstellungsdeskriptor, nicht Compose.",
+      "owner": "aisdlc-qa - Schritt 9 (Deployment & Betrieb)",
+      "step": "9",
+      "state": "open"
+    }
+  ]
 }

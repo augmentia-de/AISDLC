@@ -1,10 +1,13 @@
 # Traceability — Lückenliste
 
-> Schritt 1 (Anforderungserhebung) · Agent: `aisdlc-requirements` · Stand: 2026-10-21
+> Schritt 1 (Anforderungserhebung) · Agent: `aisdlc-requirements`
+> Erzeugt: 2026-10-21 · **Nachgezogen: 2026-10-22** (Schritt 1 erneut, ausschliesslich die Matrix)
 > Werkzeug: `python3 .agent/tools/traceability_check.py` · Matrix: `docs/requirements/traceability_matrix.json`
 
 **Kein Prozentwert.** Jede Lücke bekommt eine Entscheidung und eine Begründung, warum sie
-bleibt. Der Report wird in Schritt 5 (Testbezüge) und Schritt 6 (Codebezüge) fortgeschrieben.
+bleibt. Der Report wurde nach Schritt 5 (Testbezüge) und Schritt 6 (Implementierung)
+fortgeschrieben; der Nachzug vom 2026-10-22 zieht die Matrix auf den **umgesetzten**
+Stand (Schritt 6 `e9e1bc1`, Schritt 7 `bd15f19`).
 
 ---
 
@@ -22,67 +25,68 @@ Exit-Code: 0
 | 2 | Story verweist auf unbekannte Anforderung | **grün** — jeder Verweis zeigt auf eine PRD-Zeile |
 | 3 | Story ohne Feature-Datei | **grün** — 23 Stories, 23 Feature-Dateien |
 | 4 | Story ohne Anforderungs-Bezug | **grün** — jede Story nennt mindestens eine Anforderungs-ID |
-| 5 | Akzeptanzkriterium ohne Matrix-Eintrag | **grün** — 101 Akzeptanzkriterien, alle in der Matrix geführt |
-| 6 | Matrix-Eintrag ohne Test | **grün** (formal) — siehe L-01: die Testbezüge sind in Schritt 1 Platzhalter |
-| 7 | Matrix-Eintrag ohne Code | **grün** (formal) — siehe L-02: die Codebezüge sind in Schritt 1 Platzhalter |
+| 5 | Akzeptanzkriterium ohne Matrix-Eintrag | **grün** — 101 Akzeptanzkriterien, alle in der Matrix geführt **und** im neuen `acceptance_criteria_index` mit Story, Anforderung und Test |
+| 6 | Matrix-Eintrag ohne Test | **grün (inhaltlich)** — jeder Eintrag nennt nur Testdateien, die existieren; der Umfang ist 23 Stories / 101 AKs / 24 Anforderungen unverändert |
+| 7 | Matrix-Eintrag ohne Code | **grün (inhaltlich)** — alle Codeverweise existieren, **außer** `docker-compose.yml` (S-22, offen, Schritt 9) |
 
-**Eine gefüllte Matrix ist kein Beleg.** Die Prüfungen 6 und 7 sind in Schritt 1 nur
-formal grün: es existiert noch weder ein Test noch ein Quellcode. Die Prüfungen 6 und 7
-müssen in Schritt 5 und Schritt 6 gegen das **Dateisystem** laufen, nicht gegen eine
-gefüllte Liste.
+**Eine gefüllte Matrix ist kein Beleg.** Die Prüfungen 6 und 7 sind jetzt gegen das
+**Dateisystem** gelaufen, nicht gegen eine gefüllte Liste. Das Werkzeug selbst prüft die
+Pfade weiterhin **nicht** — das macht der Nachzug maschinell (siehe unten).
+
+---
+
+## Maschineller Nachweis des Nachzugs
+
+Geprüft am 2026-10-22 über alle 24 Matrix-Einträge:
+
+| Größe | Wert |
+|---|---|
+| Pfadverweise auf existierende Dateien (Tests + Code) | **184** |
+| Ausdrücklich als **offen** markierte Verweise (mit `owner` und `step`) | **1** (`docker-compose.yml`, S-22) |
+| Tote Pfade ohne Markierung | **0** |
+| AK-Index-Einträge mit mindestens einem existierenden Test | **101 von 101** |
+| Anforderungen mit `coverage_state: "verified"` | **23** |
+| Anforderungen mit `coverage_state: "partial"` | **1** (NFR-006 — siehe S-22) |
 
 ---
 
 ## Verbleibende Lücken und ihre Entscheidungen
 
-### L-01 — Testbezüge sind Platzhalter (`coverage_state: "seeded"`)
+### L-01 — Testbezüge waren Platzhalter (`coverage_state: "seeded"`) → **abgebaut**
 
-**Lücke:** Jeder Matrix-Eintrag verweist auf geplante Testdateien (`tests/...`), die es
-noch nicht gibt. Das Werkzeug prüft nur, ob das Feld gefüllt ist — nicht, ob die Datei
-existiert.
+**Lücke (Stand Schritt 1):** Jeder Matrix-Eintrag verwies auf geplante Testdateien
+(`tests/...`), die es noch nicht gab. Das Werkzeug prüft nur, ob das Feld gefüllt ist —
+nicht, ob die Datei existiert.
 
-**Entscheidung:** Die Testpfade werden in **Schritt 5 (Test-Driven Setup)** erzeugt und
-dort gegen das Dateisystem geprüft. In Schritt 1 werden sie bewusst **nicht** erfunden,
-sondern aus der Story und dem geplanten Testtyp (Unit / Integration / E2E / Vertrag)
-abgeleitet.
+**Entscheidung:** Die Testpfade wurden in **Schritt 5** erzeugt und in Schritt 6/7
+umgesetzt. Der Nachzug vom 2026-10-22 hat sie gegen das Dateisystem geprüft: jeder
+`tests`-Eintrag steht jetzt auf `state: "implemented"` und nennt eine existierende Datei.
 
-**Warum sie bleibt:** Der Auftrag von Schritt 1 ist die Anforderung, nicht der Test. Ein
-hier erfundener Testpfad wäre eine Behauptung ohne Deckung.
+**Abgebaut in:** Schritt 5 (Testmatrix), Schritt 6/7 (Implementierung), Nachzug 2026-10-22.
 
-**Abgebaut in:** Schritt 5 (`.agent/artifacts/test-matrix.md`, Testdatei je Story).
+### L-02 — Codebezüge waren Platzhalter (`coverage_state: "seeded"`) → **abgebaut**
 
-### L-02 — Codebezüge sind Platzhalter (`coverage_state: "seeded"`)
+**Lücke (Stand Schritt 1):** Die Matrix nannte geplante Quelldateien. `src/` existierte
+noch nicht.
 
-**Lücke:** Die Matrix nennt geplante Quelldateien (`src/main/java/com/echobox/...`,
-`src/main/frontend/...`). Sie existieren nicht — `src/` ist im Projekt noch nicht angelegt.
+**Entscheidung:** Die Codeverweise wurden in **Schritt 6/7** geprüft. Der Nachzug hat die
+**fünf stale Pfade** auf ihre tatsächlichen Träger umgehängt (siehe L-05) und jeden
+verbleibenden Verweis gegen das Dateisystem geprüft.
 
-**Entscheidung:** Die Codebezüge werden in **Schritt 6 (Implementierung)** gegen die
-tatsächlich erzeugten Dateien geprüft. Die Modulnamen sind ein **Vorschlag** aus den
-Anforderungen (siehe `docs/requirements/PRD.md`, Abschnitt 12) und werden in Schritt 2
-bestätigt.
-
-**Warum sie bleibt:** Die Codebasis existiert nicht (Ergebnis der Codebase-Prüfung in
-Read-Only: `src/` ist leer). Der Neuaufbau ist gewollt.
-
-**Abgebaut in:** Schritt 6.
+**Abgebaut in:** Schritt 6/7, Nachzug 2026-10-22.
 
 ### L-03 — Offene Punkte O-01 bis O-07
 
 **Lücke:** Sieben Fragen sind bewusst nicht entschieden — fünf davon wörtlich aus
-Abschnitt 13 der Anforderung (Rate-Limit, Aufbewahrung, Replay-Berechtigung,
-Verschlüsselung im Ruhezustand, AVV bei Fremddaten), zwei aus Zahlenlücken in
-FR-022/FR-023 und aus Abschnitt 11 (Versuchsanzahl/Backoff, Zeitlimit je Versuch).
+Abschnitt 13 der Anforderung, zwei aus Zahlenlücken in FR-022/FR-023 und aus Abschnitt 11.
 
-**Entscheidung:** Sie sind als offene Punkte mit Owner (Fachbereich / Gate 1 bzw.
-Gate 2), Empfehlung und Begründung erfasst — in `docs/requirements/PRD.md` (Abschnitt 8),
-`.agent/artifacts/risk-register.md` und in der Traceability-Matrix (`open_points`). Sie
-sind **kein** Blocker für Schritt 1: die betroffenen Stories sind mit konfigurierbaren
-Parametern umgesetzt, sodass jede Festlegung nur noch einen Wert setzt.
+**Entscheidung:** Sie sind als offene Punkte mit Owner (Fachbereich / Gate 1 bzw. Gate 2),
+Empfehlung und Begründung erfasst. Sie bleiben **unberührt** — der Nachzug trifft zu
+**keiner** dieser Fragen eine Entscheidung. **O-04** (Verschlüsselung im Ruhezustand)
+und **O-05** (AVV) sind weiterhin offen, beide mit Gate 2 als Owner.
 
 **Warum sie bleiben:** Der Fachbereich hat sie bewusst offen gelassen; eine Festlegung
 durch den Requirements-Orchestrator wäre eine erfundene Anforderung.
-
-**Abgebaut in:** Gate 1 (O-01, O-02, O-03, O-04, O-06, O-07) und Gate 2 (O-05).
 
 ### L-04 — Keine Anforderung ohne Story
 
@@ -98,20 +102,72 @@ durch den Requirements-Orchestrator wäre eine erfundene Anforderung.
 | FR-011 | US-006 | FR-031 | US-016, US-020 |
 | FR-012 | US-007 | FR-032 | US-017 |
 | FR-013 | US-008 | FR-033 | US-018 |
-| FR-020 | US-009 | NFR-001 … NFR-006 | US-005, US-005/US-011, US-022, US-007, US-021, US-023 |
+| FR-020 | US-009 | NFR-001 … NFR-006 | US-005, US-005, US-022, US-007, US-021, US-023 |
+
+### L-05 — Fünf stale Codepfade (aus Schritt 1 geplant, in Schritt 6/7 nie angelegt)
+
+**Lücke:** Fünf Verweise der Matrix zeigten auf Dateien, die es nicht gibt. Der Vertrag
+und das Schema sind unberührt — es ist eine **Dokumentations**-Lücke, keine
+Implementierungslücke: die Verantwortung ist an einen anderen Baustein geflossen.
+
+| Geplanter Pfad (Schritt 1) | Tatsächlicher Träger (Schritt 6/7) | Bewertung |
+|---|---|---|
+| `crypto/SecretStore.java` | `crypto/PayloadCipher.java` (Chiffre des Secrets), `endpoint/EndpointRepository.java` (`secret_ciphertext`/`secret_nonce`), `delivery/DeliveryDispatcher.secret(…)` | **geflossen** — Pfad umgehängt |
+| `delivery/PayloadSource.java` | `delivery/DeliveryDispatcher.payloadBytes(…)` | **geflossen** — Pfad umgehängt |
+| `delivery/RetryScheduler.java` | `delivery/DeliveryDispatcher.record(…)` mit `delivery/BackoffPolicy.java` | **geflossen** — Pfad umgehängt |
+| `tenant/TenantConnectionInitializer.java` | `tenant/TenantTransactionRunner.java` — `setTenant(…)` **innerhalb** der lesenden Transaktion (ADR-002 §3) | **geflossen** — Pfad umgehängt; der historische Name bleibt in `docs/architecture/folder-structure.md` §2.6 stehen (E-05: der Name bleibt, die Semantik steht im ADR) |
+| `config/TenantInstanceConfiguration.java` | `config/EchoBoxProperties.java` (`echobox.tenant.id`), `delivery/DeliveryWorker.java` (`buildInstanceId(…)`), `tenant/TenantInstanceFilter.java` (Bindung durchsetzen) | **geflossen** — Pfad umgehängt |
+
+**Entscheidung:** Jeder der fünf Pfade ist auf den tatsächlichen Träger umgehängt; die
+Matrix trägt die Erklärung je Eintrag (`note`). **Kein Klassen- oder Modulname wurde
+umbenannt** (E-05).
+
+### L-06 — Zwei Testdateien belegen AK, standen aber nicht in der Matrix
+
+**Lücke:** `AC-023-2` (Mandanteninstanz) und `AC-023-5` (getrennte Umgebungen) waren ohne
+Testverweis — die sie belegenden Dateien fehlten in der Liste.
+
+**Entscheidung:** `tests/integration/deployment/TenantInstanceIT.java` (AC-023-2) und
+`tests/integration/deployment/EnvironmentSeparationIT.java` (AC-023-5) sind im Eintrag
+NFR-006 eingetragen; beide AK stehen mit Story (US-023), Anforderung (NFR-006) und Test
+im neuen `acceptance_criteria_index`. **Kein AK wurde geändert oder ergänzt** — der
+Umfang bleibt 23 Stories / 101 AKs / 24 Anforderungen.
+
+### L-07 — Querschnittliche Testdateien standen nicht in der Matrix
+
+**Lücke:** Dateien wie `RoleCapabilityMatrixIT`, `ForeignResourceIsolationIT`,
+`AlwaysPresentFieldsIT` und `AlwaysPresentFieldsContractTest` belegen AKs der
+Anforderungen, standen aber in keiner Testliste.
+
+**Entscheidung:** Je Anforderung nennt die Matrix jetzt **jede** Datei, die ein AK des
+Eintrags belegt. Die Liste ist aus dem Repository abgeleitet (AK-ID im Namen eines
+Testfalls) und deckungsgleich mit dem Beleg `.agent/artifacts/traceability-verification.md`
+Abschnitt 3.
+
+### S-22 — `docker-compose.yml` fehlt → **offen, Owner Schritt 9**
+
+**Lücke:** Die in `docs/architecture/folder-structure.md` §1 und `.agent/knowledge/stack.md`
+vorgesehene lokale Compose-Datei existiert nicht. Der Verweis der Matrix ist als
+`state: "open"` mit `owner` und `step` markiert — **nicht** als erledigt.
+
+**Warum sie bleibt:** Kein Test verlangt sie — `EnvironmentSeparationIT` prüft die
+Konfigurationen und den Bereitstellungsdeskriptor, nicht Compose. Der Befund ist in
+Schritt 7 als **S-22** erfasst (`.agent/artifacts/refactoring-report.md` §4 und §6) und
+gehört zu **Schritt 9 (Deployment & Betrieb)**.
+
+**Abgebaut in:** Schritt 9.
 
 ---
 
-## Was der nächste Schritt mit der Matrix macht
+## Was als Nächstes passiert
 
-1. **Schritt 2 (Architektur)** bestätigt die Modulnamen und ergänzt die
-   Vertragspunkte (Signaturverfahren und Header-Name, Ablehnungssignal, Kennungen-Header,
-   Zustellvokabular, Rollenmatrix). Die Vertragsdatei wird nach Schritt 4 eingefroren.
-2. **Schritt 5 (Test-Driven Setup)** ersetzt jeden Testplatzhalter durch eine echte
-   Testdatei und prüft die Matrix gegen `tests/`.
-3. **Schritt 6 (Implementierung)** ersetzt jeden Codeplatzhalter durch eine echte
-   Quelldatei und prüft die Matrix gegen `src/`.
-4. **Schritt 8 (Security)** prüft die Kette vor Gate 2 erneut.
+1. **Schritt 8 (Security & Compliance)** prüft die Kette vor Gate 2 erneut — jetzt gegen
+   die tatsächlichen Dateien. Die Matrix behauptet nichts mehr, was das Repository nicht
+   hergibt.
+2. **Schritt 9 (Deployment & Betrieb)** erstellt `docker-compose.yml` (S-22) und schließt
+   den Eintrag in der Matrix (`state: "open"` → `state: "implemented"`).
+3. Eine Änderung am Vertrag oder am Schema ist **kein** Rücksprung in diese Matrix —
+   sie wäre ein Rücksprung nach Schritt 2 (der Vertrag ist seit Schritt 4 eingefroren).
 
 **Regel:** Lücken werden nie durch Entfernen von Matrix-Einträgen geschlossen. Eine
 weggelassene Zeile ist eine verschwundene Anforderung.
