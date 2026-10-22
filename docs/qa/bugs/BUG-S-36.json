@@ -1,0 +1,46 @@
+{
+  "id": "BUG-S-36",
+  "title": "Eine nicht unterstuetzte HTTP-Methode ergibt 500 mit Stacktrace statt 4xx — auch ohne Anmeldung erreichbar",
+  "severity": "medium",
+  "category": "error-handling",
+  "component": "src/main/java/com/echobox/common/GlobalExceptionHandler.java",
+  "path": "src/main/java/com/echobox/common/GlobalExceptionHandler.java",
+  "line": 283,
+  "secondary_locations": [
+    {
+      "path": "src/main/java/com/echobox/common/GlobalExceptionHandler.java",
+      "line": 246
+    },
+    {
+      "path": "src/main/java/com/echobox/common/GlobalExceptionHandler.java",
+      "line": 267
+    },
+    {
+      "path": "src/main/java/com/echobox/config/SecurityConfiguration.java",
+      "line": 70
+    },
+    {
+      "path": "docs/api/openapi.yaml",
+      "line": 1641
+    }
+  ],
+  "cause": "Die Nacharbeit zu S-30 hat eigene Faelle fuer HttpMediaTypeNotSupportedException, HttpMediaTypeNotAcceptableException (beide -> 400 malformed_request, GlobalExceptionHandler.java:246-253) und MultipartException (-> 400, :267-274) angelegt. Die **Methode** hat keinen eigenen Fall: HttpRequestMethodNotSupportedException faellt in den allgemeinen Handler (:283-290), der LOG.error(..., exception) protokolliert (Stacktrace) und internal_error (500) antwortet. Die Ausnahme ist ein Fehler des **Aufrufers** (die Methode ist fuer diesen Pfad nicht definiert), kein Serverfehler. Der Pfad ist **ohne Anmeldung** erreichbar, weil die Gesundheitspfade permitAll sind (SecurityConfiguration.java:70-71).",
+  "impact": "Kein Datenverlust, kein Mandantenbruch, keine Verfuegbarkeitswirkung — die **Antwort** gibt kein internes Detail preis (belegt: UnsupportedMethodErrorIT, 2 Tests gruen). Die Wirkung ist dreifach: (1) **Protokollverstaerkung** — jeder Aufruf schreibt einen vollstaendigen Stacktrace (~2 KB) auf ERROR ins Betriebsprotokoll; (2) **Monitoring-Verauschaetzung** — der Fehler des Aufrufers erscheint als Serverfehler, jedes 5xx-Alarm-System meldet ihn; (3) **Ressourcen** — das Anfragelimit greift fuer diese Anfragen nicht, weil der Zaehler je Mandant zaehlt und diese Anfragen keinen Mandanten haben (ApiRateLimitFilter.java:85-98, offene Frage Q-9). Ein unauthentifizierter Aufrufer kann das Protokoll beliebig gefuellen.",
+  "exploitability": "Belegt: `POST /health` (ohne Token) -> HTTP 500 `internal_error` + Stacktrace im Protokoll; ebenso `PUT /health` und `POST /actuator/health`. Mit Token: `GET|PUT|DELETE /api/v1/events`, `GET /api/v1/endpoints/{id}/pause`, `DELETE /api/v1/endpoints/{id}`, `GET /api/v1/retention/enforcement` -> je 500. Der Vertrag kennt fuer einen Fehler des Aufrufers nur 4xx (400/401/403/404/409/413/422/429) — ein 500 ist laut Vertrag 'unerwarteter Fehler'.",
+  "reproduction": {
+    "command": "curl -i -X POST http://127.0.0.1:8080/health ; grep 'Unerwarteter Fehler' <log> | head -3",
+    "test": "tests/integration/security/UnsupportedMethodErrorIT (2 Tests, gruen) — belegt den Ist-Zustand (500) und dass die Antwort kein internes Detail preisgibt. Der **Abnahmetest** fuer die Korrektur (4xx) steht unten.",
+    "expected": "4xx (400 malformed_request) — eine nicht unterstuetzte Methode ist ein Fehler des Aufrufers; kein Stacktrace im Protokoll",
+    "actual": "500 internal_error + vollstaendiger Stacktrace im Protokoll auf ERROR",
+    "evidence": "Sonde ueber 15 Methode/Pfad-Kombinationen: 9 davon antworten mit 500 internal_error und erzeugen 9 Stacktraces im Protokoll; die uebrigen korrekt (200 health/readiness/actuator, 400 malformed_request, 404 not_found). GlobalExceptionHandler.java kennt keinen Fall fuer HttpRequestMethodNotSupportedException."
+  },
+  "recommendation": "In GlobalExceptionHandler einen eigenen Fall fuer HttpRequestMethodNotSupportedException ergaenzen und auf **400 `malformed_request`** abbilden (vertragskonform — der eingefrorene Vertrag kennt **kein 405**; `grep '\"405\"' docs/api/openapi.yaml` liefert keine Treffer, die Fehlersemantik in openapi.yaml:78-91 kennt nur 400/401/403/404/409/413/422/429/500/503. Ein 415/405 waere ein Vertragswechsel und damit ein Ruecksprung zu Schritt 2. Ebenso vertragskonform waere 404 `not_found` — die Kombination aus Pfad und Methode existiert nicht; 400 ist die konsistente Aufloesung zu S-30). Analog zu S-30 auf **DEBUG ohne Exception-Objekt** protokollieren. Abnahmetest (in tests/integration/security/ abzulegen, wird gruen, sobald der Fall existiert):\n\n```java\n@Test\n@DisplayName(\"S-36: eine nicht unterstuetzte Methode ergibt 4xx, keinen 500\")\nvoid an_unsupported_method_must_not_be_answered_with_500() throws Exception {\n    HttpResponse<String> response = send(\"POST\", \"/health\");\n    assertThat(response.statusCode()).isBetween(400, 499);\n    assertThat(response.body()).contains(\"malformed_request\").doesNotContain(\"internal_error\");\n}\n```",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, dritte Runde",
+  "security_finding": "S-36",
+  "related_findings": [
+    "S-30",
+    "Q-9"
+  ],
+  "status": "offen"
+}

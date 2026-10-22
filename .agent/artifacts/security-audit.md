@@ -11,86 +11,90 @@
 
 ## 1. Ergebnis in einem Satz
 
-**0 Critical · 1 High · 4 Medium · 2 Low → Freigabe-Empfehlung: BLOCKIEREN.**
-Die Gate-Bedingung („Security 0 Critical und 0 High") ist **nicht** erfüllt; ein
-Deployment (Schritt 9) ist **nicht** freigegeben. Erforderlich ist ein Rücksprung zu
-**Schritt 6/7** (Implementierung) — der eingefrorene Vertrag bleibt dabei unverändert.
+**0 Critical · 0 High · 1 Medium · 1 Low → Freigabe-Empfehlung: FREIGEBEN.**
+Die Gate-Bedingung („Security 0 Critical und 0 High") ist **erfüllt**; ein Deployment
+(Schritt 9) ist **freigegeben**. Zwei Befunde bleiben offen (S-36 Medium, S-35 Low) —
+beide sind **keine** Gate-Blocker, beide tragen einen fertigen Abnahmetest in ihrer
+Fehlerspur.
 
 | Schwere | Anzahl | Befund-IDs |
 |---|---|---|
 | Critical | **0** | — |
-| **High** | **1** | **S-28** (Body-Grenze über den Medientyp umgehbar) |
-| Medium | **4** | S-29 (Audience fail-open), S-30 (500 statt 4xx), S-31 (Container-Pin unter der Fix-Linie), S-32 (SCA-Gate ohne Baseline) |
-| Low | **2** | S-33 (Token ohne Mandant → 500), S-34 (veralteter Javadoc) |
+| **High** | **0** | — |
+| Medium | **1** | **S-36** (nicht unterstützte HTTP-Methode → 500 mit Stacktrace statt 4xx) |
+| Low | **1** | **S-35** (Dokumentation der Audience widerspricht dem fail-closed-Verhalten) |
 
-> **Runde 2.** Die Nacharbeit (`d135cda`, Doku `28396e0`) hat S-19…S-27 und A-1 behoben.
-> Diese Runde hat **jeden** Befund am aktuellen Stand **mit eigenem Nachweis**
-> nachgeprüft und danach ein **erneutes vollständiges Audit** geführt. **Ein** Befund
-> ist **neu** (S-28, High) — und er betrifft dieselbe Stelle, die in Runde 1 als S-20
-> (High) behoben gemeldet wurde.
+> **Runde 3.** Die Nacharbeit 2 (`3a5ae70`) hat **alle sieben** Befunde der zweiten
+> Runde behoben (S-28…S-34). Diese Runde hat **jeden** davon am aktuellen Stand **mit
+> eigenem Nachweis** nachgeprüft und danach ein **erneutes vollständiges Audit**
+> geführt. Zwei Befunde sind **neu** — beide unterhalb der Gate-Schwelle.
 
-## 2. Der High im Überblick
+## 2. Der neue Medium-Befund im Überblick
 
 | ID | Nachweis | Ausnutzbarkeit |
 |---|---|---|
-| **S-28** | `src/main/java/com/echobox/tenant/TenantParameterFilter.java:160-167` — die 2-MiB-Grenze wird nur für Bodies geprüft, deren Content-Type mit `application/json` beginnt; Spring MVC liest aber auch `application/*+json` (`MappingJackson2HttpMessageConverter`). **Beleg:** `SecurityGapRound2IT` → „expected: 413 but was: **202**" bei 2.097.298 Byte; **202** auch bei 20.971.604 Byte. | Ein angemeldeter Mandant (jede Rolle) sendet einen POST mit `Content-Type: application/vnd.custom+json` und einem beliebig grossen JSON-Body → der Body wird **unbegrenzt** in den Heap des **geteilten** JVM allokiert → `OutOfMemoryError` → Ausfall für **alle** Mandanten. Ein gültiges Token genügt. |
+| **S-36** | `src/main/java/com/echobox/common/GlobalExceptionHandler.java:283-290` — `HttpRequestMethodNotSupportedException` hat **keinen** eigenen Fall (die Nacharbeit zu S-30 hat nur *Medientyp* und *Multipart* abgedeckt) → **500 `internal_error`** + **Stacktrace** im Protokoll. **Belegt** durch eine Sonde über 15 Methode/Pfad-Kombinationen: `POST /health`, `PUT /health`, `POST /actuator/health` — **ohne Token** → 500; 9 Stacktraces im Protokoll. Die **Antwort** gibt nachweislich **kein** internes Detail preis (`UnsupportedMethodErrorIT`, grün). | Ein Aufrufer erzeugt unbegrenzt 500er **mit** Stacktrace im Betriebsprotokoll — das Anfragelimit zählt je Mandant, diese Anfragen haben keinen Mandanten (**Q-9**). Monitoring-Verschmutzung, Protokollverstärkung. **Keine** Verletzung der Antwort, keine Daten, kein Mandantenbruch, keine Verfügbarkeitswirkung. |
 
-## 3. Nachprüfung der Befunde der ersten Runde
+## 3. Nachprüfung der Befunde der zweiten Runde
 
-| ID | Schwere (Runde 1) | Bewertung | Fundstelle |
+| ID | Schwere (Runde 2) | Bewertung | Fundstelle |
 |---|---|---|---|
-| **S-19** | High | **behoben** (Einschränkung → S-31) | `mvn dependency:tree` → `tomcat-embed-core:10.1.55`; OSV 96 → 20; die drei erreichbaren CVEs nicht mehr enthalten |
-| **S-20** | High | **teilweise behoben** → **S-28** | `TenantParameterFilter.java:139-158` (begrenztes Lesen) — greift nur für `application/json` |
-| **S-21** | Medium | **teilweise behoben** → **S-29** | `SecurityConfiguration.java:112-163` — die Audience-Prüfung fällt bei leerer Konfiguration still aus (`:126`) |
-| **S-22** | Medium | **behoben** | `CoreConfiguration.java:71-79` (exakt 32 Byte) |
-| **S-23** | Medium | **behoben** | `DeliveryHttpClient.java:135-187` (`LimitedBodySubscriber`, 1 MiB) |
-| **S-24** | Medium | **behoben** | `ApiRateLimitFilter` + `ApiRateLimiter`; `Retry-After` vertragskonform |
-| **S-25** | Medium | **behoben** (strukturell) → **S-32** | `deploy.yml:51-93`, `:99-107` — aber ohne Baseline |
-| **S-26** | Low | **behoben** | `Dockerfile:36-42` |
-| **S-27** | Low | **behoben** | `application-production.yml:25`, `Dockerfile:63`, `deploy.yml:127/:155` |
-| **A-1** | QA | **behoben** | `pom.xml:224-277` — JaCoCo `check`, `minimum 0.80`, Phase `verify` |
-| **A-6 / B-17** | QA | **behoben** (Code + Doku) | `DeliveryStateMachine.TRANSITIONS:33-41`; `domain_model.md` §3.3 |
+| **S-28** | High | **behoben** | `TenantParameterFilter.java:88-149` — die Grenze hängt an der **Methode**, nicht am Medientyp; der Converter sieht nur die **begrenzten** Byte. `RequestBodyBoundaryAuditIT` (15, grün): 6 Medientypen, chunked, ohne `Content-Length`, ohne `Content-Type`, gzip-Bombe, knapp unter der Grenze, GET mit übergroßem Body. |
+| **S-29** | Medium | **behoben** | `SecurityConfiguration.java:144-150, 178-192`; `AudiencePolicy.java:28-36` (Startabbruch). `AudienceFailClosedPathsTest` (4, grün). *Rest: die Doku → **S-35**.* |
+| **S-30** | Medium | **behoben** | `GlobalExceptionHandler.java:246-253, 267-274` — Medientyp und Multipart → 400 ohne Stacktrace. `ErrorMappingLeakTest` (7, grün). *Rest: die **Methode** → **S-36**.* |
+| **S-31** | Medium | **behoben** | `pom.xml:65` → 10.1.61; eigene OSV-Abfrage: 10.1.55 → **3** Advisories, 10.1.61 → **0**. `DependencyHardeningTest` (grün) verlangt jetzt ≥ 10.1.59. |
+| **S-32** | Medium | **behoben** | `osv-scanner.toml` (26 Einträge) + `deploy.yml:56-64`; eigene Abfrage: 17 + 9 = **26** = **exakt** die Baseline (**0 neu**, **0 verwaist**). |
+| **S-33** | Low | **behoben** | `TenantTransactionRunner.java:100-105` → `UnauthenticatedException` → **401**. `ErrorMappingLeakTest` + `MissingTenantIT` (grün). *Rest: **Q-9**.* |
+| **S-34** | Low | **behoben** | `DeliveryStateMachine.java:11-31, 118-124` — die Nachziehungs-Zusage ist entfernt. `DeliveryStateMachineDocumentationTest` (2, grün). |
 
-**8 behoben · 2 teilweise behoben · 0 offen geblieben.**
+**7 behoben · 0 teilweise behoben · 0 offen geblieben.**
 
 ## 4. Die zehn Prüfungen — Ergebnis in einer Zeile je Prüfung
 
 | # | Prüfung | Ergebnis | Kurzbeleg |
 |---|---|---|---|
-| 1 | Authentifizierung | **2 Medium (S-29, S-33)** | 401 statt 403/500 ✓; RS256-only, kein `none`, kein HS256 ✓; `exp` **und** `nbf` geprüft, `exp` Pflicht ✓; Audience ✓ — **aber fail-open bei leerer Konfiguration** (S-29); `iss` nicht geprüft (der Vertrag fordert keinen) |
-| 2 | Autorisierung / IDOR | **kein Fund** | Besitzprüfung auf jeder Objekt-Route (404 vor 403); RLS auf allen 10 Tabellen, `WITH CHECK`, fail-closed, kein `BYPASSRLS`; 3 Eigentümerfunktionen, fail-closed; der Mandant stammt ausschließlich aus dem Token (der `application/*+json`-Weg umgeht nur die *Body*-Prüfung — ein Mandantenwechsel bleibt unmöglich, `fail-on-unknown-properties: true`) |
-| 3 | Secrets | **kein Fund** | Secret-Scan → 2 Test-Fixtures; Git-Historie → 0 Treffer; `.env` in `.gitignore`; keine Schlüssel in Config/Image/CI; Startfehler bei fehlender Konfiguration ✓ — **Ausnahme: die Audience (S-29)** |
+| 1 | Authentifizierung | **kein Fund** | 401 statt 403/500 ✓; RS256-only, kein `none`, kein HS256 ✓; `exp` **und** `nbf` geprüft, `exp` Pflicht ✓; Audience **immer** aktiv, leere Konfiguration ⇒ Startabbruch ✓ (S-29 behoben); `iss` nicht geprüft (der Vertrag fordert keinen) |
+| 2 | Autorisierung / IDOR | **kein Fund** | Besitzprüfung auf jeder Objekt-Route (404 vor 403); RLS auf allen 10 Tabellen, `WITH CHECK`, fail-closed, kein `BYPASSRLS`; 3 Eigentümerfunktionen, fail-closed; der Mandant stammt ausschließlich aus dem Token |
+| 3 | Secrets | **kein Fund** | Secret-Scan → 2 Test-Fixtures; Git-Historie → 0 Treffer; `.env` in `.gitignore`; keine Schlüssel in Config/Image/CI; Startfehler bei fehlender Konfiguration ✓ (Schlüssel, Zielgruppe, JWKS) |
 | 4 | Injection | **kein Fund** | ausschließlich benannte Parameter; 0 Treffer bei SQL-Konkatenation; kein `Runtime.exec`; keine Dateipfade aus Eingaben |
-| 5 | Ausgabe / XSS | **1 Medium (S-30)** | kein `dangerouslySetInnerHTML`/`innerHTML`/`eval`; Fehlerantwort ohne Stacktrace/SQL/Pfade ✓ — **ein nicht unterstützter Medientyp ergibt aber 500 mit Stacktrace** |
+| 5 | Ausgabe / XSS | **1 Medium (S-36)** | kein `dangerouslySetInnerHTML`/`innerHTML`/`eval`; Fehlerantwort ohne Stacktrace/SQL/Pfade ✓ (auch beim unerwarteten Fehler); Medientyp und Multipart → 4xx ✓ — **die nicht unterstützte Methode bleibt 500** (S-36) |
 | 6 | Session und Transport | **kein Fund** | stateless, CSRF aus (ohne Cookie im Browser korrekt); httpOnly/sameSite/secure ✓; Security-Header ✓; CORS nicht konfiguriert, Same-Origin-Rewrite — vertretbar; HSTS = offene Frage Q-1 |
-| 7 | Rate-Limiting und Ressourcen | **1 High (S-28), 1 Medium (S-30), 1 Low (S-33)** | ausgehend ✓; eingehend ✓ (429 + `Retry-After` vertragskonform, je Mandant); 1-MiB-Nutzlastgrenze ✓; Paginierung begrenzt ✓; **die Body-Grenze ist über den Medientyp umgehbar** (S-28) |
-| 8 | Abhängigkeiten und Container | **2 Medium (S-31, S-32)** | 96 → 20 Advisories, die 3 erreichbaren behoben; non-root ✓, gepinnte Tags **und gepinnte apt-Pakete** ✓, Multi-Stage ✓, Health-Check ✓, keine Secrets im Image ✓; CI mit Secret-/SCA-Scan und Lauf-Token ✓ — **aber ohne Baseline schlägt der SCA-Gate immer an** (S-32) und **der Container-Pin liegt unter der Fix-Linie** (S-31) |
-| 9 | Logging und Datenschutz | **1 Low (S-33)** | Logstellen nur Metadaten — kein Klartextpayload, kein Secret, kein Token; Retention 30 Tage dokumentiert; Recht auf Löschung über die Purge-Stufe — **Fehler des Aufrufers erzeugen 500er mit Stacktrace** |
-| 10 | OWASP Top 10 | **A01–A10 geprüft** | A01 ✓ · A02 ✓ (S-22 behoben) · A03 ✓ · A04 (S-28) · A05 (S-29/S-30) · A06 (S-31) · A07 (S-29) · A08 ✓ · A09 (S-30/S-33) · A10 ✓ (eine offene Frage) |
+| 7 | Rate-Limiting und Ressourcen | **kein Fund** (ein Low-Rest: Q-9) | ausgehend ✓; eingehend ✓ (429 + `Retry-After` vertragskonform, je Mandant); 1-MiB-Nutzlastgrenze ✓; Paginierung begrenzt ✓; **die Body-Grenze ist medientyp-unabhängig und nicht umgehbar** ✓ (S-28 behoben) |
+| 8 | Abhängigkeiten und Container | **kein Fund** | 20 → **17** Java-Advisories, alle nicht erreichbar; die 3 Tomcat-Advisories mit dem Pin 10.1.61 behoben; non-root ✓, gepinnte Tags **und gepinnte apt-Pakete** ✓, Multi-Stage ✓, Health-Check ✓, keine Secrets im Image ✓; CI mit Secret-/SCA-Scan, **kalibrierter** Baseline und Lauf-Token ✓ (S-32 behoben) |
+| 9 | Logging und Datenschutz | **1 Medium (S-36)** | Logstellen nur Metadaten — kein Klartextpayload, kein Secret, kein Token; Retention 30 Tage dokumentiert, Purge-Stufe wirksam; Recht auf Löschung fachlich offen (Q-3) — **die nicht unterstützte Methode erzeugt weiterhin 500er mit Stacktrace** (S-36) |
+| 10 | OWASP Top 10 | **A01–A10 geprüft** | A01 ✓ · A02 ✓ · A03 ✓ · A04 ✓ (S-28 behoben) · A05 (S-36) · A06 ✓ · A07 ✓ (S-29 behoben) · A08 ✓ · A09 (S-36) · A10 ✓ (eine offene Frage) |
 
 ## 5. Nachweiskette — jeder Befund ist festgenagelt
 
 | Art | Tests | Ergebnis |
 |---|---|---|
-| **Abwehr belegen** | `SecurityHardeningIT` (7), `JwtDecoderHardeningTest` (7), `RequestBodyLimitIT` (2), `ApiRateLimitIT` (4), **`ApiRateLimitHardeningTest` (5, neu)**, `JwtAudienceHardeningTest` (4), `CryptoKeyLengthTest` (4), `DeliveryResponseLimitTest` (3), `DependencyHardeningTest` (2), `ContainerHardeningIT` (8) | **46 grün** |
-| **Lücke belegen (Runde 1)** | `SecurityGapTest` (4), `SecurityGapIT` (2) | **6 grün** — die Nacharbeit hat alle sechs geschlossen, ohne einen Test zu ändern |
-| **Lücke belegen (Runde 2)** | `SecurityGapRound2Test` (2), `SecurityGapRound2IT` (2) | **4 schlagen fehl** — jede Fehlermeldung benennt genau die verletzte Eigenschaft |
-
-Strukturierte Fehlerbeschreibungen: `docs/qa/bugs/BUG-S-19.json` … `BUG-S-24.json`,
-`BUG-B-17.json` (Runde 1) und **`BUG-S-28.json` … `BUG-S-34.json`** (Runde 2).
+| **Abwehr belegen** (neu in dieser Runde) | `RequestBodyBoundaryAuditIT` (15), `AudienceFailClosedPathsTest` (4), `ErrorMappingLeakTest` (7), `UnsupportedMethodErrorIT` (2) | **28 grün** |
+| **Abwehr belegen** (aus den Runden 1 + 2) | `SecurityHardeningIT` (7), `JwtDecoderHardeningTest` (7), `RequestBodyLimitIT` (2), `RequestBodyMediaTypeLimitIT` (8), `ApiRateLimitIT` (4), `ApiRateLimitHardeningTest` (5), `JwtAudienceHardeningTest` (4), `AudienceFailClosedTest` (4), `CryptoKeyLengthTest` (4), `DeliveryResponseLimitTest` (3), `DependencyHardeningTest` (2), `ContainerHardeningIT` (8), `ScaBaselineIT` (3), `MediaTypeErrorIT` (6), `MissingTenantIT` (1), `DeliveryStateMachineDocumentationTest` (2) | **70 grün** |
+| **Lücke belegen (Runden 1 + 2)** | `SecurityGapTest` (4), `SecurityGapIT` (2), `SecurityGapRound2Test` (2), `SecurityGapRound2IT` (2) | **10/10 grün** — die Nacharbeit 2 hat alle zehn geschlossen, **ohne einen Test zu ändern** |
+| **Offen** | `BUG-S-35.json` (Low, Dokumentation), `BUG-S-36.json` (Medium, Statuszuordnung) | **beide mit fertigem Abnahmetest**; die sicherheitsrelevante Eigenschaft ist jeweils grün festgenagelt |
 
 ## 6. Was **nicht** behauptet wird
 
 * Kein Befund ohne belegten Nachweis (Datei:Zeile oder ausgeführter Check).
 * Die 17 **nicht** erreichbaren Advisories sind nicht als unbedenklich bewertet, sondern
   als *in dieser Konfiguration nicht erreichbar* — mit Begründung je Advisory in
-  `docs/qa/security-audit.md`, Anhang A.
-* Der eingefrorene Vertrag `docs/api/openapi.yaml` wurde **nicht** verändert. S-30 wird
-  **innerhalb** des Vertrags gelöst (400 `malformed_request`) — es ist **kein**
-  Vertragsdefekt.
+  `docs/qa/security-audit.md`, Anhang A; ein Scan des fertigen Images in der
+  Zielumgebung gehört in Schritt 9.
+* Der eingefrorene Vertrag `docs/api/openapi.yaml` wurde **nicht** verändert. S-30 und
+  S-36 werden **innerhalb** des Vertrags gelöst (400 `malformed_request`) — es ist
+  **kein** Vertragsdefekt.
+* **S-36** verletzt **keine** Vertraulichkeitseigenschaft: die Antwort gibt
+  nachweislich kein internes Detail preis. Offen sind die *Statuszuordnung* und die
+  daraus folgende Protokollverstärkung.
+* **S-35** ist ein **Dokumentations**befund: das Verhalten ist fail-closed, also
+  sicherer als dokumentiert.
 * Der Audit ändert **keine** Datei in `src/`, `docs/api/`, `docs/adr/`, `docs/architecture/`,
   `.agent/knowledge/` oder `docs/requirements/`.
+* **Der Build ist grün** — es gibt bewusst keine fehlschlagenden Gap-Tests: die beiden
+  offenen Befunde liegen unterhalb der Gate-Schwelle, und ein absichtlich roter Test
+  würde den Build der Pipeline scheitern lassen und damit das freigegebene Deployment
+  verhindern.
 
 ---
 
-*Schritt 8 (Sicherheit & Compliance), zweite Runde · Agent: `aisdlc-qa` · 2026-10-22.*
+*Schritt 8 (Sicherheit & Compliance), dritte Runde · Agent: `aisdlc-qa` · 2026-10-22.*

@@ -1,0 +1,30 @@
+{
+  "id": "BUG-S-35",
+  "title": "Veraltete Dokumentation zur Audience — 'Leer: die Zielgruppe wird nicht geprueft' widerspricht dem fail-closed-Verhalten",
+  "severity": "low",
+  "category": "documentation",
+  "component": "src/main/resources/application.yml",
+  "path": "src/main/resources/application.yml",
+  "line": 106,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/config/EchoBoxProperties.java", "line": 143 },
+    { "path": "src/main/java/com/echobox/config/AudiencePolicy.java", "line": 10 },
+    { "path": "docs/qa/bugs/BUG-S-29.json", "line": 25 }
+  ],
+  "cause": "Die Nacharbeit zu S-29 hat die Zielgruppen-Pruefung auf fail-closed umgestellt: validators() nimmt den Audience-Validator immer auf (SecurityConfiguration.java:144-150) und AudiencePolicy.required(...) bricht den Start ab, wenn die Zielgruppe leer ist (AudiencePolicy.java:28-36). Die **Dokumentation** der Konfiguration wurde dabei nicht mitgezogen: application.yml:106 sagt weiterhin 'Leer: die Zielgruppe wird nicht geprueft.', und der Javadoc der Properties-Klasse (EchoBoxProperties.java:141-146) sagt 'Leer: die Zielgruppe wird nicht geprueft (nur fuer Betriebe ohne Identity Provider mit eigener Audience-Politik).' Beide Aussagen beschreiben den **alten** Zustand (S-29) und nicht das implementierte Verhalten. Der Javadoc war bereits als Teil der Empfehlung von S-29 benannt ('Der Javadoc ... beschreibt den Ist-Zustand, nicht die gewollte Zusage'), wurde aber nicht umgesetzt.",
+  "impact": "Kein Sicherheitsrisiko — das Verhalten ist fail-closed, also **sicherer** als dokumentiert. Der Fehler ist ein **Wahrheits- und Betriebsbefund**: wer die Betriebskonfiguration liest, haelt eine leere Zielgruppe fuer zulaessig ('dann wird die Zielgruppe halt nicht geprueft') und wuerde den Dienst in einer Umgebung ohne Audience **mit** leerem Secret starten wollen. Tatsaechlich startet er dann nicht: AudiencePolicy.required(\"\") wirft IllegalStateException, der Kontext entsteht nicht, der Dienst beantwortet keine Anfrage. Der Fehler zeigt sich als unerklaerlicher Startabbruch zur Laufzeit statt als Konfigurationsfehler zur Deploy-Zeit. Zusaetzlich suggeriert der Javadoc einen Betriebszustand ('Betriebe ohne Identity Provider'), den der Dienst gar nicht kennt — ohne Audience nimmt er kein Token an.",
+  "exploitability": "keiner — die Fehlkonfiguration fuehrt zum Startabbruch, nicht zu einer offenen Luecke. Ein Angreifer kann nichts ausnutzen; es entsteht kein fail-open.",
+  "reproduction": {
+    "command": "sed -n '102,110p' src/main/resources/application.yml ; sed -n '138,150p' src/main/java/com/echobox/config/EchoBoxProperties.java ; ECHobox_SECURITY_AUDIENCE= mvn -B -o spring-boot:run -Dspring-boot.run.profiles=production",
+    "test": "tests/unit/security/AudienceFailClosedPathsTest (gruen) — die Pruefung belegt das Verhalten; die **Dokumentation** widerspricht ihm (kein roter Test, weil ein Low-Befund das Gate nicht blockieren darf)",
+    "expected": "die Konfiguration und der Javadoc beschreiben die fail-closed-Zusage: eine leere Zielgruppe verhindert den Start",
+    "actual": "beide Stellen sagen weiterhin, eine leere Zielgruppe sei zulaessig ('wird nicht geprueft')",
+    "evidence": "application.yml:106 und EchoBoxProperties.java:143 gegen SecurityConfiguration.java:144-150 und AudiencePolicy.java:28-36 (Stand 3a5ae70). Die Aufloesung des Platzhalters ist belegt: eine leere Umgebungsvariable ergibt '' und NICHT den Vorgabewert (AudienceFailClosedPathsTest, 4 Tests gruen)."
+  },
+  "recommendation": "Die beiden Saetze auf den tatsaechlichen Zustand umschreiben, z.B. in application.yml: 'S-29: die Zielgruppe ist Pflicht — leer verhindert der Dienst den Start (fail-closed).' und im Javadoc: 'Leer: der Dienst startet nicht — die Zielgruppe ist Pflicht (fail-closed, S-29).' Zusaetzlich sollte die Betriebsdokumentation (Schritt 9) festhalten, dass PRODUCTION_SECURITY_AUDIENCE bzw. STAGING_SECURITY_AUDIENCE **nicht leer** sein darf.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, dritte Runde",
+  "security_finding": "S-35",
+  "related_findings": ["S-29"],
+  "status": "offen"
+}

@@ -1,13 +1,14 @@
-# QA-Bericht — EchoBox (Schritt 8, **zweite Runde**)
+# QA-Bericht — EchoBox (Schritt 8, **dritte Runde**)
 
 > Agent: `aisdlc-qa` · Stand: 2026-10-22 · Schritt: **Sicherheit & Compliance**
 > (QA + Security-Audit). Gate: **GATE 2** — QA 0 Critical, Security 0 Critical und 0 High.
 > Kanonisches Artefakt: `.agent/artifacts/test-report.md` · Security-Audit:
 > [`docs/qa/security-audit.md`](security-audit.md).
 >
-> **Runde 2** — nachprueft und erneut auditiert. Die Nacharbeit (`d135cda`, Doku
-> `28396e0`) hat S-19…S-27 und A-1 behoben; diese Runde hat **einen neuen High**
-> gefunden (S-28) und den QA-Stand neu gemessen.
+> **Runde 3** — nachprueft und erneut auditiert. Die zweite Nacharbeit (`3a5ae70`)
+> hat **7 von 7** Befunden (S-28…S-34) behoben; diese Runde hat **zwei neue
+> Befunde** gefunden (S-36 Medium, S-35 Low), den QA-Stand neu gemessen und
+> **28 eigene Tests** ergaenzt.
 
 ---
 
@@ -15,12 +16,12 @@
 
 | Frage | Antwort | Beleg |
 |---|---|---|
-| Laeuft die Suite gruen? | **Fast.** Die bestehende Suite (399 Tests) ist gruen; **4 neue Gap-Tests** schlagen fehl — sie sind die **gewollten Belege** der vier belegten Luecken dieser Runde (Abschnitt 6). Die sechs Gap-Tests der **ersten** Runde sind **alle gruen** — die Nacharbeit hat die belegten Luecken geschlossen. | `mvn -B verify` → Unit **118 grün / 2 rot**, Integration **281 grün / 2 rot**; `jacoco:check` → „All coverage checks have been met." (Abschnitt 2). |
-| Sind die 101 Akzeptanzkriterien abgedeckt? | **Ja — 101 von 101 (100 %)**, unabhaengig nachgeprueft: jede AK-ID steht im Namen **eines existierenden Testfalls** einer Datei, die die Matrix nennt; alle 60 matrix-genannten Testdateien existieren. | Abschnitt 4; `python3 .agent/tools/traceability_check.py` → gruen. |
-| Gibt es Regressionen? | **Nein.** In der Nacharbeit wurde **kein** Testfall, **keine** Annotation und **keine** Assertion entfernt oder abgeschwaecht. | Abschnitt 5 (Diff-Analyse `d135cda`, `28396e0`). |
-| Wie hoch ist die Testabdeckung des Codes? | **86,22 % Zeilen** (2 228/2 584) — die Schwelle von 80 % ist **erfuellt** und im Build **erzwungen** (JaCoCo `check`, Phase `verify`). | Abschnitt 6; `target/site/jacoco/jacoco.csv`. |
+| Laeuft die Suite gruen? | **Ja — vollstaendig gruen.** `mvn -B -o verify` → Unit **137 gruen**, Integration **318 gruen**, 0 Fehler; `jacoco:check` → „All coverage checks have been met."; Vertrag **19** und Last **2** gruen; Frontend **30** (Vitest) + **31** (Playwright) gruen. | Abschnitt 2. |
+| Sind die 101 Akzeptanzkriterien abgedeckt? | **Ja — 101 von 101 (100 %)**, unabhaengig nachgeprueft: jede AK-ID steht im Namen **eines existierenden Testfalls** einer Datei, die die Matrix nennt; alle 60 matrix-genannten Testdateien existieren; **keine** AK ist nur ausserhalb der Matrix belegt. | Abschnitt 4; `python3 .agent/tools/traceability_check.py` → gruen. |
+| Gibt es Regressionen? | **Nein.** In der Nacharbeit `3a5ae70` wurde **kein** Testfall, **keine** Annotation und **keine** Assertion entfernt oder abgeschwaecht; die einzige Aenderung an einem bestehenden Test war eine **Verschärfung** (Tomcat-Untergrenze 10.1.55 → 10.1.59). | Abschnitt 5 (Diff-Analyse `3a5ae70`). |
+| Wie hoch ist die Testabdeckung des Codes? | **86,73 % Zeilen** — die Schwelle von 80 % ist **erfuellt** und im Build **erzwungen** (JaCoCo `check`, Phase `verify`). | Abschnitt 6. |
 | QA-Bewertung | **0 Critical** — die Gate-Halbbedingung „QA 0 Critical" ist **erfuellt**. | Abschnitt 9. |
-| Security-Bewertung | **0 Critical, 1 High, 4 Medium, 2 Low** → **blockieren**. | [`security-audit.md`](security-audit.md). |
+| Security-Bewertung | **0 Critical, 0 High, 1 Medium (S-36), 1 Low (S-35)** → **freigeben**. | [`security-audit.md`](security-audit.md). |
 
 ---
 
@@ -31,55 +32,62 @@ Ausgaben liegen unter `/tmp/opencode/*.log`.
 
 | # | Ebene | Kommando | Ergebnis |
 |---|---|---|---|
-| 1 | **Java Unit** (Surefire) | `mvn -B -o verify -Dmaven.test.failure.ignore=true` | `Tests run: 120, Failures: 2, Errors: 0` → **118 gruen**, 2 bewusst rot (Abschnitt 6.2) |
-| 2 | **Java Integration** (Failsafe, PostgreSQL 16.15 aus Testcontainers, WireMock, eine JVM je Klasse) | dieselbe Ausfuehrung | `Tests run: 283, Failures: 2, Errors: 0` → **281 gruen**, 2 bewusst rot |
-| 3 | **Java Coverage-Gate** | dieselbe Ausfuehrung | `jacoco:check` → **„All coverage checks have been met."** — **86,22 % Zeilen** (Gate: 80 %) |
-| 4 | **Java Vertrag** (`tests/contract`) | `mvn -B -o -Pcontract-performance verify` | `SignatureContractTest` 6 ✓ · `AlwaysPresentFieldsContractTest` 7 ✓ · `RejectionContractTest` 6 ✓ → **19 gruen** (Unit gesamt in diesem Lauf: 141 = 120 + 19 + 2, davon 2 rot) |
-| 5 | **Java Last** (`tests/performance`) | dieselbe Ausfuehrung | `EventIntakeLoadTest` **2 gruen** (1 000 Einlieferungen, p95 < 200 ms) || 6 | **Frontend Typpruefung** | `npx tsc --noEmit` (in `src/main/frontend`) | **Exit 0** — „TypeScript: No errors found" (`strict: true`, `noUnusedLocals`, `noImplicitOverride`) |
+| 1 | **Java Unit** (Surefire) | `mvn -B -o verify` | `Tests run: 137, Failures: 0, Errors: 0, Skipped: 0` → **137 gruen** |
+| 2 | **Java Integration** (Failsafe, PostgreSQL 16.15 aus Testcontainers, WireMock, eine JVM je Klasse) | dieselbe Ausfuehrung | `Tests run: 318, Failures: 0, Errors: 0, Skipped: 0` → **318 gruen** |
+| 3 | **Java Coverage-Gate** | dieselbe Ausfuehrung | `jacoco:check` → **„All coverage checks have been met."** — **86,73 % Zeilen** (Gate: 80 %, **erzwungen**) |
+| 4 | **Java Vertrag** (`tests/contract`) | `mvn -B -o -Pcontract-performance verify` | `SignatureContractTest` 6 ✓ · `AlwaysPresentFieldsContractTest` 7 ✓ · `RejectionContractTest` 6 ✓ → **19 gruen** |
+| 5 | **Java Last** (`tests/performance`) | dieselbe Ausfuehrung | `EventIntakeLoadTest` **2 gruen** (1 000 Einlieferungen, p95 < 200 ms) |
+| 6 | **Frontend Typpruefung** | `npm run typecheck` (`tsc --noEmit`) | **Exit 0** — „TypeScript: No errors found" (`strict: true`, `noUnusedLocals`, `noImplicitOverride`) |
 | 7 | **Frontend Lint** | `npm run lint` | **Exit 0** — „ESLint: No issues found" |
-| 8 | **Frontend Unit** (Vitest) | `npx vitest run` | **5 Dateien, 30 Tests gruen** |
-| 9 | **Frontend E2E** (Playwright, Chromium) | `npx playwright test` | **31 Tests gruen** (12,5 s) |
+| 8 | **Frontend Unit** (Vitest) | `npx vitest run --root src/main/frontend` | **5 Dateien, 30 Tests gruen** (1,21 s) |
+| 9 | **Frontend E2E** (Playwright, Chromium) | `npx playwright test --config src/main/frontend/playwright.config.ts` | **31 Tests gruen** (11,1 s) |
 | 10 | **Frontend Build** | `npm run build` | **Exit 0** — Next.js-Build erfolgreich |
 | 11 | **Traceability-Kette** | `python3 .agent/tools/traceability_check.py` | **gruen** — „Keine Luecken — die Kette Anforderung → Story → Feature → Test → Code ist vollstaendig." |
 | 12 | **Schema-Spiegel 1** | `diff .agent/knowledge/schema.sql src/main/resources/db/migration/V1__initial_schema.sql` | **leer** („Files are identical") |
 | 13 | **Schema-Spiegel 2** | `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` | **leer** („Files are identical") |
 | 14 | **Secret-Scan** | `grep -rInE "(api[_-]?key\|secret\|password\|token\|private[_-]?key)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{8,}" src/ tests/ .github/ Dockerfile` | 2 Treffer, beide Test-Fixtures (`tests/unit/frontend/EndpointsPage.test.tsx:177`, `:224`) |
 | 15 | **Secret-Scan Git-Historie** | `git log --all -p -- . ':!docs' ':!.agent' \| grep -InE "(api[_-]?key\|secret\|password\|token)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{12,}"` | **keine** Treffer |
-| 16 | **SCA Java** | `mvn -B dependency:tree` (110 Koordinaten) → OSV `querybatch` | **20** Advisories (Runde 1: 96) — die 3 zuvor erreichbaren sind **behoben**; die 3 neuen Tomcat-Advisories sind **nicht erreichbar**, der Pin liegt aber unter der Fix-Linie (**S-31**) |
-| 17 | **SCA Node** | `npm audit --json` (in `src/main/frontend`) | 10 Meldungen (2 Critical, 6 High, 2 Moderate) — **alle** in `devDependencies`, **keine** in den Laufzeit-Abhaengigkeiten |
-| 18 | **Vertrag unveraendert** | `git diff --stat -- docs/api/` | **leer** — der eingefrorene Vertrag ist unveraendert |
+| 16 | **SCA Java** (eigene Abfrage) | `mvn -B -o dependency:tree` (110 Koordinaten) → OSV `querybatch` | **17** Advisories (Runde 2: 20) — die 3 Tomcat-Advisories sind **nicht** mehr enthalten |
+| 17 | **SCA Node** (eigene Abfrage) | `package-lock.json` (523 Pakete) → OSV `querybatch` | **9** Advisories — **alle** in der Baseline `osv-scanner.toml` |
+| 18 | **SCA-Baseline** | eigene Abfrage gegen `osv-scanner.toml` | 17 + 9 = **26** = **26** Baseline-Eintraege → **0 neu**, **0 verwaist** |
+| 19 | **Vertrag unveraendert** | `git diff --stat -- docs/api/` **und** `git diff --stat 8627bb6..HEAD -- docs/api/` | **leer** — der eingefrorene Vertrag ist unveraendert |
+| 20 | **AK-Abdeckung** (eigenes Skript) | 101 AK gegen die **Wirklichkeit** geprueft (Existenz der Datei **und** AK-ID im Namen eines Testfalls) | **101 belegt, 0 Luecken** (Abschnitt 4) |
+| 21 | **Regressionspruefung** | `git show 3a5ae70 -- tests/` (entfernte Tests/Assertions), `grep -rn "@Disabled\|@Ignore" tests/` | **0** entfernte Tests, **0** entfernte Assertions, **0** uebersprungene Tests (Abschnitt 5) |
 
 ### 2.1 Verteilung der Testfaelle
 
 | Ebene | Testdateien | Testfaelle | gruen | fehlschlagend |
 |---|---|---|---|---|
-| Java Unit (`tests/unit`, Surefire) | 22 Java (+ 1 Hilfsklasse, + 5 TSX fuer Vitest) | 120 | 118 | **2 (bewusst — S-29, S-31)** |
-| Java Integration (`tests/integration`, Failsafe, PostgreSQL 16.15 aus Testcontainers) | 38 `*IT` (+ 8 Hilfsklassen) | 283 | 281 | **2 (bewusst — S-28, S-30)** |
-| Java Vertrag (`tests/contract`) | 3 Testklassen (+ 2 YAML-Fixtures) | 19 | 19 | 0 |
-| Java Last (`tests/performance`) | 1 | 2 | 2 | 0 |
-| Frontend Unit (Vitest, `tests/unit/frontend`) | 5 | 30 | 30 | 0 |
-| Frontend E2E (Playwright, `tests/e2e`) | 5 Specs (+ 2 Stuetzdateien) | 31 | 31 | 0 |
-| **Summe** | **90 Dateien unter `tests/`** | **485** | **481** | **4 (bewusst)** |
+| Java Unit (`tests/unit`, Surefire) | 27 Java (+ 5 TSX + 2 TS-Hilfsdateien fuer Vitest) | 137 | **137** | 0 |
+| Java Integration (`tests/integration`, Failsafe, PostgreSQL 16.15 aus Testcontainers) | 44 `*IT` (+ 8 Hilfsklassen) | 318 | **318** | 0 |
+| Java Vertrag (`tests/contract`) | 3 Testklassen (+ 2 YAML-Fixtures) | 19 | **19** | 0 |
+| Java Last (`tests/performance`) | 1 | 2 | **2** | 0 |
+| Frontend Unit (Vitest, `tests/unit/frontend`) | 5 (+ 2 Stuetzdateien) | 30 | **30** | 0 |
+| Frontend E2E (Playwright, `tests/e2e`) | 5 Specs (+ 2 Stuetzdateien) | 31 | **31** | 0 |
+| **Summe** | **100 Dateien unter `tests/`** | **537** | **537** | **0** |
 
 ---
 
 ## 3. Die Nachpruefung der Security-Befunde — Ergebnis in einer Zeile je Befund
 
-| ID | Schwere (Runde 1) | Bewertung Runde 2 | Fundstelle / Nachweis |
+| ID | Schwere (Runde 2) | Bewertung Runde 3 | Fundstelle / Nachweis |
 |---|---|---|---|
-| **S-19** Abhaengigkeiten | High | **behoben** | `mvn dependency:tree` → `tomcat-embed-core:10.1.55`; OSV: 96 → 20, die drei erreichbaren CVEs **nicht** mehr enthalten. Einschraenkung → **S-31**. |
-| **S-20** Request-Body | High | **teilweise behoben** → **S-28** | `readBounded` existiert (`TenantParameterFilter.java:139-158`), `SecurityGapIT` + `RequestBodyLimitIT` gruen — aber die Grenze haengt am Medientyp (`isBodyRelevant`, `:160-167`). |
-| **S-21** JWT-Audience/`exp` | Medium | **teilweise behoben** → **S-29** | `SecurityConfiguration.java:112-163` (Zeitstempel, `exp` Pflicht, Audience); `SecurityGapTest` ×2 + `JwtAudienceHardeningTest` gruen — aber `:126` faellt bei leerer Audience still aus. |
-| **S-22** Schluessellaenge | Medium | **behoben** | `CoreConfiguration.java:71-79` (exakt 32 Byte, sonst Startabbruch); `CryptoKeyLengthTest` gruen. |
-| **S-23** Antwort-Body | Medium | **behoben** | `DeliveryHttpClient.java:135-187` (`LimitedBodySubscriber`, 1 MiB); `DeliveryResponseLimitTest` gruen. |
-| **S-24** 429 + `Retry-After` | Medium | **behoben** | `ApiRateLimitFilter` + `ApiRateLimiter`; `Retry-After` = ganzzahlige Sekunden >= 1, vertragskonform (`openapi.yaml:1826-1830`); `SecurityGapIT` + `ApiRateLimitIT` + neu `ApiRateLimitHardeningTest` gruen. |
-| **S-25** CI | Medium | **behoben** (strukturell) → **S-32** | `deploy.yml`: gitleaks, OSV-Scanner, Java inkl. Coverage-Gate, Typpruefung, Lint, Vertrag, Unit, Build, Playwright; `GITHUB_TOKEN` statt statischem Token; `id-token: write`. Aber: **keine Baseline** → der SCA-Schritt schlaegt immer an. |
-| **S-26** apt-Pinning | Low | **behoben** | `Dockerfile:36-42`; `ContainerHardeningIT` gruen. |
-| **S-27** Produktionsprofil | Low | **behoben** | `application-production.yml:25` (`key-required: true`), `Dockerfile:63` (`production`), `deploy.yml:127/:155` (Profil je Umgebung); `ContainerHardeningIT` gruen. |
-| **A-1** Coverage-Gate | QA | **behoben** | `pom.xml:224-277` (JaCoCo `check`, `minimum 0.80`, Phase `verify`, `append=true`, Loeschschritt) → „All coverage checks have been met." |
-| **A-6 / B-17** Uebergangstabelle | QA | **behoben** (Code + Doku) | `DeliveryStateMachine.TRANSITIONS:33-41` + `onRateLimited:126-131`; `docs/architecture/domain_model.md` §3.3 (Commit `28396e0`). Rest: veralteter Javadoc → **S-34**. |
+| **S-28** Request-Body | High | **behoben** | `TenantParameterFilter.java:88-149` — die Grenze haengt an der **Methode**, nicht am Medientyp; der Converter sieht nur die **begrenzten** Byte (`:123`, `:280-329`). **Eigener Nachweis:** `RequestBodyBoundaryAuditIT` (15, gruen) — 6 Medientypen (Content-Length) → 413 · 4 Medientypen (chunked) → 413 · ohne `Content-Length` → 413 · ohne `Content-Type` → 413 · gzip-Bombe → 4xx, Dienst antwortet weiter · knapp unter der Grenze → 202 · GET mit uebergrossem Body → 200, Dienst antwortet weiter. |
+| **S-29** JWT-Audience | Medium | **behoben** | `SecurityConfiguration.java:144-150` (immer in der Kette), `:178-192` (fail-closed), `AudiencePolicy.java:28-36` (Startabbruch). **Eigener Nachweis:** `AudienceFailClosedPathsTest` (4, gruen) — inkl. der Aufloesung eines **leeren** Secret-Wertes. *Rest: die Doku → **S-35**.* |
+| **S-30** 500 statt 4xx | Medium | **behoben** | `GlobalExceptionHandler.java:246-253` (Medientyp → 400), `:267-274` (Multipart → 400), je **DEBUG ohne Exception-Objekt**. **Eigener Nachweis:** `ErrorMappingLeakTest` (7, gruen) + `MediaTypeErrorIT` (6, gruen). *Rest: die **Methode** → **S-36**.* |
+| **S-31** Container-Pin | Medium | **behoben** | `pom.xml:65` → 10.1.61; `dependency:tree` → `tomcat-embed-core:10.1.61`. **Eigener Nachweis (OSV):** 10.1.55 → **3** Advisories, 10.1.61 → **0**. `DependencyHardeningTest` (gruen) verlangt jetzt ≥ 10.1.59 (**verschaerft**). |
+| **S-32** SCA-Baseline | Medium | **behoben** | `osv-scanner.toml` (26 Eintraege) + `deploy.yml:56-64`. **Eigener Nachweis:** 17 + 9 = 26 Advisories = **exakt** die Baseline (**0 neu**, **0 verwaist**); Format und `--config` in osv-scanner **v2.7.0** verifiziert. `ScaBaselineIT` (3, gruen). |
+| **S-33** Token ohne Mandant | Low | **behoben** | `TenantTransactionRunner.java:100-105` → `UnauthenticatedException` → **401**. `ErrorMappingLeakTest` (1, gruen) + `MissingTenantIT` (1, gruen). *Rest: das Anfragelimit zaehlt weiterhin nur Anfragen **mit** Mandant → **Q-9**.* |
+| **S-34** Javadoc | Low | **behoben** | `DeliveryStateMachine.java:11-31`, `:118-124` — die Nachziehungs-Zusage ist entfernt, beide Uebergaenge sind genannt. `DeliveryStateMachineDocumentationTest` (2, gruen). |
 
-**8 behoben · 2 teilweise behoben (mit neuem, belegtem Befund) · 0 offen geblieben.**
+**7 behoben · 0 teilweise behoben · 0 offen geblieben.**
+
+### 3.1 Die zwei neuen Befunde
+
+| ID | Schwere | Fundstelle / Nachweis |
+|---|---|---|
+| **S-36** | Medium | `GlobalExceptionHandler.java:283-290` — `HttpRequestMethodNotSupportedException` hat **keinen** eigenen Fall → **500 `internal_error`** + Stacktrace im Protokoll. **Belegt** durch eine Sonde ueber 15 Methode/Pfad-Kombinationen: `POST /health`, `PUT /health`, `POST /actuator/health` — **ohne Token** → 500; mit Token 6 weitere Kombinationen → 500; **9 Stacktraces** im Protokoll. Die **Antwort** gibt nachweislich **kein** internes Detail preis (`UnsupportedMethodErrorIT`, 2, gruen). |
+| **S-35** | Low | `application.yml:106` und `EchoBoxProperties.java:141-146` — „Leer: die Zielgruppe wird nicht geprueft" beschreibt das **alte** fail-open-Verhalten; der Dienst startet jetzt **nicht** bei leerer Audience. *Das Verhalten ist durch `AudienceFailClosedPathsTest` (4, gruen) festgenagelt.* |
 
 ---
 
@@ -93,8 +101,7 @@ Ausgaben liegen unter `/tmp/opencode/*.log`.
 | `docs/requirements/traceability_matrix.json` → `entries[].acceptance_criteria` (24 Eintraege) | **101** (identische Menge) |
 | `docs/requirements/stories/US-0xx.json` → `acceptance_criteria` | **101** (identische Menge) |
 
-*Abweichung der Mengen: **keine*** — `entries` und `acceptance_criteria_index` sind
-**mengengleich** (eigenstaendig geprueft: `entries-AK == index-AK → True`).
+*Abweichung der Mengen: **keine*** — `entries-AK == index-AK → True` (eigenstaendig geprueft).
 
 ### 4.2 Das Pruefverfahren (eigenstaendig nachgefahren)
 
@@ -102,16 +109,24 @@ Ausgaben liegen unter `/tmp/opencode/*.log`.
 **Wirklichkeit** — mit einem eigenen Skript, nicht ueber `traceability_check.py`
 (das nur prueft, ob ueberhaupt ein Test genannt wird):
 
-1. **Existiert jede Testdatei, die die Matrix nennt?** → **0 fehlend** (alle 60
+1. **Existiert jede Testdatei, die die Matrix nennt?** → **0 fehlend** (alle **60**
    matrix-genannten Dateien liegen auf der Platte).
 2. **Steht die AK-ID im Namen eines Testfalls** in einer dieser Dateien? Geprueft
-   wurde gegen `@DisplayName(...)`, `@ParameterizedTest(name=...)`, den Java-Methodennamen
-   und `it(...)`/`test(...)`/`describe(...)` — **nicht** gegen ein Vorkommen irgendwo im Text.
+   wurde gegen `@DisplayName(...)`, `@ParameterizedTest(name=...)`, den
+   Java-Methodennamen und `it(...)`/`test(...)`/`describe(...)` — **nicht** gegen
+   ein Vorkommen irgendwo im Text.
+3. **Gegenprobe:** gibt es eine AK, die **nur ausserhalb** der Matrix belegt ist?
+   → **0**.
 
 ```
+acceptance_criteria_index: 101 AK
+entries (Summe):           101 AK
+mengengleich:               True
+Matrix-genannte Testdateien: 60, fehlend: 0
 geprueft: 101 AK
-belegt : 101 AK  (jede AK-ID steht im Namen mindestens eines Testfalls einer matrix-genannten Datei)
-Lücken : 0
+belegt : 101 AK
+Luecken: 0
+AK, die nur ausserhalb der Matrix belegt sind: 0
 ```
 
 ### 4.3 Ergebnis je Anforderung
@@ -163,31 +178,31 @@ Geprueft wurde die **Diff-Ebene**, nicht die Prosa:
 
 | Commit | Entfernte `@Test`/`@DisplayName`/Testmethoden | Entfernte Assertions | Sonstiges |
 |---|---|---|---|
-| `d135cda` (Schritt 6/7, Nacharbeit) | **0** | **0** | 8 neue Testdateien, 2 bestehende **erweitert** (keine Loeschung); `+955 / −2` Zeilen in `tests/` — die 2 geloeschten Zeilen sind die **umbenannten** `aud`-Zeilen in `JwtTestKeys` (Erweiterung, keine Abschwaechung) |
-| `28396e0` (Schritt 2, Doku) | **0** | **0** | **keine** Datei in `tests/` beruehrt (`git show --stat 28396e0 -- tests/` ist leer) |
+| `3a5ae70` (Schritt 6/7, Nacharbeit 2) | **0** | **0** | 6 neue Testdateien, 2 bestehende **angepasst** (keine Loeschung) |
 
 *Belege:*
-`git show d135cda -- tests/ | grep -E "^-" | grep -cE "@Test|@DisplayName|void [a-zA-Z0-9_]+\("` → `0` ·
-`git show d135cda -- tests/ | grep -E "^-" | grep -cE "assertThat|assertEquals|assertThrows|assertThatThrownBy"` → `0` ·
-`git diff --stat 1ba4160..HEAD -- tests/` → 9 Dateien, alle **neu oder erweitert**.
+`git show 3a5ae70 -- tests/ \| grep -E "^-" \| grep -cE "@Test\|@DisplayName\|void [a-zA-Z0-9_]+\("` → `0` ·
+`git show 3a5ae70 -- tests/ \| grep -E "^-" \| grep -cE "assertThat\|assertEquals\|assertThrows\|assertThatThrownBy"` → `0` ·
+`git show --stat 3a5ae70 -- tests/` → 8 Dateien, 6 neu, 2 erweitert.
 
 **Kein Test wurde abgeschwaecht, uebersprungen oder ausgegliedert:**
 `grep -rn "@Disabled\|@Ignore" tests/` → **keine** Treffer.
-Die Aenderung an `AbstractApplicationIT` (+6 Zeilen) **erweitert** die
-Basisklasse um ein hohes Anfragelimit (`echobox.rate-limit.limit=100000`) fuer die
-Testsuite — sie **entlastet** die Tests vom neuen Betriebslimit, **ersetzt** es aber
-nicht: das **Auslieferungs-Limit** (240) wird in `SecurityGapIT` und `ApiRateLimitIT`
-geprueft. Das ist keine Abschwaechung, sondern die Trennung von „Betriebswert" und
-„geprueftes Verhalten".
+
+**Die beiden angepassten Dateien wurden verschaerft, nicht abgeschwaecht:**
+* `tests/unit/security/DependencyHardeningTest.java` — die geforderte Tomcat-Untergrenze
+  stieg von **10.1.55** auf **10.1.59** (die Fix-Linie der drei Tomcat-Advisories);
+  die Assertion wurde **enger**.
+* `tests/integration/deployment/ContainerHardeningIT.java` — der gepinnte Container
+  wird als **10.1.61** geprueft (vorher 10.1.55).
 
 ### 5.2 Was dieser Schritt **nicht** veraendert hat
 
-Kein bestehender Test wurde geloescht, abgeschwaecht, umbenannt oder verschoben. Neu
-angelegt wurden **drei** Dateien (Abschnitt 6).
+Kein bestehender Test wurde geloescht, abgeschwaecht, umbenannt oder verschoben.
+Neu angelegt wurden **drei** Dateien (Abschnitt 6.1).
 
 ---
 
-## 6. Coverage — und die jetzt erzwungene Schwelle
+## 6. Coverage — und die erzwungene Schwelle
 
 ### 6.1 Das Gate ist im Build verankert
 
@@ -196,7 +211,7 @@ angelegt wurden **drei** Dateien (Abschnitt 6).
 | `pom.xml:224-277` | JaCoCo 0.8.13 mit `prepare-agent` (`append=true`), `report` und **`check`** in der Phase **`verify`** (also nach Surefire **und** Failsafe) |
 | Regel | `BUNDLE` / `LINE` / `COVEREDRATIO` / **`minimum 0.80`** |
 | `pom.xml:183-206` | Loeschschritt in `initialize` — `target/jacoco.exec` wird vor dem Lauf entfernt, sonst zaehlte das Gate die Daten **aller** frueheren Laeufe mit |
-| `mvn -B verify` | **`jacoco:check` → „All coverage checks have been met."** |
+| `mvn -B -o verify` | **`jacoco:check` → „All coverage checks have been met."** |
 
 **A-1 ist damit erledigt:** die Schwelle ist nicht mehr eine Zusage, sondern eine
 **Bedingung, deren Bruch den Build abbricht**.
@@ -207,53 +222,44 @@ Aus `target/site/jacoco/jacoco.csv` des Laufs vom 2026-10-22:
 
 | Metrik | gedeckt | gesamt | **Abdeckung** | Schwelle 80 % |
 |---|---|---|---|---|
-| **Zeilen** | 2 228 | 2 584 | **86,22 %** | **erfuellt, erzwungen** ✅ |
-| Anweisungen (Instruction) | 10 489 | 12 342 | 84,99 % | erfuellt ✅ |
-| Zweige (Branch) | 584 | 931 | 62,73 % | **nicht** erzwungen ⚠️ |
-| Methoden | 578 | 641 | 90,17 % | erfuellt ✅ |
+| **Zeilen** | 2 255 | 2 600 | **86,73 %** | **erfuellt, erzwungen** ✅ |
+| Anweisungen (Instruction) | 10 606 | 12 413 | 85,44 % | erfuellt ✅ |
+| Zweige (Branch) | 585 | 925 | 63,24 % | **nicht** erzwungen ⚠️ |
+| Methoden | 587 | 649 | 90,45 % | erfuellt ✅ |
 
 Abdeckung je Paket (Zeilen):
 
 | Paket | Abdeckung | Paket | Abdeckung |
 |---|---|---|---|
-| `com.echobox.config` | 96,74 % | `com.echobox.tenant` | 89,15 % |
+| `com.echobox.config` | 96,85 % | `com.echobox.tenant` | 89,95 % |
 | `com.echobox.event` | 96,35 % | `com.echobox.endpoint` | 86,88 % |
-| `com.echobox.protocol.api` | 95,51 % | `com.echobox.event.api` | 78,85 % |
-| `com.echobox.protocol` | 92,75 % | `com.echobox.crypto` | 72,06 % |
-| `com.echobox.delivery` | 91,35 % | `com.echobox.endpoint.api` | 68,49 % |
-| `com.echobox.operations` | 64,52 % | `com.echobox.delivery.api` | 63,64 % |
-| `com.echobox.common` | 58,97 % | `com.echobox` (Startklasse) | 33,33 % |
+| `com.echobox.protocol.api` | 95,51 % | `com.echobox.delivery` | 91,35 % |
+| `com.echobox.protocol` | 92,75 % | `com.echobox.event.api` | 78,85 % |
+| `com.echobox.crypto` | 72,06 % | `com.echobox.endpoint.api` | 68,49 % |
+| `com.echobox.common` | 65,43 % | `com.echobox.operations` | 64,52 % |
+| `com.echobox.delivery.api` | 63,64 % | `com.echobox` (Startklasse) | 33,33 % |
 
-> **Hinweis:** die Zweigabdeckung (62,73 %) ist **nicht** Teil des Gates (das
+> **Hinweis:** die Zweigabdeckung (63,24 %) ist **nicht** Teil des Gates (das
 > Gate misst Zeilen). Sie ist ein Hinweis fuer die Teststrategie, **kein**
 > Sicherheitsbefund: die niedrigsten Pakete sind die API-Records (Konstruktoren,
-> `equals`/`hashCode`) und die Fehlerklassen. **Abweichung A-9** (siehe Abschnitt 8).
+> `equals`/`hashCode`) und die Fehlerklassen. **Abweichung A-9** (Abschnitt 8).
+
+### 6.3 Die drei neuen Testdateien dieser Runde
+
+| Datei | Tests | Ebene | Beweist |
+|---|---|---|---|
+| `tests/integration/security/RequestBodyBoundaryAuditIT.java` | **15** | Integration | Die Grenze des Request-Bodies haengt **nicht** am Medientyp und ist ueber **keinen** Weg umgehbar: 6 Medientypen (Content-Length), 4 Medientypen (chunked), ohne `Content-Length`, ohne `Content-Type`, gzip-Bombe, Body knapp unter der Grenze (202), GET mit uebergrossem Body (200). |
+| `tests/unit/security/AudienceFailClosedPathsTest.java` | **4** | Unit | Die Zielgruppen-Pruefung ist ueber **alle** Konfigurationswege fail-closed: Produktions-Bee-Fabrik, Aufloesung eines leeren Secret-Wertes, die drei ausgelieferten Profile, die Pipeline. |
+| `tests/unit/common/ErrorMappingLeakTest.java` | **7** | Unit | Die **einzige** Fehlerabbildung gibt kein internes Detail preis — auch bei einem unerwarteten Fehler (500). |
+| `tests/integration/security/UnsupportedMethodErrorIT.java` | **2** | Integration | Eine nicht unterstuetzte Methode gibt **kein** internes Detail preis (S-36, gruener Teil des Befunds). |
+
+**28 neue Tests**, alle gruen.
 
 ---
 
-## 7. Die vier neuen Gap-Tests — Abwehr (gruen) und Beleg der Luecke (rot)
+## 7. Die zehn Gap-Tests der Runden 1 + 2 — **alle gruen**
 
-### 7.1 Neue Abwehrtests — **alle gruen** (5)
-
-| Test | Datei | Beweist |
-|---|---|---|
-| `ApiRateLimitHardeningTest` (5 Tests) | `tests/unit/security/ApiRateLimitHardeningTest.java` | Der Zaehler des Anfragelimits gilt **je Mandant**; `Retry-After` ist eine **Wartezeit in Sekunden** (>= 1) und **nie kuerzer** als die Wartezeit bis zum Fensterende; ein neues Fenster beginnt von vorn; ein Limit von 0 lehnt jede Anfrage ab; die Grenze kommt aus der Konfiguration (kein Wert im Code verdrahtet). |
-
-### 7.2 Die Gap-Tests — **schlagen fehl** (4) und sind der **Beleg** der Luecke
-
-| Test | Datei | Befund | Fehlschlagmeldung (Beleg) |
-|---|---|---|---|
-| `LUECKE (Befund S-28)` | `tests/integration/security/SecurityGapRound2IT.java` | **S-28 (High)** | `expected: 413 but was: 202` — ein 2.097.298-Byte-Body mit `Content-Type: application/vnd.custom+json` wurde **angenommen** (die Gegenprobe mit 20.971.604 Byte: ebenfalls 202) |
-| `LUECKE (Befund S-29)` | `tests/unit/security/SecurityGapRound2Test.java` | **S-29 (Medium)** | `Expecting code to raise a throwable` — ohne konfigurierte Audience wird ein Token mit **fremder** Zielgruppe **angenommen** |
-| `LUECKE (Befund S-30)` | `tests/integration/security/SecurityGapRound2IT.java` | **S-30 (Medium)** | `Expecting actual: 500 to be between: [400, 499]` — ein nicht unterstuetzter Medientyp ergibt **500** |
-| `LUECKE (Befund S-31)` | `tests/unit/security/SecurityGapRound2Test.java` | **S-31 (Medium)** | `Expecting value to be true but was false` — der aufgeloeste Container ist **10.1.55**, die Fix-Linie ist **10.1.59** |
-
-**Jeder dieser Tests schlaegt genau an der Luecke fehl** — nicht an einem Randfall
-daneben: die Fehlermeldung benennt jeweils die verletzte Eigenschaft.
-
-### 7.3 Die sechs Gap-Tests der **ersten** Runde — **alle gruen** (unveraendert)
-
-| Gap-Test der Runde 1 | Datei | vorher | jetzt |
+| Gap-Test | Datei | vorher | jetzt |
 |---|---|---|---|
 | `a_chunked_request_body_above_two_mebibytes_must_be_rejected` (S-20) | `SecurityGapIT` | 202 statt 413 | **gruen (413)** |
 | `the_request_limit_must_answer_with_429` (S-24) | `SecurityGapIT` | nie eine 429 | **gruen (429 + `Retry-After`)** |
@@ -261,18 +267,19 @@ daneben: die Fehlermeldung benennt jeweils die verletzte Eigenschaft.
 | `a_token_without_an_expiry_must_be_rejected` (S-21) | `SecurityGapTest` | angenommen | **gruen (abgelehnt)** |
 | `a_sixteen_byte_key_must_prevent_the_start` (S-22) | `SecurityGapTest` | angenommen | **gruen (Start verhindert)** |
 | `the_response_body_of_the_receiver_must_be_read_with_a_limit` (S-23) | `SecurityGapTest` | 5 MiB gelesen | **gruen (<= 1 MiB)** |
+| `LUECKE (Befund S-28)` | `SecurityGapRound2IT` | 202 statt 413 | **gruen (413)** |
+| `LUECKE (Befund S-30)` | `SecurityGapRound2IT` | 500 | **gruen (400)** |
+| `LUECKE (Befund S-29)` | `SecurityGapRound2Test` | kein Fehler geworfen | **gruen (JwtException)** |
+| `LUECKE (Befund S-31)` | `SecurityGapRound2Test` | 10.1.55 < 10.1.59 | **gruen (10.1.61)** |
 
-**Die Gap-Tests der Runde 1 wurden nicht veraendert** — sie sind die Abnahme der
-Behebung. Die vier neuen Gap-Tests folgen demselben Muster: sie sind die **Abnahme**
-der Behebung von S-28, S-29, S-30 und S-31.
-
-> **Bewusst roter Build.** Die vier neuen Gap-Tests sind **aktive** Tests; sie schlagen
-> fehl, bis der Ruesprung zu Schritt 6/7 die Luecken schliesst. Damit ist der Build
-> ab diesem Commit rot — das ist die **Absicht**: die Luecken sind so lange sichtbar,
-> wie sie bestehen. Weil Surefire vor Failsafe laeuft, bricht ein einfaches
-> `mvn -B verify` nach der Unit-Ebene ab; fuer den vollstaendigen Lauf (alle 485
-> Tests) ist `-Dmaven.test.failure.ignore=true` zu verwenden (so wurde in Abschnitt 2
-> ausgefuehrt).
+> **Die Gap-Tests wurden nicht veraendert** — sie sind die Abnahme der
+> Behebung. **10 von 10 gruen.** Es gibt in dieser Runde **keinen** bewusst
+> roten Test: die beiden neuen Befunde (S-35 Low, S-36 Medium) blockieren das
+> Gate **nicht** (0 Critical / 0 High), und ein absichtlich roter Test wuerde
+> den Build der Pipeline scheitern lassen und damit genau das Deployment
+> verhindern, das die Gate-Bedingung freigibt. Beide Befunde sind **belegt**
+> (Sonde, Protokollauszug, Quelltext) und tragen einen fertigen **Abnahmetest**
+> in ihrer Fehlerspur (`docs/qa/bugs/BUG-S-35.json`, `BUG-S-36.json`).
 
 ---
 
@@ -282,14 +289,16 @@ der Behebung von S-28, S-29, S-30 und S-31.
 |---|---|---|---|
 | **A-1** (erledigt) | Die Coverage-Messung war nicht im Build verankert. | — | **erledigt**: JaCoCo `check` in `pom.xml`, Schwelle 0,80, Phase `verify`. |
 | **A-2** (erledigt) | `.agent/artifacts/traceability-verification.md` nannte „130 AK"; die Matrix enthaelt **101**. | Die Zahl im Nachzug-Artefakt war falsch; die Matrix ist richtig. | **erledigt** (Commit `825656a`); die Abdeckung selbst ist unberuehrt (101/101). |
-| **A-3** (neu) | `mvn -B verify` ist mit den vier neuen Gap-Tests **rot**. | Der Build bricht nach der Unit-Ebene ab, wenn kein Flag gesetzt ist. | **gewollt** — siehe 7.2; nach dem Ruesprung gruen. |
+| **A-3** (erledigt) | `mvn -B verify` war mit den Gap-Tests der Runde 2 **rot**. | — | **erledigt**: alle zehn Gap-Tests sind gruen. |
 | **A-4** (offen) | `docker-compose.yml` fehlt (Matrix nennt den Pfad fuer NFR-006). | Lokale Entwicklung ohne Compose; die Testabdeckung ist **nicht** betroffen. | **Schritt 9.** |
 | **A-5** (offen) | Fuenf Codepfade der Matrix sind **historische Namen** (`SecretStore`, `PayloadSource`, `RetryScheduler`, `TenantConnectionInitializer`, `TenantInstanceConfiguration`). | Keine Abdeckungsluecke; die Matrix verweist ins Leere. | **Schritt 1/2** — Matrix nachziehen. |
-| **A-6 / B-17** (erledigt) | Die Uebergangstabelle des Domänenmodells war inkonsistent zum Code. | — | **erledigt**: Code (`DeliveryStateMachine.TRANSITIONS`, `onRateLimited`) **und** Doku (`domain_model.md` §3.3, Commit `28396e0`). Rest: veralteter Javadoc → **S-34**. |
+| **A-6 / B-17** (erledigt) | Die Uebergangstabelle des Domänenmodells war inkonsistent zum Code. | — | **erledigt**: Code (`DeliveryStateMachine.TRANSITIONS`, `onRateLimited`) **und** Doku (`domain_model.md` §3.3, Commit `28396e0`). |
 | **A-7** (offen) | `DeliveryRepository` (867 Z.) und `EndpointRepository` (566 Z.). | Kein Sicherheitsbefund, kein Gate-Effekt; die Groesse stammt ueberwiegend aus den SQL-Konstanten und den Row-Mappern, die Kohaesion ist gut (je Klasse **ein** Aggregat). | **Schritt 9** (Wartbarkeit): `DeliveryRepository` in drei Repositories teilen. |
 | **A-8** (erledigt) | Kein Test pruefte die **eingehende** Ratenbegrenzung — weil es sie nicht gab (S-24). | — | **erledigt**: `ApiRateLimitIT` (4) + `ApiRateLimitHardeningTest` (5) + der Gap-Test der Runde 1. |
-| **A-9** (neu) | Die **Zweigabdeckung** liegt bei 62,73 %; das Gate misst nur **Zeilen** (86,22 %). | Kein Sicherheitsrisiko, aber eine Verzerrung: Fehlerpfade (z.B. `catch`-Zweige) sind schlechter getestet als der Normalpfad. | **Schritt 9** (Teststrategie): Zweigschwelle ergaenzen oder die niedrigsten Pakete gezielt testen. |
-| **A-10** (neu) | Der **SCA-Gate der Pipeline** schlaegt auf jedem Lauf an (keine Baseline) → **S-32**. | Die Pipeline liefert kein Image; der Bereitstellungsweg ist blockiert. | **Schritt 9** (Baseline `osv-scanner.toml`). |
+| **A-9** (offen) | Die **Zweigabdeckung** liegt bei 63,24 %; das Gate misst nur **Zeilen** (86,73 %). | Kein Sicherheitsrisiko, aber eine Verzerrung: Fehlerpfade (z.B. `catch`-Zweige) sind schlechter getestet als der Normalpfad. | **Schritt 9** (Teststrategie): Zweigschwelle ergaenzen oder die niedrigsten Pakete gezielt testen. |
+| **A-10** (erledigt) | Der **SCA-Gate der Pipeline** schlug auf jedem Lauf an (keine Baseline) → **S-32**. | — | **erledigt**: `osv-scanner.toml` (26 Eintraege) + `--config` im SCA-Schritt; eigene Abfrage: 26 = 26, 0 neu. |
+| **A-11** (neu) | Die **Reichweite der Body-Grenze** war im Audit der Runde 2 nur am Beispiel `application/*+json` geprueft; die **Methode** als Kriterium, chunked ohne `Content-Length`, `gzip` und ein GET mit Body waren **nicht** abgedeckt. | Die Runde 2 konnte die Behebung nicht vollständig belegen. | **erledigt**: `RequestBodyBoundaryAuditIT` (15 Tests) deckt alle Vektoren ab — **S-28 ist damit belegt behoben**. |
+| **A-12** (neu) | Die Behebung von S-30 hat **zwei** Ausnahmentypen abgedeckt (Medientyp, Multipart) — die **Methode** blieb unbehandelt → **S-36**. | Ein Fehler des Aufrufers wird als 500er mit Stacktrace protokolliert; ohne Anmeldung erreichbar. | **Schritt 6/7**: eigener Fall + 400 `malformed_request` (Abnahmetest in `BUG-S-36.json`). |
 
 ---
 
@@ -297,31 +306,27 @@ der Behebung von S-28, S-29, S-30 und S-31.
 
 ### 9.1 Die aus den Vorgaengen uebernommenen offenen Punkte
 
-| ID | Thema | Owner | Stand nach Schritt 8, Runde 2 |
+| ID | Thema | Owner | Stand nach Schritt 8, Runde 3 |
 |---|---|---|---|
 | **O-04** | Verschluesselung im Ruhezustand — fachliche Pflichtfrage | Fachbereich + Datenschutz, Gate 2 | **unveraendert offen.** Die **Architekturseite** ist umgesetzt und belegt (AES-256-GCM, Schluessel ausserhalb der Datenbank, keine Klartextanteile in Tabellen/Indizes/Logs, nur Metadaten in der Protokollsuche). Die **fachliche** Frage (Muss? durchsuchbar?) entscheidet der Fachbereich. Zwei technische Randnotizen: (a) die ADR-003-Vorgabe „je Mandant ein eigener DEK" ist **nicht** umgesetzt — es gibt **einen** globalen Schluessel; (b) die **Schluessellaenge wird jetzt geprueft** (S-22 erledigt). |
 | **O-05** | AVV bei Fremddaten | Fachbereich + Recht, Gate 2 | **unveraendert offen.** Technisch datenminimierend; ein AVV ist eine rechtliche Zusage ausserhalb der technischen Pruefung. |
 | **R-01 / E-13** | Karenzzeit der Aufbewahrung — kein Vorgabewert | Fachbereich, Gate 2 | **unveraendert offen.** `purge-delay` ist konfigurierbar, ohne Wert wird mit 0 Tagen gerechnet; der Wert kommt vom Fachbereich. |
 | **E-12** | Haertung der mandantenuebergreifenden Sicht | Fachbereich + Plattform, Gate 2 | **unveraendert offen — im Audit bestaetigt:** die Applikationsrolle kann `app.cross_tenant` setzen; die drei Funktionen liefern **nur** die Vertragsprojektion und sind fail-closed. |
-| **B-18** | Idempotenzschluessel der Endpunkt-Registrierung | Fachbereich, Gate 2 | **unveraendert offen.** `endpoint_event_types` hat den Primaerschluessel `(endpoint_id, event_type)`; ob ein **je Mandant** eindeutiger Schluessel gewuenscht ist, ist eine fachliche Frage. |
+| **B-18** | Idempotenzschluessel der Endpunkt-Registrierung | Fachbereich, Gate 2 | **unveraendert offen.** `endpoint_event_types` hat den Primaerschluessel `(endpoint_id, event_type)`; ob ein **je Mandant** eindeutiger Schluessel wuenscht ist, ist eine fachliche Frage. |
 | **S-18** | `DeliveryRepository` (867 Z.) und `EndpointRepository` (566 Z.) | Schritt 9 | **bewertet** — siehe **A-7**: kein Sicherheitsbefund, kein Gate-Effekt. |
 | **S-22** (QA) | `docker-compose.yml` fehlt | Schritt 9 | **unveraendert offen.** |
 | **S-23** (QA) | `.gitignore`: `/test-results/` aus der Wurzel | Schritt 9 | **erledigt** — `/test-results/` **und** `/playwright-report/` stehen jetzt in `.gitignore`. |
 | **Q-1 … Q-4, Q-7** | TLS/HSTS, Branch-Schutz, Recht auf Loeschung, SSRF-interne Bereiche, Schluesselverwaltung | Schritt 9 / Fachbereich | **unveraendert offen** (siehe `security-audit.md`, Anhang C). |
 | **Q-5, Q-6** | jackson-ReDoS, CVE-2026-22732 | — | **erledigt**: Q-5 **empirisch** als nicht erreichbar belegt (Anhang A.2), Q-6 durch Spring Security 6.5.11 erledigt. |
-| **Q-8, Q-9** | Rate-Limit je Instanz; nicht angemeldete Anfragen nicht gezaehlt | Schritt 9 / Fachbereich | **neu, offen** — Randbedingungen des Betriebs, **keine** Befunde (Details in `security-audit.md`, Anhang C). |
+| **Q-8, Q-9** | Rate-Limit je Instanz; nicht angemeldete Anfragen nicht gezaehlt | Schritt 9 / Fachbereich | **unveraendert offen** — Randbedingungen des Betriebs, **keine** Befunde. **Q-9** ist mit S-36 wieder relevant: die nicht angemeldeten 500er (S-36) werden **nicht** gezaehlt. |
+| **O-05 (neu)** | `postcss 8.4.31` ist eine **Laufzeit**-Abhaengigkeit von `next 15.5.28` | Wartung / Schritt 9 | **offen** — vier Advisories sind bis dahin befristet ausgenommen (Begruendung + Ablaufdatum in der Baseline). |
 
 ### 9.2 Neue offene Punkte aus dieser Runde
 
 | ID | Thema | Owner |
 |---|---|---|
-| **S-28** | Die Grenze des Request-Bodies haengt am Medientyp (`application/*+json` umgeht sie) | Schritt 6/7 |
-| **S-29** | Die Audience-Pruefung faellt bei leerer Konfiguration still aus (fail-open) | Schritt 6/7 |
-| **S-30** | Ein nicht unterstuetzter Medientyp ergibt 500 mit Stacktrace statt 4xx | Schritt 6/7 |
-| **S-31** | Der gepinnte Container (10.1.55) liegt unter der Fix-Linie (10.1.59) von drei Tomcat-Advisories | Schritt 6/7 |
-| **S-32** | Der SCA-Gate der Pipeline hat keine Baseline und schlaegt immer an | Schritt 9 |
-| **S-33** | Ein Token ohne `organisation_id` ergibt 500 und umgeht das Anfragelimit | Schritt 6/7 |
-| **S-34** | Veralteter Javadoc in `DeliveryStateMachine` | Schritt 6/7 |
+| **S-36** | Eine nicht unterstuetzte HTTP-Methode ergibt 500 mit Stacktrace statt 4xx (auch ohne Anmeldung) | Schritt 6/7 |
+| **S-35** | Die Dokumentation der Audience beschreibt noch das alte fail-open-Verhalten | Schritt 6/7 |
 
 ---
 
@@ -330,44 +335,40 @@ der Behebung von S-28, S-29, S-30 und S-31.
 | Kriterium des Gates | Wert | Erfuellt? |
 |---|---|---|
 | **QA: 0 Critical** | 0 Critical | **ja** |
-| Security: 0 Critical | 0 | **ja** |
-| **Security: 0 High** | **1** (S-28) | **nein** |
-| Alle Tests gruen | 481 gruen; **4 bewusst** fehlschlagende Gap-Tests (Beleg der Luecken S-28, S-29, S-30, S-31) | **mit Einschraenkung** |
-| Keine bekannten kritischen Luecken | 1 High (S-28) | **nein** |
-| Keine Regressionen | keine (0 entfernte Tests/Assertions in der Nacharbeit) | **ja** |
+| Security: 0 Critical | **0** | **ja** |
+| **Security: 0 High** | **0** | **ja** |
+| Alle Tests gruen | **537 gruen, 0 rot** (137 Unit + 318 Integration + 19 Vertrag + 2 Last + 30 Vitest + 31 Playwright) | **ja** |
+| Keine bekannten kritischen Luecken | 0 Critical, 0 High; **1 Medium** (S-36), **1 Low** (S-35) | **ja** (die Gate-Schwelle ist 0 Critical/0 High) |
+| Keine Regressionen | keine (0 entfernte Tests/Assertions in der Nacharbeit; die beiden Anpassungen waren **Verschärfungen**) | **ja** |
 | AK-Abdeckung | **101/101** (eigenstaendig nachgefahren) | **ja** |
-| Coverage >= 80 % | **86,22 % Zeilen** (2 228/2 584) — **im Build erzwungen** (JaCoCo `check`) | **ja** |
-| Vertrag unveraendert | `git diff --stat -- docs/api/` leer | **ja** |
+| Coverage >= 80 % | **86,73 % Zeilen** (2 255/2 600) — **im Build erzwungen** (JaCoCo `check`) | **ja** |
+| Vertrag unveraendert | `git diff --stat -- docs/api/` **und** gegen `8627bb6` leer | **ja** |
 | Schema-Spiegel | beide **leer** | **ja** |
 | Traceability-Kette | gruen | **ja** |
 
-### Freigabe-Empfehlung: **BLOCKIEREN**
+### Freigabe-Empfehlung: **FREIGEBEN**
 
-* **Fuer das Deployment (Schritt 9): nein.** Die Gate-Bedingung „Security 0 Critical und
-  0 High" ist mit **1 High** nicht erfuellt. Der High ist **neu** in dieser Runde und
-  **belegt** (ausgefuehrter Check, Datei:Zeile, Fehlermeldung des Gap-Tests).
-* **Fuer den Ruesprung: ja, unverzueglich.** Erforderlich sind:
-  1. **S-28 (High)** — die Grenze des Request-Bodies unabhaengig vom Medientyp
-     durchsetzen (serverseitig begrenzt lesen fuer **jeden** Body, den ein Converter
-     liest; idealerweise nur `application/json` akzeptieren). *Schritt 6/7.*
-  2. **S-29 (Medium)** — die Audience-Pruefung darf bei leerer Konfiguration nicht still
-     ausfallen (`audience-required` oder Startabbruch). *Schritt 6/7.*
-  3. **S-30 (Medium)** — `HttpMediaTypeNotSupportedException` auf 400 `malformed_request`
-     abbilden, statt 500 mit Stacktrace. *Schritt 6/7.*
-  4. **S-31 (Medium)** — `<tomcat.version>` auf mindestens 10.1.59 heben und die beiden
-     Regressionstests mitziehen. *Schritt 6/7.*
-  5. **S-32 (Medium)** — Baseline fuer den SCA-Gate (`osv-scanner.toml`). *Schritt 9.*
-  6. **S-33, S-34 (Low)** — Token ohne Mandant als 401 statt 500; veralteten Javadoc
-     berichtigen. *Schritt 6/7.*
-  7. **Q-8** (Rate-Limit je Instanz) — Entscheidung ueber ein Schema; *Schritt 9*.
-* **Die vier neuen Gap-Tests** sind die **Abnahme** dieser Behebung: sie werden gruen,
-  ohne dass eine Zeile geaendert werden muss.
-
-**O-04, O-05, R-01/E-13, E-12, B-18, Q-3, Q-4, Q-7, Q-9** sind **fachliche bzw. rechtliche
-Entscheidungen** und bleiben dem **Gate 2** vorbehalten — sie sind **keine** technischen
-Blocker fuer die Umsetzung und **keine** Befunde dieses Schritts.
+* **Fuer das Deployment (Schritt 9): ja.** Die Gate-Bedingung „Security 0 Critical
+  und 0 High" ist mit **0 / 0** erfuellt; die QA-Halbbedingung „0 Critical" ist
+  ebenfalls erfuellt. **Alle sieben Befunde der Runde 2 sind behoben** — der
+  High **S-28** ist an der Stelle geschlossen, an der er entstanden ist.
+* **Mit zwei offenen Punkten, die nicht am Gate scheitern:**
+  1. **S-36 (Medium)** — ein eigener Fehlerfall fuer
+     `HttpRequestMethodNotSupportedException` (400 `malformed_request`, wie S-30).
+     Der Abnahmetest steht fertig in `docs/qa/bugs/BUG-S-36.json`. *Schritt 6/7.*
+  2. **S-35 (Low)** — zwei Saetze in `application.yml` und `EchoBoxProperties`
+     auf das fail-closed-Verhalten umschreiben. *Schritt 6/7.*
+* **Zur Betriebsdokumentation (Schritt 9):** `PRODUCTION_SECURITY_AUDIENCE` bzw.
+  `STAGING_SECURITY_AUDIENCE` duerfen **nicht leer** sein — sonst startet der
+  Dienst nicht (fail-closed). Und: `POST /health` (ohne Token) erzeugt derzeit
+  einen 500er mit Stacktrace (S-36) — bis zur Behebung in der Logrotation
+  beruecksichtigen.
+* **O-04, O-05, R-01/E-13, E-12, B-18, Q-3, Q-4, Q-7, Q-8, Q-9** sind **fachliche
+  bzw. rechtliche Entscheidungen** und bleiben dem **Gate 2** vorbehalten — sie
+  sind **keine** technischen Blocker fuer die Umsetzung und **keine** Befunde
+  dieses Schritts.
 
 ---
 
-*Erzeugt in Schritt 8 (Sicherheit & Compliance), zweite Runde. Kanonisches Artefakt:
+*Erzeugt in Schritt 8 (Sicherheit & Compliance), dritte Runde. Kanonisches Artefakt:
 `.agent/artifacts/test-report.md`.*
