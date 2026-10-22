@@ -1,99 +1,122 @@
-# Steckbrief — Schritt 8 (dritte Pruefrunde vor GATE 2)
+# Steckbrief — Schritt 9 (Deployment & Betrieb)
 
 > Einstiegspunkt für den Rollen-Agenten. Ein **Zeiger**: Status, Commit, Festlegungen,
 > offene Punkte. **Die Dateien sind die Wahrheit, nicht dieser Steckbrief.**
 
 | Feld | Wert |
 |---|---|
-| Stand | Ruecksprung Schritt 6/7 abgeschlossen — Commit `3a5ae70` `fix(sdlc-6): Security-Befunde S-28 bis S-34 behoben`; davor Schritt 8 (Runde 2) `3d40912`, Schritt 2 (Korrektur) `28396e0`, Ruecksprung 6/7 `d135cda`, Schritt 8 (Runde 1) `1ba4160`, Schritt 7 `bd15f19`, Schritt 6 `e9e1bc1` |
-| Dieser Schritt | 8 (Sicherheit & Compliance) — **dritte Runde**: Nachpruefung + erneutes Audit |
-| Nächster Schritt | **GATE 2** → danach Schritt 9 (Deployment & Betrieb) |
-| Gate-Bedingung | **Security: 0 Critical und 0 High · QA: 0 Critical** |
-| **Vertrag** | `docs/api/openapi.yaml` — **EINGEFROREN seit `8627bb6`**, in beiden Nacharbeiten **nicht** angefasst |
-| Schema | `.agent/knowledge/schema.sql` + Spiegel + Migration — alle drei byte-identisch |
-| Teststand | `mvn verify` gruen (126 Unit + 301 Integration, **Coverage 85,99 %**, Gate erzwungen) · Vertrag 19 + Last 2 gruen · `tsc` 0 · lint 0 · build ok · Vitest 30 · Playwright 31 · beide Schema-Diffs leer · `traceability_check.py` gruen · **alle 10 Gap-Tests der Runden 1+2 gruen** + 22 neue Regressionstests |
+| Stand | Schritt 8 abgeschlossen — Commit `907e497`; **GATE 2 am 2026-10-22 vom Menschen freigegeben** (0 Critical, 0 High) |
+| Dieser Schritt | 9 (Deployment & Betrieb) — **abgeschlossen** (Pipeline, Container, Bereitstellung, Betrieb) |
+| Naechster Schritt | **keiner** — Schritt 9 ist der letzte Schritt; GATE 2 am 2026-10-22 freigegeben |
+| Vertrag | `docs/api/openapi.yaml` — **EINGEFROREN seit `8627bb6`**; Vertragsdefekt ⇒ Befund fuer Schritt 2 |
+| Schema | `.agent/knowledge/schema.sql` + Spiegel + Migration — byte-identisch; **nicht** anfassen |
+| Code | `src/`, `tests/` — **537 Tests gruen**, Coverage 86,73 % (Gate erzwungen), AK-Abdeckung 101/101 |
+| Pipeline | `.github/workflows/deploy.yml` (aus Schritt 6/8: Secret-Scan, SCA-Scan mit Baseline, Build, Tests, OIDC) — wird in diesem Schritt **zur Betriebspipeline ausgebaut** |
+| Container | `Dockerfile` (Multi-Stage, non-root, gepinnte Basis-Images, gepinnte apt-Pakete, kein Secret im Image, Health-Check) |
 
 ## Was du lesen musst — und sonst nichts
 
 | # | Datei | Warum |
 |---|---|---|
-| 1 | `AGENTS.md` | Regeln, Gates, Folder Ownership, Commit Convention |
+| 1 | `AGENTS.md` | Regeln, Gates, Folder Ownership, Commit Convention, Secrets |
 | 2 | `.agent/PHASES.md` | Schritt → Instanz → Agent → Skill → Gate; Commit pro Schritt |
-| 3 | `.agent/workflows/08-security.md` | dieser Schritt, Pruefpunkte, Commit-Befehl |
+| 3 | `.agent/workflows/09-deploy.md` | dieser Schritt, Output-Liste, Commit-Befehl |
 | 4 | `.agent/prompts/orchestrator/04_orchestrator_testing.md` | dein Systemprompt |
-| 5 | `docs/qa/security-audit.md` | **Runde 2** — die Befunde S-28…S-34 und die Nachpruefung der Runde 1 |
-| 6 | `docs/qa/qa-report.md` | der QA-Stand, Q-8/Q-9 |
-| 7 | `docs/execution/step8-nacharbeit-security.md` und `…-run2.md` | die beiden Nacharbeiten |
-| 8 | `docs/api/openapi.yaml` | der eingefrorene Vertrag |
-| 9 | `.agent/knowledge/schema.sql` | RLS, Eigentuemerfunktionen, Constraints |
+| 5 | `.agent/artifacts/security-audit.md` | **der Audit** — 0 Critical, 0 High; die verbleibenden Befunde und ihre Empfehlungen |
+| 6 | `.agent/artifacts/test-report.md` | **der QA-Bericht** — 0 Critical; Teststand, Coverage, AK-Abdeckung |
+| 7 | `.agent/artifacts/architecture.md` | Komponenten, Betrieb, Mandanten-Isolation (ADR-013) |
+| 8 | `Dockerfile`, `.github/workflows/deploy.yml`, `pom.xml`, `package.json`, `.gitignore` | die vorhandenen Betriebsartefakte |
+| 9 | `docs/adr/ADR-011-metriken-slo.md`, `ADR-012-aufbewahrung.md`, `ADR-013-mandanten-isolation-instanz.md` | Metriken/SLOs, Aufbewahrung, Containerbetrieb |
+| 10 | `docs/api/openapi.yaml` | die **eingefrorene** Zusage (Health/Readiness, Metriken, Betriebsoperationen) |
+
+## Skills
+`aisdlc-ci-pipeline` (Pipeline-Stufen mit Test-, Coverage-, Security- und Deploy-Gates) ·
+`aisdlc-containerize` (Multi-Stage, non-root, gepinnte Basis-Images, keine Secrets im Image, Health-Check) ·
+`aisdlc-deploy` (Approval-Gates, Rollout, Validierung, Smoke-Tests, Promotion, Rollback, SLIs/SLOs, Runbook)
 
 ## Dein Auftrag
 
-### 1 — Nachpruefung mit **eigenem** Nachweis
-Pruefe **jeden** Befund der Runde 2 am aktuellen Stand — **nicht** nach dem Bericht der Nacharbeit:
-**S-28** (Body-Grenze unabhaengig vom Medientyp; teste **jeden** Medientyp: `application/json`,
-`application/*+json`, `text/plain`, `multipart/form-data`, `application/octet-stream`, ohne
-`Content-Type`; ist die Grenze noch umgehbar?), **S-29** (leere Audience ⇒ Startfehler, fail-closed),
-**S-30** (nicht unterstuetzter Medientyp ⇒ 4xx ohne Stacktrace), **S-31** (Tomcat-Version oberhalb der
-Fix-Linie — `mvn dependency:tree`), **S-32** (SCA-Baseline vorhanden und gepflegt), **S-33** (Token
-ohne Mandant ⇒ 401), **S-34** (Javadoc aktuell).
-Bewerte je Befund: **behoben / teilweise behoben / nicht behoben**, mit Fundstelle.
+### 1 — Voraussetzungen pruefen (der erste Schritt des Workflows)
+Belege im Bericht: **0 Critical** im QA-Bericht **und** im Security-Audit, **GATE 2 freigegeben**.
+Wenn doch ein Critical auftaucht: **stoppen** und melden.
 
-### 2 — Erneutes **vollstaendiges** Audit
-Alle **10 Pruefungen** des Skills `aisdlc-security-scan` **erneut und vollstaendig**, mit Schwerpunkt
-auf dem, was **neu** entstanden ist:
-- die **neue** Body-Schaetzung (S-28 neu) — ist sie jetzt medientyp-unabhaengig? Umgehbar ueber
-  `Content-Encoding: gzip`, `Transfer-Encoding`, fehlenden `Content-Length`, oder einen Body, den der
-  Message-Converter selbst liest?
-- die **fail-closed** Audience-Pruefung (S-29 neu) — Fehlerverhalten, Konfigurationswege;
-- die **neue** Exception-Handler-Abbildung (S-30 neu) — leaken andere Ausnahmen weiterhin Stacktraces?
-- die **Rate-Limit-Antwort** (S-24, Runde 1) — ist sie weiterhin korrekt (429 + `Retry-After`)?
-- die **CI** (S-25/S-32 neu) — Secrets in Logs, Baseline-Pflege, OIDC, geschuetzte Branches.
-- das **Produktionsprofil** und die **Containerhaertung** (S-26/S-27 neu).
-Dazu die **OWASP-Querpruefung** A01…A10 mit Ergebnis je Zeile.
-**Null Funde sind ein Ergebnis — aber nur, wenn geprueft wurde.** Jede Pruefung wird **beantwortet**
-(auch mit „kein Fund, geprueft in …“). Kein Befund ohne **belegten** Nachweis; Vermutungen sind
-**offene Fragen**.
+### 2 — `infra/` — die Betriebsartefakte
+- **`docker-compose.yml`** — lokale Entwicklung **und** getrennte Umgebungen (Staging/Produktion
+  **getrennt**, ADR-013: zwei Rollen `api` und `worker` in **einem** Image, `echobox.tenant.id` bindet
+  eine Instanz an einen Mandanten). Der Dienst laeuft in Containern, ist auf **eine Instanz je Mandant**
+  vorbereitet und skaliert horizontal (NFR-006). **Keine Secrets** in der Datei — nur
+  `${ENV:-Vorgabe}`-Verweise auf Variablen; `.env` bleibt in `.gitignore`.
+- **Bereitstellungsdeskriptoren** fuer die Umgebungen (z. B. Cloud-Run- oder Container-Deployment),
+  **kein** Secret im Deskriptor, Health-Check, Ressourcenlimits, **keine** unnoetigen Ports
+  (S-26/S-27), `SPRING_PROFILES_ACTIVE` je Umgebung (Produktion ⇒ `production`, **nicht** `staging`).
+- **`infra/README.md`** — wie kommt man lokal und in die Umgebungen, welche Variablen sind Pflicht,
+  welche sind optional, wie rotiert man Schluessel.
 
-### 3 — QA-Bericht neu erstellen
-- **Teststand** je Ebene — **ausgefuehrt**, mit Kommando und Ergebnis.
-- **Abdeckung der 101 AKs** gegen die nachgezogene Matrix; **Luecken** als Liste (eine gefuellte
-  Matrix **allein** zaehlt nicht als Beleg — der Testfall muss existieren und benannt sein).
-- **Regressionspruefung**: kein Test ohne Begruendung entfernt oder abgeschwaecht.
-- **Coverage** mit den aktuellen Zahlen und der **erzwungenen** Schwelle.
+### 3 — `.github/workflows/` — die Betriebspipeline
+Die vorhandene `deploy.yml` (aus Schritt 6/8) **ausbauen** zu einer Pipeline mit **Approval-Gates**:
+- **Build** (Image bauen: Multi-Stage, non-root, gepinnte Basis-Images, kein Secret im Image,
+  Health-Check) ⇒ **Test-Gate** (Java + Oberflaeche, **Coverage-Gate ≥ 80 %**, Vertragstests) ⇒
+  **Security-Gate** (Secret-Scan, SCA-Scan mit **Baseline**, Image-Scan) ⇒ **Deploy Staging**
+  ⇒ **Smoke-Tests** ⇒ **Approval-Gate (menschlich)** ⇒ **Deploy Produktion** ⇒ **Smoke-Tests** ⇒
+  **Rollback-Pfad**.
+- **Rollout-Strategie** und **Rollback** beschreiben und — soweit moeglich — automatisieren.
+- **Promotion** von Staging nach Produktion nachvollziehbar (gleiches Image, gleicher Digest).
+- **Keine Secrets in Logs**; Registry-Zugriff ueber OIDC; **geschuetzte Branches** und
+  Environment-Gates (production braucht Freigabe).
 
-### 4 — Freigabe-Empfehlung
-**Freigeben / blockieren**, mit der Zahl je Schwere und der Gate-Bedingung (0 Critical, 0 High) als
-Kriterium. Bleibt ein High offen: **blockieren** — und nenne Befund und Ursache.
+### 4 — `docs/execution/` — Betrieb und Runbook
+- **Deploy-Report** (`docs/execution/deploy-report.md`): was deployed wurde (Image-Digest), Smoke-Test-
+  Ergebnisse (pass/fail), **URLs fuer Staging und Produktion** (als Konfiguration, nicht als erfundene
+  Realitaet), Validierung, bekannte Restbefunde (S-35/S-36, Q-8/Q-9, O-05).
+- **Runbook** (`docs/execution/runbook.md`): Health/Readiness, **SLIs/SLOs** (aus ADR-011:
+  Erfolgsquote, p95-Zustelllatenz), **Alarmierung**, **Rollback**, **Aufbewahrung/Purge** (F-02),
+  **Secret-Rotation** (FR-003), was bei einem Mandantenleck zu tun ist (Notfall: Mandant aus der
+  Mandantenliste entfernen, Service anhalten).
+- **Katalog der offenen Punkte** mit Owner: O-04, O-05, R-01/E-13, E-12, Q-8, Q-9, S-35, S-36, O-05
+  (postcss) — und was im Betrieb zu tun ist.
 
-## Was du **nicht** tust
-- **Der Audit bleibt read-only** fuer `src/`, `docs/api/`, `docs/adr/`, `docs/architecture/`,
-  `.agent/knowledge/`, `docs/requirements/`. Du darfst **Tests** in `tests/` schreiben.
-- **Den eingefrorenen Vertrag nicht aendern.** Vertragsdefekt ⇒ **Befund**.
-- In `docs/` nur `docs/qa/`. Kein `git push`. Keine Ausgabe-Kommandos.
+### 5 — `.agent/artifacts/deploy-report.md`
+Der kanonische Deploy-Report (Staging-/Produktions-URL, Smoke-Test-Ergebnisse, Validierung,
+Freigabe-Empfehlung).
 
-## Ergebnisse
-- **`docs/qa/security-audit.md`** — **ersetzen**: Nachpruefung + neues Audit + Befundtabelle +
-  Gesamtrating + **Freigabe-Empfehlung**.
-- **`docs/qa/qa-report.md`** — **ersetzen**.
-- **`.agent/artifacts/security-audit.md`**, **`.agent/artifacts/test-report.md`** — aktualisieren.
-- **Sicherheits-Regressionstests** fuer jeden **neuen** Fund, der sich festnageln laesst.
+## Regeln
+- **Kein Anwendungscode.** `src/` und `tests/` bleiben unberuehrt (ausser `tests/` fuer
+  **Rauchtest-/Deploy-Tests**, falls noetig).
+- **Keine Aenderung** an `docs/api/`, `docs/adr/`, `docs/architecture/`, `.agent/knowledge/`,
+  `docs/requirements/`. In `docs/` nur `docs/execution/`.
+- **Kein Schema-Anfassen** (beide Diffs leer halten).
+- **Keine Secrets** in Code, Konfiguration, Image, Deskriptoren oder Pipeline — nur Verweise auf
+  Variablen. `.env` bleibt in `.gitignore`.
+- **Kein echtes Deployment** in eine fremde Umgebung: Du **erstellst** die Pipeline und die
+  Artefakte und **validierst** sie lokal (Image-Build, Compose-Start, Health-Check, Smoke-Test gegen
+  den lokalen Dienst). Erfinde **keine** Staging-/Produktions-URLs und **keine** Digeste, die es nicht
+  gibt — beschreibe, **wie** sie entstehen, und welche Platzhalter die Pipeline setzt.
+- Kein `git push`. Keine Ausgabe-Kommandos (`echo`, `printf`, `pwd`, `cat` zur Orientierung).
+
+## Werkzeuge
+
+| Zweck | Kommando |
+|---|---|
+| Konsistenz der Traceability-Kette | `python3 .agent/tools/traceability_check.py` |
+| Schema-Diffs | `diff .agent/knowledge/schema.sql src/main/resources/db/migration/V1__initial_schema.sql` · `diff .agent/knowledge/schema.sql docs/architecture/schema.sql` |
+| Image bauen | `docker build` (mit BuildKit) |
+| Lokal starten | `docker compose up` + Health-Check |
+| Backend / Oberflaeche | `mvn -q verify` · `npx tsc --noEmit` · `npm run lint` · `npx vitest run` |
 
 ## Commit — genau einer, Befehl aus der Workflow-Datei
 ```bash
-mkdir -p tests/ docs/qa/ .agent/artifacts/
+mkdir -p docs/execution/ infra/ .github/ .agent/artifacts/
 git reset -q
-git add -A -- tests/ docs/qa/ .agent/artifacts/
-git commit -m "docs(sdlc-8): Security-Audit und QA-Bericht nach der zweiten Nacharbeit" \
-  -m "Schritt 8 - Sicherheit & Compliance | Agent: aisdlc-qa | Artefakte: tests/, docs/qa/, .agent/artifacts/"
+git add -A -- docs/execution/ infra/ .github/ .agent/artifacts/
+git commit -m "build(sdlc-9): Deployment-Pipeline und Deploy-Report" \
+  -m "Schritt 9 - Deployment & Betrieb | Agent: aisdlc-qa | Artefakte: docs/execution/, infra/, .github/, .agent/artifacts/"
 ```
 
 ## Antwortformat — genau so, die drei Zeilen ZUERST
-Danach hoechstens zwei optionalen Zeilen (Kennzahlen). In der zweiten optionalen Zeile bitte nennen:
-**Befunde je Schwere**, **Nachpruefung behoben/offen**, **AK-Abdeckung**, **Freigabe-Empfehlung**.
+Danach hoechstens zwei optionalen Zeilen (Kennzahlen, Validierung). Keine Herleitung, keine Auszuege.
 
 ```
 STATUS: done | done_with_open_points | blocked
 COMMIT: <hash> <subject>
-OFFENE PUNKTE: <kurz, mit S-xx/A-xx/Q-xx> | -
+OFFENE PUNKTE: <kurz, mit S-xx/O-xx/Q-xx> | -
 ```

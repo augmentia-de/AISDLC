@@ -1,0 +1,75 @@
+# =============================================================================
+# EchoBox — lokales Entwicklung-Setup (ADR-013, AC-023-1..5)
+#
+# Ein Image, zwei Rollen (api + worker). Keine Secrets in der Datei: alle Werte
+# kommen aus der Umgebung bzw. aus .env (in .gitignore).
+# =============================================================================
+services:
+  postgres:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_USER: ${ECHobox_DATABASE_USERNAME:-echobox_app}
+      POSTGRES_PASSWORD: ${ECHobox_DATABASE_PASSWORD:-changeme}
+      POSTGRES_DB: ${ECHobox_DATABASE_NAME:-echobox}
+    ports:
+      - "${ECHobox_DATABASE_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ECHobox_DATABASE_USERNAME:-echobox_app} -d ${ECHobox_DATABASE_NAME:-echobox}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: ${ECHobox_IMAGE:-echobox:local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-default}
+      ECHobox_DATABASE_URL: jdbc:postgresql://postgres:5432/${ECHobox_DATABASE_NAME:-echobox}
+      ECHobox_DATABASE_USERNAME: ${ECHobox_DATABASE_USERNAME:-echobox_app}
+      ECHobox_DATABASE_PASSWORD: ${ECHobox_DATABASE_PASSWORD:-changeme}
+      ECHobox_CRYPTO_KEY: ${ECHobox_CRYPTO_KEY:-}
+      ECHobox_CURSOR_KEY: ${ECHobox_CURSOR_KEY:-}
+      ECHobox_SECURITY_JWK_SET_URI: ${ECHobox_SECURITY_JWK_SET_URI:-https://idp.example.invalid/.well-known/jwks.json}
+      ECHobox_SECURITY_AUDIENCE: ${ECHobox_SECURITY_AUDIENCE:-echobox}
+      ECHobox_TENANT_ID: ${ECHobox_TENANT_ID:-}
+      ECHobox_DELIVERY_WORKER_ENABLED: "false"
+      SERVER_PORT: "8080"
+    ports:
+      - "${ECHobox_API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+    restart: unless-stopped
+
+  worker:
+    image: ${ECHobox_IMAGE:-echobox:local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-default}
+      ECHobox_DATABASE_URL: jdbc:postgresql://postgres:5432/${ECHobox_DATABASE_NAME:-echobox}
+      ECHobox_DATABASE_USERNAME: ${ECHobox_DATABASE_USERNAME:-echobox_app}
+      ECHobox_DATABASE_PASSWORD: ${ECHobox_DATABASE_PASSWORD:-changeme}
+      ECHobox_CRYPTO_KEY: ${ECHobox_CRYPTO_KEY:-}
+      ECHobox_TENANT_ID: ${ECHobox_TENANT_ID:-}
+      ECHobox_DELIVERY_WORKER_ENABLED: "true"
+      SERVER_PORT: "8081"
+    # Der Worker stellt keinen HTTP-Port bereit — nur die Zustellung.
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  pgdata:

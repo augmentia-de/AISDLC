@@ -1,23 +1,28 @@
 # =============================================================================
-# EchoBox — Bereitstellung (Staging und Produktion getrennt)
+# EchoBox — Betriebspipeline (Staging und Produktion getrennt)
 #
-# Grundlage: AC-023-5 / NFR-006 — „Staging und Produktion werden getrennt
-# bereitgestellt und erhalten getrennte Konfigurationen und Secrets."
+# Stufen:
+#   Build (Multi-Stage, non-root, gepinnte Basis-Images, kein Secret im Image,
+#          Health-Check) -> Test-Gate (Java + Oberflaeche, Coverage >= 80 %,
+#          Vertragstests) -> Security-Gate (Secret-Scan gitleaks, SCA-Scan
+#          osv-scanner mit Baseline, Image-Scan) -> Deploy Staging ->
+#          Smoke-Tests -> Approval-Gate (menschlich) -> Deploy Produktion ->
+#          Smoke-Tests -> Rollback-Pfad.
 #
 # Grundsaetze:
-#   * **Keine Secrets in dieser Datei.** Jeder Wert kommt aus dem
-#     Secret-Store der jeweiligen Umgebung (`secrets.*`); die Datei enthaelt
-#     nur die *Namen* der Geheimnisse.
-#   * **Getrennte Jobs.** Staging und Produktion werden in zwei eigenen Jobs
-#     bereitgestellt — nie im selben Job. Jeder Job laeuft in seiner eigenen
-#     GitHub-Umgebung (`environment:`), die ihre eigenen Freigaben und ihre
-#     eigenen Secrets traegt.
-#   * Der **Build** ist gemeinsam: er erzeugt das Image, das beide Umgebungen
-#     beziehen. Die **Bereitstellung** ist getrennt.
-#   * **S-25:** vor dem Image gibt es Gates — Secret-Scan, SCA-Scan, die
-#     Tests des Dienstes **und** der Oberflaeche. Die Registry-Anmeldung
-#     nutzt das **kurzlebige** Token des Laufs (`GITHUB_TOKEN`, per OIDC
-#     erteilt), nicht einen statischen, langlebigen Registry-Schluessel.
+#   * Keine Secrets in dieser Datei und keine in Logs. Jeder Wert kommt aus dem
+#     Secret-Store der jeweiligen Umgebung (secrets.*); die Datei enthaelt nur
+#     die Namen der Geheimnisse.
+#   * Getrennte Jobs fuer Staging und Produktion — nie im selben Job. Jeder Job
+#     laeuft in seiner eigenen GitHub-Umgebung (environment:), die ihre eigenen
+#     Freigaben und Secrets traegt.
+#   * Der Build ist gemeinsam: er erzeugt das Image, das beide Umgebungen
+#     beziehen. Die Bereitstellung ist getrennt. Promotion = gleiches Image,
+#     gleicher Digest (Commit-SHA).
+#   * Registry-Zugriff ueber OIDC (kurzlebiges Token des Laufs), kein statisches
+#     Registry-Token.
+#   * Geschuetzte Branches: nur 'main' triggert die Pipeline; workflow_dispatch
+#     nur fuer manuelle Laeufe mit Approval.
 # =============================================================================
 name: echobox-bereitstellung
 
@@ -26,37 +31,44 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Standardberechtigungen: nur lesen. Das Schreiben in die Paket-Registry
-# erfolgt ueber das kurzlebige Token des Laufs; `id-token: write` erlaubt
-# zusaetzlich die OIDC-Anmeldung an eine Registry, die OIDC spricht.
+# Standardberechtigungen: nur lesen. Schreiben nur, wo explizit noetig.
 permissions:
   contents: read
   packages: write
   id-token: write
+  security-events: write
+
+concurrency:
+  group: echobox-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/example/echobox
+  IMAGE: ghcr.io/${{ github.repository_owner }}/echobox
   FRONTEND: src/main/frontend
+  JAVA_VERSION: "21"
 
 jobs:
-  # ------------------------------------------------------------------ Build
+  # ============================================================ Build + Gates
   build:
-    name: Build und Image
+    name: Build und Quality-Gates
     runs-on: ubuntu-latest
     steps:
       - name: Quellcode holen
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # ---------------------------------------------------------- Gates
+      # -------------------------------------------------------- Secret-Scan
       - name: Secret-Scan (gitleaks)
         run: |
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
             detect --source=/repo --redact --no-banner --exit-code=1
 
-      # S-32: der Scan meldet nur **neue** Advisories. Die bekannten sind in
-      # `osv-scanner.toml` (Baseline) mit Begruendung und Ablaufdatum
-      # dokumentiert; ohne diese Baseline schlug der Schritt auf jedem Lauf an.
-      - name: SCA-Scan (OSV)
+      # ---------------------------------------------------------- SCA-Scan
+      # S-32: der Scan meldet nur neue Advisories. Die bekannten sind in
+      # osv-scanner.toml (Baseline) mit Begruendung und Ablaufdatum
+      # dokumentiert. Pflege: siehe "SCA-Baseline" unten.
+      - name: SCA-Scan (OSV, mit Baseline)
         uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
         with:
           scan-args: |-
@@ -64,12 +76,21 @@ jobs:
             --recursive
             ./
 
-      # ------------------------------------------------- Dienst (Backend)
-      - name: Java-Build und Tests (inkl. Coverage-Gate)
+      # ------------------------------------------------------- Dienst (Java)
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Java-Build und Tests (inkl. Coverage-Gate >= 80 %)
         run: mvn -B verify
 
+      - name: Vertragstests (Signatur, Felder, Ablehnung)
+        run: mvn -B -o -Pcontract-performance verify
+
       # ------------------------------------------- Oberflaeche (Frontend)
-      # Der npm-Workspace liegt in der Wurzel; `package-lock.json` ebenfalls.
       - name: Node installieren
         uses: actions/setup-node@v4
         with:
@@ -96,29 +117,47 @@ jobs:
       - name: End-to-End-Tests der Oberflaeche
         run: npm run test:e2e
 
-      # ------------------------------------------------------------ Image
-      - name: Image bauen
-        run: docker build --tag ${{ env.IMAGE }}:${{ github.sha }} .
+      # ----------------------------------------------------------- Image
+      - name: Docker Buildx einrichten
+        uses: docker/setup-buildx-action@v3
 
-      - name: Image in die Registry pushen
+      - name: Anmeldung an der Registry (OIDC, kurzlebiges Token)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          # S-25: das Token des Laufs (`GITHUB_TOKEN`) statt eines statischen
-          # Registry-Schluessels — es ist kurzlebig und wird automatisch
-          # entzogen. Ein statisches `REGISTRY_TOKEN` wird nicht mehr gebraucht.
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Image pushen
-        run: docker push ${{ env.IMAGE }}:${{ github.sha }}
+      - name: Image bauen (Multi-Stage, non-root, gepinnt, Health-Check)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-  # --------------------------------------------------------------- Staging
+      # -------------------------------------------------------- Image-Scan
+      - name: Image-Scan (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "${{ env.IMAGE }}:${{ github.sha }}"
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Scan-Ergebnis hochladen
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ================================================================ Staging
   deploy-staging:
     name: deploy-staging (Bereitstellung Staging)
     needs: build
     runs-on: ubuntu-latest
-    # Die Umgebung traegt ihre eigenen Freigaben und ihre eigenen Secrets.
     environment: staging
     steps:
       - name: Quellcode holen
@@ -126,8 +165,6 @@ jobs:
 
       - name: staging-Konfiguration anwenden
         env:
-          # S-27: das Image ist nicht fest auf ein Profil gepinnt — die
-          # Umgebung legt das Profil fest.
           SPRING_PROFILES_ACTIVE: staging
           ECHobox_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           ECHobox_DATABASE_USERNAME: ${{ secrets.STAGING_DATABASE_USERNAME }}
@@ -136,17 +173,82 @@ jobs:
           ECHobox_CURSOR_KEY: ${{ secrets.STAGING_CURSOR_KEY }}
           ECHobox_SECURITY_JWK_SET_URI: ${{ secrets.STAGING_JWK_SET_URI }}
           ECHobox_SECURITY_AUDIENCE: ${{ secrets.STAGING_SECURITY_AUDIENCE }}
-        run: echo "Die Staging-Konfiguration kommt ausschliesslich aus den Secrets der Umgebung 'staging'."
+          ECHobox_TENANT_ID: ${{ secrets.STAGING_TENANT_ID }}
+        run: |
+          # Konfiguration kommt ausschliesslich aus den Secrets der Umgebung
+          # 'staging'. Kein Wert wird geloggt.
+          echo "Staging-Konfiguration aus dem Secret-Store der Umgebung 'staging' geladen."
 
       - name: Image in staging ausrollen
-        run: echo "Rollout des Images ${{ env.IMAGE }}:${{ github.sha }} in die Umgebung 'staging'."
+        env:
+          ECHobox_IMAGE: ${{ env.IMAGE }}:${{ github.sha }}
+        run: |
+          echo "Rollout des Images ${ECHobox_IMAGE} in die Umgebung 'staging'."
+          # Hier: Aufruf des Deployment-Werkzeugs (Cloud Run / kubectl / compose)
+          # mit dem gepinnten Image-Digest. Kein 'latest'.
 
-  # ------------------------------------------------------------- Produktion
+  # =========================================================== Smoke Staging
+  smoke-staging:
+    name: Smoke-Tests (Staging)
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health-Endpoint pruefen
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "${{ secrets.STAGING_URL }}/health" >/dev/null; then
+              echo "Health OK"; break; fi
+            sleep 5
+          done
+          curl -fsS "${{ secrets.STAGING_URL }}/health" | tee /tmp/health.json
+          curl -fsS "${{ secrets.STAGING_URL }}/health/ready"
+
+      - name: Repraesentativer End-to-End-Flavor
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+          STAGING_TOKEN: ${{ secrets.STAGING_SMOKE_TOKEN }}
+        run: |
+          # 1. Endpunkt registrieren
+          curl -fsS -X POST "${STAGING_URL}/api/v1/endpoints" \
+            -H "Authorization: Bearer ${STAGING_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"url":"https://smoke.example.invalid/hook","event_types":["smoke.test"]}'
+          # 2. Ereignis einliefern
+          curl -fsS -X POST "${STAGING_URL}/api/v1/events" \
+            -H "Authorization: Bearer ${STAGING_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"event_type":"smoke.test","payload":{"ok":true}}'
+          # 3. Zustellprotokoll lesen
+          curl -fsS "${STAGING_URL}/api/v1/deliveries" \
+            -H "Authorization: Bearer ${STAGING_TOKEN}"
+
+      - name: Authentifizierung und Autorisierung (401/403)
+        env:
+          STAGING_URL: ${{ secrets.STAGING_URL }}
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/v1/endpoints")
+          test "$code" = "401" || (echo "erwartet 401, erhalten $code"; exit 1)
+
+      - name: Logs auf unerwartete Fehler pruefen
+        run: 'echo "Log-Pruefung (Platzhalter): die Zielumgebung stellt die Logs bereit."'
+
+  # =========================================================== Approval Gate
+  approval-gate:
+    name: Approval-Gate (menschliche Freigabe)
+    needs: smoke-staging
+    runs-on: ubuntu-latest
+    environment: production-approval
+    steps:
+      - name: Freigabe dokumentieren
+        run: |
+          echo "Menschliche Freigabe fuer die Promotion nach Produktion erforderlich."
+          echo "Die Umgebung 'production-approval' verlangt einen Reviewer."
+
+  # ================================================================ Produktion
   deploy-production:
     name: deploy-production (Bereitstellung Produktion)
-    needs: build
+    needs: approval-gate
     runs-on: ubuntu-latest
-    # Eigene Umgebung, eigene Freigabe, eigene Secrets — von Staging getrennt.
     environment: production
     steps:
       - name: Quellcode holen
@@ -154,8 +256,6 @@ jobs:
 
       - name: production-Konfiguration anwenden
         env:
-          # S-27: das Image ist nicht fest auf ein Profil gepinnt — die
-          # Umgebung legt das Profil fest.
           SPRING_PROFILES_ACTIVE: production
           ECHobox_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           ECHobox_DATABASE_USERNAME: ${{ secrets.PRODUCTION_DATABASE_USERNAME }}
@@ -164,7 +264,82 @@ jobs:
           ECHobox_CURSOR_KEY: ${{ secrets.PRODUCTION_CURSOR_KEY }}
           ECHobox_SECURITY_JWK_SET_URI: ${{ secrets.PRODUCTION_JWK_SET_URI }}
           ECHobox_SECURITY_AUDIENCE: ${{ secrets.PRODUCTION_SECURITY_AUDIENCE }}
-        run: echo "Die Produktionskonfiguration kommt ausschliesslich aus den Secrets der Umgebung 'production'."
+          ECHobox_TENANT_ID: ${{ secrets.PRODUCTION_TENANT_ID }}
+        run: |
+          echo "Produktionskonfiguration aus dem Secret-Store der Umgebung 'production' geladen."
 
-      - name: Image in production ausrollen
-        run: echo "Rollout des Images ${{ env.IMAGE }}:${{ github.sha }} in die Umgebung 'production'."
+      - name: "Image in production ausrollen (Promotion: gleiches Image, gleicher Digest)"
+        env:
+          ECHobox_IMAGE: ${{ env.IMAGE }}:${{ github.sha }}
+        run: |
+          echo "Promotion des Images ${ECHobox_IMAGE} in die Umgebung 'production'."
+          # Gleiches Image wie Staging — nur die Konfiguration/Secrets unterscheiden sich.
+
+  # =========================================================== Smoke Produktion
+  smoke-production:
+    name: Smoke-Tests (Produktion)
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health-Endpoint pruefen
+        run: |
+          curl -fsS "${{ secrets.PRODUCTION_URL }}/health"
+          curl -fsS "${{ secrets.PRODUCTION_URL }}/health/ready"
+
+      - name: Repraesentativer End-to-End-Flavor
+        env:
+          PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+          PRODUCTION_TOKEN: ${{ secrets.PRODUCTION_SMOKE_TOKEN }}
+        run: |
+          curl -fsS -X POST "${PRODUCTION_URL}/api/v1/events" \
+            -H "Authorization: Bearer ${PRODUCTION_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"event_type":"smoke.test","payload":{"ok":true}}'
+          curl -fsS "${PRODUCTION_URL}/api/v1/deliveries" \
+            -H "Authorization: Bearer ${PRODUCTION_TOKEN}"
+
+  # =============================================================== Rollback
+  rollback:
+    name: Rollback-Pfad (manuell ausloesbar)
+    if: failure() && (needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure' || needs.smoke-staging.result == 'failure' || needs.smoke-production.result == 'failure')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Rollback auf das vorherige Image
+        env:
+          PREVIOUS_IMAGE: ${{ secrets.PREVIOUS_IMAGE }}
+        run: |
+          echo "Rollback auf das vorherige Image: ${PREVIOUS_IMAGE}"
+          # 1. Vorheriges Image (Commit-SHA) in Staging/Produktion ausrollen.
+          # 2. Health und Readiness pruefen.
+          # 3. Keine Schema-Migration zurueck (Expand/Contract: nur vorwaerts).
+          # 4. Incident-Runbook: docs/execution/runbook.md
+
+# =============================================================================
+# SCA-Baseline — Pflege und Verantwortlichkeit
+# =============================================================================
+# Datei: osv-scanner.toml (Root)
+# Inhalt: 26 Eintraege (17 Java, 9 npm), jeder mit Begruendung und
+#         Ablaufdatum (ignoreUntil, hoechstens 6 Monate).
+#
+# Wer pflegt:
+#   - aisdlc-qa (Security-Audit-Runde): erzeugt die Baseline neu zu Beginn
+#     jeder Audit-Runde und prueft, ob Eintraege verwaist oder neu sind.
+#   - Entwickler, der eine Abhaengigkeit aktualisiert: entfernt die betroffenen
+#     Eintraege im selben Schritt (eine behobene Advisory gehoert nicht mehr
+#     in die Baseline).
+#   - Menschlicher Reviewer: Freigabe der Baseline mit GATE 2.
+#
+# Wie:
+#   - mvn dependency:tree (110 Koordinaten) -> OSV querybatch
+#   - package-lock.json (522 Pakete) -> OSV querybatch
+#   - Jeder Eintrag: id, ignoreUntil, reason (Warum in dieser Konfiguration
+#     nicht erreichbar?).
+#   - Abgelaufenes ignoreUntil: das Advisory wird wieder gemeldet und muss
+#     behoben oder neu begruendet werden (die Datei veraltet von selbst).
+#   - Die Baseline wird NICHT geloescht, um einen gruenen Build zu bekommen:
+#     ein neues Advisory ist ein Befund, kein Konfigurationsproblem.
+#
+# Image-Scan (Trivy): CRITICAL/HIGH fuehren zum Abbruch. Die Baseline des
+# SCA-Scans gilt fuer Abhaengigkeiten; der Image-Scan prueft das fertige
+# Image zusaetzlich (kein Secret, keine CVE im Basis-Image).

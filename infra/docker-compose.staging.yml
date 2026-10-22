@@ -1,0 +1,88 @@
+# =============================================================================
+# EchoBox — Staging-Umgebung (ADR-013, AC-023-5)
+#
+# Getrennte Datenbank, getrennte Secrets (Namespace "staging"). Das Image wird
+# ueber ECHobox_IMAGE (Commit-SHA, immutable) injiziert — kein "latest".
+# Schluessel kommen ausschliesslich aus dem Secret-Store der Umgebung.
+# =============================================================================
+services:
+  postgres:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_USER: ${STAGING_DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${STAGING_DATABASE_PASSWORD}
+      POSTGRES_DB: echobox_staging
+    volumes:
+      - staging_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STAGING_DATABASE_USERNAME} -d echobox_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    restart: unless-stopped
+
+  api:
+    image: ${ECHobox_IMAGE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      ECHobox_DATABASE_URL: ${STAGING_DATABASE_URL}
+      ECHobox_DATABASE_USERNAME: ${STAGING_DATABASE_USERNAME}
+      ECHobox_DATABASE_PASSWORD: ${STAGING_DATABASE_PASSWORD}
+      ECHobox_CRYPTO_KEY: ${STAGING_CRYPTO_KEY}
+      ECHobox_CURSOR_KEY: ${STAGING_CURSOR_KEY}
+      ECHobox_SECURITY_JWK_SET_URI: ${STAGING_JWK_SET_URI}
+      ECHobox_SECURITY_AUDIENCE: ${STAGING_SECURITY_AUDIENCE}
+      ECHobox_TENANT_ID: ${STAGING_TENANT_ID:-}
+      ECHobox_DELIVERY_WORKER_ENABLED: "false"
+      SERVER_PORT: "8080"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    restart: unless-stopped
+
+  worker:
+    image: ${ECHobox_IMAGE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      ECHobox_DATABASE_URL: ${STAGING_DATABASE_URL}
+      ECHobox_DATABASE_USERNAME: ${STAGING_DATABASE_USERNAME}
+      ECHobox_DATABASE_PASSWORD: ${STAGING_DATABASE_PASSWORD}
+      ECHobox_CRYPTO_KEY: ${STAGING_CRYPTO_KEY}
+      ECHobox_TENANT_ID: ${STAGING_TENANT_ID:-}
+      ECHobox_DELIVERY_WORKER_ENABLED: "true"
+      SERVER_PORT: "8081"
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    restart: unless-stopped
+
+volumes:
+  staging_pgdata:
