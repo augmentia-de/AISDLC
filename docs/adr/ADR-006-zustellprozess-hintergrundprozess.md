@@ -95,6 +95,12 @@ anderer Code darf einen Zustand ändern. Jede Änderung wird mit
 `updated_at` und — für die zustandsrelevanten Felder — im Protokoll
 nachvollziehbar gehalten.
 
+**Die Übergangstabelle ist die eine Quelle der Wahrheit** (§3.3 des
+Domänenmodells): `DeliveryStateMachine.TRANSITIONS` bildet sie ab, und jeder
+spezielle Pfad — etwa der Ratenbegrenzungs-Pfad (FR-033, ADR-010) — leitet
+seinen Übergang aus der Tabelle ab, statt einen Zustand nebenbei zu setzen
+(A-6 / B-17).
+
 ### 6. Der Replay ist **einmal** möglich
 
 Ein aufgegebener Zustelllauf (`abandoned`) kann **einmal** replayed werden

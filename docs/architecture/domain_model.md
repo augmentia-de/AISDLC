@@ -1,7 +1,8 @@
 # Domänenmodell — EchoBox
 
-> Schritt 3 (Simplify & Reduktion), korrigiert in Schritt 4 (Grill-Me-Stresstest)
-> · Agent: `aisdlc-architecture` · Stand: 2026-10-21
+> Schritt 3 (Simplify & Reduktion), korrigiert in Schritt 4 (Grill-Me-Stresstest),
+> Übergangstabelle korrigiert in Schritt 2 (**A-6 / B-17**)
+> · Agent: `aisdlc-architecture` · Stand: 2026-10-22
 > Grundlage: `docs/requirements/PRD.md` (Abschnitt 4 und 6), `docs/Anforderung.md` (Abschnitt 4)
 > Umsetzung: `.agent/knowledge/schema.sql`, `docs/api/openapi.yaml`
 
@@ -172,24 +173,57 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
    rejected / cancelled: endgültig, aber **nicht** replaybar —
    replaybar ist nur die aufgegebene Zustellung (Vertrag, GLOSSARY)
 
+   `delayed` (Endpunkt-Limit, FR-033) ist im Bild nicht gezeichnet:
+   pending / scheduled / failed ──(Limit greift)──► delayed
+   delayed ──(Zeitfenster frei)──► scheduled
+   delayed ──(Versuchsgrenze erreicht)──► abandoned
+   Die vollständige Übergangstabelle steht in §3.3.
+
 ```
 
 ### 3.3 Übergangstabelle
 
+Die Tabelle ist die **eine Quelle der Wahrheit** für die Zustandswechsel des
+Zustelllaufs. Sie ist im Code in `DeliveryStateMachine.TRANSITIONS`
+abgebildet — der Ratenbegrenzungs-Pfad leitet seinen Übergang aus der Tabelle
+ab (`canTransition(status, DELAYED)`), statt ihn nebenbei zu setzen. Ein
+Übergang ist nur zulässig, wenn er hier steht; ein **endgültiger** Zustand hat
+**keinen** Ausgang.
+
+```
+pending   -> scheduled, cancelled, no_subscriber, delayed
+scheduled -> sent, rejected, failed, cancelled, delayed
+failed    -> scheduled, delayed, abandoned, cancelled
+delayed   -> scheduled, abandoned, cancelled
+```
+
 | Von | Ereignis | Nach | Bedingung | Quelle |
 |---|---|---|---|---|
 | `pending` | erster Versuch beginnt | `scheduled` | Lauf ist fällig | D-10 |
-| `pending`/`scheduled` | Endpunkt pausiert | `cancelled` | Pause des Endpunkts | D-03, AC-002-4 |
+| `pending`/`scheduled`/`failed`/`delayed` | Endpunkt pausiert | `cancelled` | Pause des Endpunkts — **jeder offene** Zustand wird abgebrochen, ein endgültiger bleibt unberührt | D-03, AC-002-4 |
 | `scheduled` | Versuch läuft | `sent` | Antwort 2xx | FR-021, AC-010-3 |
 | `scheduled` | Versuch läuft | `rejected` | Antwort 410 mit Ablehnungssignal | FR-025, AC-014-1 |
 | `scheduled` | Versuch läuft | `rejected` | Antwort übriger 4xx | D-08, AC-014-4 |
 | `scheduled` | Versuch läuft | `failed` | Antwort 5xx / 408 / 429 / Netzwerkfehler | D-08, AC-014-3 |
 | `failed` | nächster Versuch geplant | `scheduled` | Backoff abgelaufen, kein Endpunkt-Limit | FR-022, AC-011-1 |
-| `failed` | Endpunkt-Limit greift | `delayed` | Zähler je Endpunkt/Fenster über dem Grenzwert | FR-033, AC-018-2 |
+| `pending`/`scheduled`/`failed` | Endpunkt-Limit greift | `delayed` | Zähler je Endpunkt/Fenster über dem Grenzwert — das Limit wirkt auf **jeden** offenen Zustand, auch auf den **ersten** Versuch eines frischen Laufs | FR-033, AC-018-2, ADR-010 |
 | `delayed` | Zeitfenster frei | `scheduled` | — | FR-033 |
 | `failed`/`delayed` | Versuchsgrenze erreicht | `abandoned` | `attempt_count >= max_attempts` | FR-023, AC-012-1 |
 | `abandoned` | Replay | **neuer** Lauf in `pending` | Empfänger-Admin des Endpunkts, Endpunkt nicht pausiert, Vorgängerlauf ist `abandoned` und **noch nicht** replayed — ein Replay ist je Lauf **einmal** möglich (UNIQUE `replay_of`, E-09); sonst HTTP 409 `delivery_state_conflict` | FR-024, AC-013-1, AC-013-4, AC-013-5 |
 | `pending` | Ereignis ohne Abnehmer | `no_subscriber` | kein Endpunkt abonniert den Ereignistyp | D-04 |
+
+> **Der Weg in `delayed` (A-6 / B-17).** Das Endpunkt-Limit (FR-033) wirkt
+> **nicht erst ab dem zweiten Versuch**: es greift auch beim **ersten**
+> Versuch eines frischen Laufs — sonst käme ein Endpunkt in der ersten Minute
+> über das Limit hinaus. Der Vertrag (`components.schemas.DeliveryStatus`) und
+> ADR-010 nennen den Zustand `delayed` **ohne** Einschränkung des
+> Ausgangszustands. Deshalb führt die Tabelle `pending`, `scheduled` und
+> `failed` nach `delayed`.
+>
+> **`delayed -> delayed` ist kein Übergang** — der Zustand ändert sich nicht.
+> Ein bereits verschobener Lauf bleibt `delayed` (der Versuch geht nicht
+> verloren, AC-018-1) und wird erst mit dem nächsten freien Zeitfenster
+> `scheduled`.
 
 ### 3.4 Invarianten
 
@@ -202,7 +236,7 @@ Ereignis-ID und verschiedenen Zustelllauf-IDs.
 | I-5 | Ein Replay erzeugt einen **neuen** Zustelllauf; der alte bleibt unverändert | `replay_of` zeigt auf den Vorgänger; keine Änderung am alten Datensatz (AC-013-2). Der Verweis ist **historisch**, kein Fremdschlüssel — er überlebt die Aufbewahrung des Vorgängers (E-11) |
 | I-6 | `attempt_count` steigt nie sprunghaft; ein abgestürzter Worker erhöht sie **nicht** | Lease-Rettung gibt den Lauf frei, ohne einen Versuch zu zählen (AC-023-4) |
 | I-7 | Genau **eine** Instanz führt einen Versuch aus | `FOR UPDATE SKIP LOCKED` + Lease (AC-023-3) |
-| I-8 | Ein gepausierter Endpunkt erzeugt **keinen** Zustellvorgang und **keine** Nachlieferung | `pending`/`scheduled`-Läufe werden bei Pause auf `cancelled` gesetzt; bei der Einlieferung wird für pausierte Endpunkte **kein** Lauf angelegt (D-03) |
+| I-8 | Ein gepausierter Endpunkt erzeugt **keinen** Zustellvorgang und **keine** Nachlieferung | alle **offenen** Läufe (`pending`, `scheduled`, `failed`, `delayed`) werden bei Pause auf `cancelled` gesetzt; bei der Einlieferung wird für pausierte Endpunkte **kein** Lauf angelegt (D-03) |
 | I-9 | Ein aufgegebener Zustelllauf kann **einmal** replayed werden | `UNIQUE (replay_of)` in `delivery_runs`; ein weiterer Replay ⇒ SQLSTATE 23505 ⇒ HTTP 409 `delivery_state_conflict` (AC-013-1…5, ADR-006 §6, ADR-015 §6) |
 | I-10 | Ein 3xx beendet den Lauf endgültig, ohne Wiederholung; Redirects werden nicht gefolgt | `rejected` mit `rejection_reason = client_error`; `outcome = client_error` (ADR-009) |
 | I-11 | Ein markierter Zustelllauf macht seine Versuche unsichtbar — und sie zählen nicht mehr in den Kennzahlen | Die Policy auf `delivery_attempts` bezieht `delivery_runs.deleted_at IS NULL` ein (N-13, ADR-012 §3) |

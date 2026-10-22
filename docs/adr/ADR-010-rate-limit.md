@@ -57,6 +57,17 @@ Ein Limit, das Zustellungen **verwirft**, wäre ein Datenverlust und ist
 ausgeschlossen. Ein Limit, das den Annahme-Request blockiert, wäre ein
 Latenzbruch (NFR-002) und ist ebenfalls ausgeschlossen.
 
+> **Klarstellung (A-6 / B-17, 2026-10-22).** Der Zustand `delayed` ist aus
+> **jedem offenen Zustand** erreichbar — `pending`, `scheduled` und `failed`.
+> Das Endpunkt-Limit wirkt auch auf den **ersten** Versuch eines frischen
+> Laufs; sonst käme ein Endpunkt in der ersten Minute über das Limit hinaus.
+> Der Vertrag (`components.schemas.DeliveryStatus`) nennt `delayed` ohne
+> Einschränkung des Ausgangszustands. Die Übergänge stehen in
+> `docs/architecture/domain_model.md` §3.3 und sind in
+> `DeliveryStateMachine.TRANSITIONS` abgebildet. Diese Klarstellung ändert
+> **keine** Entscheidung dieser ADR — F-01 (Mechanismus und Vorgabewert)
+> bleibt unverändert.
+
 ### 3. Vorgabewert: 60 Versuche je Endpunkt und Minute
 
 | Wert | Konfiguration | Vorgabe (bestätigt am 2026-10-21) |
