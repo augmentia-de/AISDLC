@@ -1,0 +1,29 @@
+{
+  "id": "BUG-S-33",
+  "title": "Ein Token ohne organisation_id ergibt HTTP 500 mit Stacktrace und umgeht das Anfragelimit",
+  "severity": "low",
+  "category": "error-handling-rate-limit",
+  "component": "src/main/java/com/echobox/tenant/TenantTransactionRunner.java",
+  "path": "src/main/java/com/echobox/tenant/TenantTransactionRunner.java",
+  "line": 92,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/common/GlobalExceptionHandler.java", "line": 230 },
+    { "path": "src/main/java/com/echobox/tenant/ApiRateLimitFilter.java", "line": 85 },
+    { "path": "src/main/java/com/echobox/tenant/TenantContext.java", "line": 51 }
+  ],
+  "cause": "Der Mandant stammt aus dem Claim 'organisation_id' des Tokens. Fehlt der Claim, liefert TenantContext.organisationId() den leeren String; TenantTransactionRunner.setTenant wirft dann IllegalArgumentException ('Der Mandant darf nicht leer sein (fail-closed)'). Der GlobalExceptionHandler kennt fuer diese Ausnahme keinen eigenen Fall — sie faellt in den allgemeinen Handler und wird als HTTP 500 'internal_error' mit Stacktrace protokolliert. Gleichzeitig zaehlt der ApiRateLimitFilter nur Anfragen mit nicht-leerem Mandanten (organisationIdOf liefert null) — solche Anfragen werden also NICHT gezaehlt.",
+  "impact": "Ein gueltig signiertes Token ohne Mandanten ergibt 500 statt 401/422 und erzeugt einen Stacktrace im Fehlerprotokoll. Da der Mandant fehlt, greift das Anfragelimit (S-24) fuer diese Anfragen nicht — sie laufen ungezaehlt durch. Der Schadensweg ist eng: er setzt ein Token voraus, das der Identity Provider ohne Mandanten ausstellt.",
+  "exploitability": "setzt ein gueltig signiertes Token ohne 'organisation_id' voraus — das kann nur der Identity Provider (oder ein Kompromittierung des IdP) erzeugen. Die Wirkung ist auf Protokollrauschen und ein nicht greifendes Anfragelimit beschraenkt.",
+  "reproduction": {
+    "command": "mvn -B verify -Dtest=NoSuchUnitTest -Dit.test=NoSuchIT -DfailIfNoSpecifiedTests=false  (kein Test vorhanden — der Nachweis ist der Quelltext)",
+    "test": "kein Test — der Pfad ist aus dem Quelltext belegt (TenantTransactionRunner.java:91-94, GlobalExceptionHandler.java:230-237, ApiRateLimitFilter.java:85-98)",
+    "expected": "401 'unauthorized' oder 422 'validation_failed' (Fehler des Aufrufers)",
+    "actual": "500 'internal_error' mit Stacktrace im Protokoll; Anfrage nicht gezaehlt",
+    "evidence": "TenantTransactionRunner.setTenant wirft IllegalArgumentException bei leerem Mandanten; der allgemeine Handler antwortet 500 und protokolliert LOG.error(..., exception)."
+  },
+  "recommendation": "Ein Token ohne 'organisation_id' ist ein Fehler des Aufrufers: als 401 'unauthorized' (bzw. 422) im GlobalExceptionHandler abbilden, nicht als 500. Der ApiRateLimitFilter sollte nicht von der Mandanten-ID abhaengen, sondern von einem stabilen Schluessel der Identitaet (z.B. 'sub' oder der Mandant, mit Fallback auf die Identitaet) — sonst gilt das Limit fuer genau die Anfragen nicht, die am wenigsten zaehlbar sind.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, zweite Runde",
+  "security_finding": "S-33",
+  "status": "offen"
+}

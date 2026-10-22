@@ -1,16 +1,17 @@
-# Steckbrief — Schritt 2 (Korrektur: Uebergangstabelle des Domänenmodells, A-6/B-17)
+# Steckbrief — Schritt 8 (erneute Pruefung nach der Security-Nacharbeit)
 
 > Einstiegspunkt für den Rollen-Agenten. Ein **Zeiger**: Status, Commit, Festlegungen,
 > offene Punkte. **Die Dateien sind die Wahrheit, nicht dieser Steckbrief.**
 
 | Feld | Wert |
 |---|---|
-| Stand | Ruecksprung Schritt 6/7 abgeschlossen — Commit `d135cda` `fix(sdlc-6): Security-Befunde S-19 bis S-27 und Coverage-Gate behoben`; davor Schritt 8 `1ba4160`, Schritt 1 (Nachzug) `825656a`, Schritt 7 `bd15f19`, Schritt 6 `e9e1bc1` |
-| Dieser Schritt | 2 (Konzept & Architektur) — **eine** Korrektur: die Uebergangstabelle des Domänenmodells |
-| Danach | Schritt 8 (erneute Pruefung) → **GATE 2** → Schritt 9 |
-| **Vertrag** | `docs/api/openapi.yaml` — **EINGEFROREN seit `8627bb6`**, im Ruecksprung **nicht** angefasst. Diese Korrektur fasst den Vertrag **nicht** an. |
-| Schema | `.agent/knowledge/schema.sql` + Spiegel + Migration — alle drei byte-identisch; **nicht** anfassen |
-| Code | `src/`, `tests/` — 9/9 Security-Befunde behoben, alle Tests gruen, Coverage-Gate erzwungen |
+| Stand | Schritt 2 (Korrektur) abgeschlossen — Commit `28396e0`; davor Ruecksprung Schritt 6/7 `d135cda`, Schritt 8 (erste Runde) `1ba4160`, Schritt 1 (Nachzug) `825656a`, Schritt 7 `bd15f19`, Schritt 6 `e9e1bc1` |
+| Dieser Schritt | 8 (Sicherheit & Compliance) — **zweite Runde**: Nachpruefung der Nacharbeit + erneutes Audit |
+| Nächster Schritt | **GATE 2** → danach Schritt 9 (Deployment & Betrieb) |
+| Gate-Bedingung | **QA: 0 Critical · Security: 0 Critical und 0 High** |
+| **Vertrag** | `docs/api/openapi.yaml` — **EINGEFROREN seit `8627bb6`**; in der Nacharbeit **nicht** angefasst |
+| Schema | `.agent/knowledge/schema.sql` + Spiegel + Migration — alle drei byte-identisch |
+| Teststand (Nacharbeit) | `mvn verify` BUILD SUCCESS (113 Unit + 281 Integration, **Coverage 86,0 %**, Gate **erzwungen**) · Vertrag 19 + Last 2 gruen · `tsc` 0 · lint 0 · build ok · Vitest 30 · Playwright 31 · beide Schema-Diffs leer · `traceability_check.py` gruen · alle 6 Gap-Tests gruen + 24 neue Regressionstests |
 
 ## Was du lesen musst — und sonst nichts
 
@@ -18,68 +19,87 @@
 |---|---|---|
 | 1 | `AGENTS.md` | Regeln, Gates, Folder Ownership, Commit Convention |
 | 2 | `.agent/PHASES.md` | Schritt → Instanz → Agent → Skill → Gate; Commit pro Schritt |
-| 3 | `.agent/workflows/02-architecture.md` | dieser Schritt, Commit-Befehl |
-| 4 | `.agent/prompts/orchestrator/02_orchestrator_architecture.md` | dein Systemprompt |
-| 5 | `docs/architecture/domain_model.md` | **§3.3 — die zu korrigierende Uebergangstabelle** |
-| 6 | `docs/execution/step8-nacharbeit-security.md` **§4.2** | der Beleg: die Tabelle, die zu dokumentieren ist, und die Begruendung |
-| 7 | `src/main/java/com/echobox/delivery/DeliveryStateMachine.java` | die **Code**-Wahrheit (`TRANSITIONS`, `onRateLimited`) |
-| 8 | `docs/adr/ADR-010-rate-limit.md` | der Rate-Limit (FR-033) — der Grund fuer `-> delayed` aus jedem offenen Zustand |
+| 3 | `.agent/workflows/08-security.md` | dieser Schritt, Pruefpunkte, Commit-Befehl |
+| 4 | `.agent/prompts/orchestrator/04_orchestrator_testing.md` | dein Systemprompt |
+| 5 | `docs/qa/security-audit.md` | **der erste Audit** — die Befunde S-19…S-27 und ihre Nachweise |
+| 6 | `docs/qa/qa-report.md` | der erste QA-Bericht — A-1, A-6/B-17, Q-1…Q-7 |
+| 7 | `docs/execution/step8-nacharbeit-security.md` | **die Nacharbeit** — was geaendert wurde und wie es belegt ist |
+| 8 | `docs/architecture/domain_model.md` §3.3 | die korrigierte Uebergangstabelle |
+| 9 | `docs/api/openapi.yaml` | der eingefrorene Vertrag |
+| 10 | `.agent/knowledge/schema.sql` | RLS, Eigentuemerfunktionen, Constraints |
 
-## Die Korrektur (A-6 / B-17)
-Der Befund: `DeliveryStateMachine.TRANSITIONS` erlaubte `delayed` nur aus `failed`; der
-Ratenbegrenzungs-Pfad setzt **jeden** offenen Zustand auf `delayed`. Der **Code** ist im Ruecksprung
-angeglichen (`pending -> delayed`, `scheduled -> delayed`; `onRateLimited` wird aus der Tabelle
-**abgeleitet**). Die **Dokumentation** (dein Bereich) ist nachzuziehen.
+## Dein Auftrag
 
-Die zu dokumentierende Tabelle (aus §4.2 des Belegs):
-```
-pending   -> scheduled, cancelled, no_subscriber, delayed
-scheduled -> sent, rejected, failed, cancelled, delayed
-failed    -> scheduled, delayed, abandoned, cancelled
-delayed   -> scheduled, abandoned, cancelled
-```
-- `delayed -> delayed` ist **kein** Uebergang (der Zustand aendert sich nicht).
-- Begruendung fuer `pending -> delayed` und `scheduled -> delayed`: das Endpunkt-Limit (FR-033)
-  wirkt auch auf den **ersten** Versuch eines frischen Laufs — sonst kaeme ein Endpunkt in der
-  ersten Minute ueber das Limit hinaus. Vertrag und ADR-010 nennen den Zustand `delayed` ohne
-  Einschraenkung des Ausgangszustands.
+### 1 — Nachpruefung: sind die Befunde **wirklich** behoben?
+Pruefe **jeden** Befund des ersten Audits am **aktuellen** Stand — mit **eigenem Nachweis**
+(Datei:Zeile oder ausgefuehrter Check), nicht nach dem Bericht der Nacharbeit:
+**S-19** (Tomcat-Version im Abhaengigkeitsbaum — fuehre `mvn dependency:tree` aus und pruefe die
+erreichbaren CVEs), **S-20** (chunked-Body ⇒ 413; der Body wird begrenzt gelesen), **S-21** (Audience
++ `exp` verpflichtend), **S-22** (Schluessellaenge 32 Byte ⇒ AES-256, sonst klarer Fehler),
+**S-23** (Groessengrenze der Empfaengerantwort), **S-24** (eingehende Ratenbegrenzung liefert 429 +
+`Retry-After`, **wie der eingefrorene Vertrag es beschreibt**), **S-25** (Pipeline: Secret-Scan,
+SCA-Scan, Oberflaechen-Tests, keine statischen Tokens im Log), **S-26** (gepinnte Pakete),
+**S-27** (`application-production.yml`, `key-required` zwingend, Image nicht fest auf `staging`),
+**A-1** (JaCoCo-Gate **erzwungen**), **A-6/B-17** (Code und Doku konsistent).
+Bewerte je Befund: **behoben / teilweise behoben / nicht behoben** — mit Fundstelle im aktuellen Stand.
 
-## Was du tust
-1. `docs/architecture/domain_model.md` **§3.3**: die Uebergangstabelle auf den Stand bringen
-   (inkl. der Begruendung und des Hinweises, dass `delayed -> delayed` kein Uebergang ist).
-2. Pruefe, ob **weitere** Stellen im `docs/architecture/` (oder in `docs/adr/`) die alte Tabelle oder
-   eine alte Zustandsbeschreibung wiedergeben — und ziehe sie nach. **Nur** soweit die Korrektur
-   es erfordert.
-3. **Pruefe** die Konsistenz mit dem Code: `DeliveryStateMachine.TRANSITIONS` (Quelle der Wahrheit),
-   die `DeliveryStatus`-Werte und die `CHECK`-Constraints im kanonischen Schema. Stimmen sie mit der
-   Tabelle ueberein? Ein Widerspruch ist ein **Befund**, den du meldest — **nicht** eine
-   Codeaenderung.
-4. Wenn die Korrektur eine **ADR** beruehrt (z. B. ADR-006 Zustellprozess oder ADR-010 Rate-Limit
-   nennen die Uebergaenge), ziehe **die** nach — im selben Commit.
+### 2 — Erneutes **vollstaendiges** Audit
+Alle **10 Pruefungen** des Skills `aisdlc-security-scan` **erneut und vollstaendig** — mit Schwerpunkt
+auf dem, was **neu** entstanden ist:
+- die **eingehende Ratenbegrenzung** (S-24 neu): Grenzen, Fehlerverhalten, Mandantenbezug, Bypass,
+  `Retry-After`-Korrektheit;
+- die **begrenzte Body-Schaetzung** (S-20 neu): greift die Grenze bei `Content-Length` **und** bei
+  chunked, bei Multipart, bei gzip, bei einem Body **ohne** `Content-Length`; ist sie umgehbar?
+- die **JWT-Validierung** (S-21 neu): Audience, `exp`, `nbf`, `iss`, Algorithmus, `none`;
+- die **Krypto-Schluessellaenge** (S-22 neu): Fehlerverhalten, keine Fallback-Laenge;
+- die **Empfaengerantwort-Grenze** (S-23 neu);
+- die **CI** (S-25 neu): Secrets in Logs, OIDC, geschuetzte Branches, Pinning;
+- das **Produktionsprofil** (S-27 neu).
+Dazu die **OWASP-Top-10-Querpruefung** (A01…A10) mit Ergebnis je Zeile.
+**Null Funde sind ein Ergebnis — aber nur, wenn geprueft wurde.** Jede Pruefung wird **beantwortet**
+(auch mit „kein Fund, geprueft in …“).
+
+### 3 — QA-Bericht neu erstellen
+- **Teststand** je Ebene — **ausgefuehrt**, mit Kommando und Ergebnis.
+- **Abdeckung der 101 AKs** gegen die nachgezogene Matrix; **Luecken** als Liste. Eine gefuellte Matrix
+  **allein** zaehlt nicht als Beleg — der Testfall muss existieren und benannt sein.
+- **Regressionspruefung**: kein Test wurde ohne Begruendung entfernt oder abgeschwaecht.
+- **Coverage** mit den aktuellen Zahlen und der **erzwungenen** Schwelle.
+- **Abweichungen** und offene Punkte.
+
+### 4 — Freigabe-Empfehlung
+**Freigeben / blockieren** — mit der Zahl je Schwere und der **Gate-Bedingung** (0 Critical, 0 High)
+als Kriterium. Wenn ein High offen bleibt: **blockieren**.
 
 ## Was du **nicht** tust
-- **Keinen Anwendungscode.** `src/` und `tests/` bleiben unberuehrt.
-- **Den Vertrag nicht aendern.** Er ist eingefroren und wurde im Ruecksprung nicht angefasst.
-- **Kein Schema-Anfassen** (beide Diffs leer halten).
-- **Keine Aenderung** an `docs/requirements/`, `docs/api/`, `.agent/knowledge/`, `docs/Anforderung.md`.
-- **Keine neue Festlegung** der bestaetigten Entscheidungen (D-01…D-15, ADR-001…ADR-018, F-01…F-04,
-  E-01…E-11, E-13, V-26…V-27, V-39…V-44, V-48…V-49).
+- **Der Audit bleibt read-only** fuer `src/`, `docs/api/`, `docs/adr/`, `docs/architecture/`,
+  `.agent/knowledge/`, `docs/requirements/`. Du darfst **Tests** in `tests/` schreiben.
+- **Den eingefrorenen Vertrag nicht aendern.** Vertragsdefekt ⇒ **Befund**.
+- Keine Aenderung an `docs/requirements/`. In `docs/` nur `docs/qa/`.
 - Kein `git push`. Keine Ausgabe-Kommandos (`echo`, `printf`, `pwd`, `cat` zur Orientierung).
+
+## Ergebnisse
+- **`docs/qa/security-audit.md`** — **ersetzen**: Nachpruefung (je Befund mit Fundstelle) + das neue
+  Audit (alle 10 Pruefungen + OWASP) + Befundtabelle + Gesamtrating + **Freigabe-Empfehlung**.
+- **`docs/qa/qa-report.md`** — **ersetzen**: der neue QA-Stand.
+- **`.agent/artifacts/security-audit.md`** und **`.agent/artifacts/test-report.md`** — aktualisieren.
+- **Sicherheits-Regressionstests** in `tests/` fuer jeden **neuen** Fund, der sich festnageln laesst.
 
 ## Commit — genau einer, Befehl aus der Workflow-Datei
 ```bash
-mkdir -p docs/architecture/ docs/adr/ .agent/artifacts/
+mkdir -p tests/ docs/qa/ .agent/artifacts/
 git reset -q
-git add -A -- docs/architecture/ docs/adr/ .agent/artifacts/
-git commit -m "docs(sdlc-2): Uebergangstabelle des Domänenmodells angeglichen" \
-  -m "Schritt 2 - Konzept & Architektur (Korrektur A-6/B-17) | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/adr/, .agent/artifacts/"
+git add -A -- tests/ docs/qa/ .agent/artifacts/
+git commit -m "docs(sdlc-8): Security-Audit und QA-Bericht nach der Nacharbeit" \
+  -m "Schritt 8 - Sicherheit & Compliance | Agent: aisdlc-qa | Artefakte: tests/, docs/qa/, .agent/artifacts/"
 ```
 
 ## Antwortformat — genau so, die drei Zeilen ZUERST
-Danach hoechstens zwei optionalen Zeilen (Pruefergebnis). Keine Herleitung, keine Auszuege.
+Danach hoechstens zwei optionalen Zeilen (Kennzahlen). In der zweiten optionalen Zeile bitte nennen:
+**Befunde je Schwere**, **Nachpruefung behoben/offen**, **AK-Abdeckung**, **Freigabe-Empfehlung**.
 
 ```
 STATUS: done | done_with_open_points | blocked
 COMMIT: <hash> <subject>
-OFFENE PUNKTE: <kurz, mit A-xx/S-xx> | -
+OFFENE PUNKTE: <kurz, mit S-xx/A-xx/Q-xx> | -
 ```

@@ -1,0 +1,30 @@
+{
+  "id": "BUG-S-31",
+  "title": "Der gepinnte eingebettete Container (10.1.55) liegt unter der Fix-Linie (10.1.58) von drei aktuell veroeffentlichten Tomcat-Advisories",
+  "severity": "medium",
+  "category": "vulnerable-components",
+  "component": "pom.xml",
+  "path": "pom.xml",
+  "line": 52,
+  "secondary_locations": [
+    { "path": "pom.xml", "line": 18 },
+    { "path": "tests/unit/security/DependencyHardeningTest.java", "line": 34 },
+    { "path": "tests/integration/deployment/ContainerHardeningIT.java", "line": 201 }
+  ],
+  "cause": "Die Nacharbeit zu S-19 hat den Container auf 10.1.55 gehoben (Spring Boot 3.5.16) und den Pin '<tomcat.version>10.1.55</tomcat.version>' in die Build-Datei geschrieben, damit die Untergrenze unabhaengig von der Spring-Boot-Version festgeschrieben ist. Seitdem sind drei Tomcat-Advisories veroeffentlicht worden, die 10.1.0-M1 bis 10.1.57 betreffen und erst in 10.1.58 behoben sind: GHSA-9xv2-5v5q-p794 (DIGEST-Authentifizierung, Capture-Replay), GHSA-gcx9-497g-6cp6 (Security-Constraint-Bypass) und GHSA-h3x4-894j-xpx5 (FORM-Authentifizierung, fehlerhafte Autorisierung) — alle drei mit CVSS 'Critical'. 10.1.58 wurde nie veroeffentlicht; die erste verfuegbare Version oberhalb der Fix-Linie ist 10.1.59 (10.1.61 ist die juengste 10.1.x). Der Pin liegt damit unter der Fix-Linie, und die Regressionstests halten genau diese zu alte Version fest.",
+  "impact": "In dieser Konfiguration sind die drei Advisories NICHT erreichbar: der Dienst nutzt ausschliesslich Bearer-Token (keine Container-Authentifizierung, keine <login-config>), es gibt keine <security-constraint> (eingebetteter Container ohne web.xml — nachgewiesen: 'find src/main -name web.xml' liefert nichts) und kein FORM-Login. Der Schadensweg ist damit nicht ausnutzbar. Der Befund ist ein Härtungs- und Wahrheitsbefund: die Untergrenze, die ausdruecklich eingefuehrt wurde, um die erreichbaren Advisories zu beheben, deckt die heute veroeffentlichten Advisories derselben Familie nicht mehr ab — und der SCA-Gate der Pipeline (S-25) meldet sie bei jedem Lauf.",
+  "exploitability": "nicht ausnutzbar in dieser Konfiguration (keine Container-Authentifizierung, keine Security-Constraints). Der Befund ist die Unterschreitung der eigenen Untergrenze, nicht ein direkter Angriffspfad.",
+  "reproduction": {
+    "command": "mvn -B dependency:tree | grep tomcat-embed-core  →  org.apache.tomcat.embed:tomcat-embed-core:jar:10.1.55:compile ; anschließend OSV-Abfrage (POST https://api.osv.dev/v1/querybatch) gegen den Abhaengigkeitsbaum",
+    "test": "tests/unit/security/SecurityGapRound2Test.java#the_embedded_container_must_carry_the_current_fixes",
+    "expected": ">= 10.1.59",
+    "actual": "10.1.55",
+    "evidence": "OSV meldet fuer tomcat-embed-core:10.1.55 genau GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6 und GHSA-h3x4-894j-xpx5; alle drei: 'fixed: 10.1.58'. Der Test meldet 'Expecting value to be true but was false'."
+  },
+  "recommendation": "'<tomcat.version>' auf mindestens 10.1.59 (oder 10.1.61) heben und die beiden Regressionstests mitziehen: 'DependencyHardeningTest.REQUIRED_TOMCAT_VERSION' (Zeile 34) und 'ContainerHardeningIT.the_build_pins_the_embedded_container' (Zeile 201) pruefen aktuell genau 10.1.55. Die Advisories in der Ignorierliste des SCA-Gates (S-32) begruenden und begrenzen.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, zweite Runde",
+  "security_finding": "S-31",
+  "related_findings": ["S-19", "S-32"],
+  "status": "offen"
+}

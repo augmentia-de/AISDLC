@@ -1,0 +1,29 @@
+{
+  "id": "BUG-S-34",
+  "title": "Veralteter Javadoc in DeliveryStateMachine — die Uebergangstabelle ist bereits nachgezogen",
+  "severity": "low",
+  "category": "documentation",
+  "component": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java",
+  "path": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java",
+  "line": 28,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/delivery/DeliveryStateMachine.java", "line": 120 },
+    { "path": "docs/architecture/domain_model.md", "line": 186 }
+  ],
+  "cause": "Der Javadoc der Klasse und der Methode onRateLimited sagen: 'Die Tabelle in docs/architecture/domain_model.md §3.3 wird in Schritt 2 nachgezogen (A-6 / B-17)'. Der Rücksprung zu Schritt 2 (Commit 28396e0) hat die Tabelle bereits angeglichen — §3.3 nennt jetzt 'pending -> scheduled, cancelled, no_subscriber, delayed' und 'scheduled -> sent, rejected, failed, cancelled, delayed'. Der Code-Kommentar beschreibt damit einen Zustand, der nicht mehr existiert.",
+  "impact": "Kein sicherheitsrelevanter Schadensweg. Der Code ist korrekt (die Tabelle in TRANSITIONS ist die Quelle der Wahrheit, onRateLimited leitet sich aus canTransition ab) und die Dokumentation ist ebenfalls korrekt — nur der Verweis im Code ist veraltet. Wer den Javadoc liest, haelt die Uebergangstabelle fuer unvollstaendig und prueft die Aenderung doppelt.",
+  "exploitability": "keiner — reine Dokumentationspflege.",
+  "reproduction": {
+    "command": "grep -n 'wird in Schritt 2 nachgezogen' src/main/java/com/echobox/delivery/DeliveryStateMachine.java ; sed -n '186,196p' docs/architecture/domain_model.md",
+    "test": "kein Test — der Nachweis ist der Quelltext",
+    "expected": "der Javadoc verweist auf die bereits nachgezogene Tabelle",
+    "actual": "der Javadoc kündigt eine Nachziehung an, die stattgefunden hat",
+    "evidence": "DeliveryStateMachine.java:28-29 und :120-121 gegen docs/architecture/domain_model.md §3.3 (Stand 28396e0)."
+  },
+  "recommendation": "Die beiden Saetze im Javadoc von DeliveryStateMachine streichen oder in die Vergangenheitsform umschreiben ('die Tabelle in docs/architecture/domain_model.md §3.3 nennt diese Uebergaenge').",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, zweite Runde",
+  "security_finding": "S-34",
+  "related_findings": ["A-6", "B-17"],
+  "status": "offen"
+}

@@ -1,10 +1,15 @@
-# Security-Audit — EchoBox (Schritt 8)
+# Security-Audit — EchoBox (Schritt 8, **zweite Runde**)
 
 > Agent: `aisdlc-qa` · Stand: 2026-10-22 · Audit **read-only** (keine Datei in `src/`,
 > `docs/api/`, `docs/adr/`, `docs/architecture/`, `.agent/knowledge/` oder
-> `docs/requirements/` geändert).
-> Skill: `aisdlc-security-scan` (alle 10 Prüfungen) · Gate: **GATE 2** — QA 0 Critical,
-> Security 0 Critical und 0 High.
+> `docs/requirements/` geändert). In `tests/` wurden **neue** Tests angelegt.
+> Skill: `aisdlc-security-scan` (alle 10 Prüfungen, **erneut und vollständig**) ·
+> Gate: **GATE 2** — QA 0 Critical, Security 0 Critical und 0 High.
+>
+> **Runde 2.** Die erste Runde (`1ba4160`) fand 0 Critical, 2 High, 5 Medium, 2 Low und
+> empfahl **BLOCKIEREN**. Die Nacharbeit (`d135cda`, Doku `28396e0`) hat S-19…S-27 und
+> A-1 behoben. Dieser Bericht prüft **jeden** dieser Befunde **am aktuellen Stand mit
+> eigenem Nachweis** nach und führt danach ein **erneutes vollständiges Audit** durch.
 
 ---
 
@@ -13,261 +18,322 @@
 | Schwere | Anzahl | Befund-IDs |
 |---|---|---|
 | **Critical** | **0** | — |
-| **High** | **2** | S-19, S-20 |
-| **Medium** | **5** | S-21, S-22, S-23, S-24, S-25 |
-| **Low** | **2** | S-26, S-27 |
+| **High** | **1** | **S-28** (Body-Grenze über den Medientyp umgehbar) |
+| **Medium** | **4** | S-29 (Audience fail-open), S-30 (500 statt 4xx), S-31 (Container-Pin unter der Fix-Linie), S-32 (SCA-Gate ohne Baseline) |
+| **Low** | **2** | S-33 (Token ohne Mandant → 500), S-34 (veralteter Javadoc) |
 
 ### Freigabe-Empfehlung: **BLOCKIEREN**
 
-Die Gate-Bedingung verlangt **0 Critical und 0 High**. Es liegen **2 High** vor.
-Beide sind **belegt** (Datei:Zeile bzw. ausgeführter Check) und **ausnutzbar**
-beschrieben — kein Verdacht, keine Vermutung:
+Die Gate-Bedingung verlangt **0 Critical und 0 High**. Es liegt **1 High** vor —
+**neu in dieser Runde**, belegt durch einen ausgeführten Check, nicht durch einen
+Verdacht:
 
-* **S-20** — der Request-Body wird bei `Transfer-Encoding: chunked` **ohne
-  Größengrenze** in den Speicher gelesen. Beleg: `mvn verify` → der
-  Gap-Test `SecurityGapIT.a_chunked_request_body_above_two_mebibytes_must_be_rejected`
-  schlägt fehl mit **„expected: 413 but was: 202"** — ein 2-MiB-Body wurde
-  **akzeptiert**.
-* **S-19** — 96 versionsgebundene Advisories im Abhängigkeitsbaum, davon **3 im
-  HTTP/1.1-Pfad erreichbar** (u. a. CVE-2026-24880, Request/Response-Smuggling).
-  Beleg: OSV-Abfrage gegen `mvn dependency:tree` (Anhang A).
+* **S-28** — die Grenze des Request-Bodies (2 MiB) haengt weiterhin **am Medientyp**.
+  `TenantParameterFilter.isBodyRelevant()` (`src/main/java/com/echobox/tenant/TenantParameterFilter.java:160-167`)
+  prueft nur Bodies, deren Content-Type mit `application/json` beginnt; Spring MVC liest
+  aber auch `application/*+json` (`MappingJackson2HttpMessageConverter`). **Beleg:**
+  `SecurityGapRound2IT` → „expected: 413 but was: **202**" — ein Body von
+  **2.097.298 Byte** mit `Content-Type: application/vnd.custom+json` wurde **angenommen**;
+  die Gegenprobe mit **20.971.604 Byte** ergab ebenfalls **202**. Der Body landet
+  unbeschaenkt im Heap des **geteilten** JVM → `OutOfMemoryError` → Ausfall fuer
+  **alle** Mandanten. Das ist dieselbe Schadensklasse wie der urspruengliche S-20,
+  der in Runde 1 als **High** bewertet wurde und als behoben galt.
 
-**Konsequenz:** kein Deployment. Rücksprung zu **Schritt 6/7** (Implementierung und
-Refactoring) ist erforderlich; der Vertrag `docs/api/openapi.yaml` bleibt dabei
-**eingefroren** — die Behebung von S-24 berührt den Vertrag und braucht daher einen
-Rücksprung zu **Schritt 2** (siehe S-24).
+**Konsequenz:** kein Deployment. Erforderlich ist ein Rücksprung zu **Schritt 6/7**
+(Implementierung) fuer S-28, S-29, S-30, S-31 und — gemeinsam mit Schritt 9 — fuer S-32.
+Der **eingefrorene Vertrag** `docs/api/openapi.yaml` bleibt dabei **unveraendert**:
+S-30 wird innerhalb des Vertrags geloest (400 `malformed_request`), es ist **kein**
+Vertragsdefekt.
+
+> **Wichtig:** Die sechs Gap-Tests der ersten Runde sind **alle gruen** — die
+> Nacharbeit hat die belegten Luecken tatsaechlich geschlossen. Der Build ist erst mit
+> den **vier neuen** Gap-Tests dieser Runde wieder rot. Das ist die Absicht: die Luecken
+> bleiben so lange sichtbar, wie sie bestehen (Nachweiskette in **Anhang B**).
 
 ---
 
-## 2. Befundtabelle
+## 2. Nachpruefung der Befunde der ersten Runde
+
+Geprueft wurde **jeder** Befund am aktuellen Stand — mit eigenem Nachweis
+(Datei:Zeile oder ausgefuehrter Check), **nicht** nach dem Bericht der Nacharbeit.
+
+| ID | Schwere (Runde 1) | Bewertung | Nachweis (aktueller Stand) |
+|---|---|---|---|
+| **S-19** Abhaengigkeiten | High | **behoben** (mit einer Einschraenkung → **S-31**) | `mvn -B dependency:tree` → `org.apache.tomcat.embed:tomcat-embed-core:jar:10.1.55:compile`; daneben `spring-security:6.5.11`, `spring-core:6.2.19`, `jackson-databind:2.21.4`. **Die drei erreichbaren CVEs sind behoben:** CVE-2026-24880 (Smuggling, fix 10.1.52), CVE-2025-48988 (Multipart-DoS, fix 10.1.42), CVE-2025-48989 („made you reset", fix 10.1.44) — **keine** dieser drei IDs erscheint mehr in der OSV-Abfrage (Anhang A). Gesamtbestand: **96 → 20** Advisories. *Einschraenkung:* der Pin `tomcat.version=10.1.55` liegt unter der Fix-Linie (10.1.58) von drei **neuen** Tomcat-Advisories → **S-31**. |
+| **S-20** Request-Body ohne Grenze | High | **teilweise behoben** → **S-28 (neu, High)** | Das begrenzte Lesen existiert: `TenantParameterFilter.java:98` ruft `readBounded(request, 2 MiB)` (`:139-158`), der Abbruch ergibt **413**. Belegt: `SecurityGapIT.a_chunked_request_body_above_two_mebibytes_must_be_rejected` = **gruen**, `RequestBodyLimitIT` (2 Tests) = **gruen** (chunked unter der Grenze wird angenommen, chunked ueber der Grenze ergibt 413). **Aber:** die Grenze gilt nur fuer `application/json` (`:160-167`); `application/*+json` umgeht sie → **S-28**. |
+| **S-21** JWT-Audience / `exp` | Medium | **teilweise behoben** → **S-29 (neu, Medium)** | Eigene Pruefkette: `SecurityConfiguration.java:112` → `validators(...)` (`:122-130`) = `JwtTimestampValidator` (prueft `exp` **und** `nbf`) + `expiryRequired()` (`:138-146`, `exp` ist Pflicht) + `audienceRequired(audience)` (`:154-163`). Belegt: `SecurityGapTest` ×2 = **gruen**, `JwtAudienceHardeningTest` (4 Tests) = **gruen**. **Aber:** die Audience-Pruefung faellt bei leerer Konfiguration still aus (`:126`) → **S-29**. `iss` wird **nicht** geprueft — der Vertrag fordert keinen Issuer (`openapi.yaml:1726-1733`), der IdP ist ueber die JWKS-Adresse gebunden; kein Befund. |
+| **S-22** Schluessellaenge | Medium | **behoben** | `CoreConfiguration.java:71-79` — der dekodierte Schluessel muss **exakt 32 Byte** sein, sonst `IllegalStateException` mit klarer Meldung; **kein** Fallback auf eine kuerzere Laenge. Der ephemere Schluessel ist ebenfalls 32 Byte (`:65-66`). Belegt: `SecurityGapTest.a_sixteen_byte_key_must_prevent_the_start` = **gruen**, `CryptoKeyLengthTest` (4 Tests) = **gruen**. |
+| **S-23** Antwortkoerper des Empfaengers | Medium | **behoben** | `DeliveryHttpClient.java:89` → eigener `LimitedBodySubscriber` (`:135-187`): speichert hoechstens `maxResponseBodyBytes` (Vorgabe 1 MiB, `application.yml:147`), der Rest wird verworfen — der Body wird weiterhin **vollstaendig konsumiert**, damit Timeout und Verbindungs-Wiederverwendung wirksam bleiben. Belegt: `SecurityGapTest.the_response_body_of_the_receiver_must_be_read_with_a_limit` = **gruen**, `DeliveryResponseLimitTest` (3 Tests) = **gruen**. |
+| **S-24** 429 / `Retry-After` | Medium | **behoben** | `ApiRateLimiter` (neu) + `ApiRateLimitFilter` (`:42`, hinter der Security-Kette) + `ProblemFactory.RATE_LIMIT_EXCEEDED`. Die Antwort traegt **`Retry-After`** als **ganzzahlige Sekundenzahl >= 1** — genau wie der eingefrorene Vertrag es beschreibt (`openapi.yaml:1826-1830`: `type: integer, minimum: 1`; `RateLimitExceeded` mit `headers.Retry-After` + `Problem`, `:1986-1994`). Belegt: `SecurityGapIT.the_request_limit_must_answer_with_429` = **gruen**, `ApiRateLimitIT` (4 Tests) = **gruen**, neu `ApiRateLimitHardeningTest` (5 Tests) = **gruen**. Der Vertrag blieb **eingefroren** (`git diff --stat -- docs/api/` ist leer). |
+| **S-25** CI (Secret-/SCA-Scan, OIDC) | Medium | **behoben** (strukturell) → **S-32 (neu, Medium)** | `.github/workflows/deploy.yml`: Secret-Scan (gitleaks v8.30.1, gepinntes Image, `:51-54`), SCA-Scan (osv-scanner v2.7.0, `:56-61`), Java-Build **inkl. Coverage-Gate** (`:64-65`), Typpruefung/Lint/Vertragspruefung/Unit-Tests (`:79-83`), Build (`:85-86`), **End-to-End-Tests** (`:88-93`). Registry-Anmeldung mit dem **Token des Laufs** (`:107` `secrets.GITHUB_TOKEN`) statt des statischen `REGISTRY_TOKEN`; `permissions: packages: write, id-token: write` (`:32-35`). **Keine Secrets in Logs** — die Geheimnisse werden ausschliesslich als `env` gesetzt (`:128-134`, `:156-162`), kein Schritt gibt Werte aus. **Aber:** der SCA-Schritt hat **keine Baseline** und schlaegt damit auf **jedem** Lauf an → **S-32**. |
+| **S-26** Gepinnte `apt`-Pakete | Low | **behoben** | `Dockerfile:36-42` — `curl=${CURL_VERSION}` (7.81.0-1ubuntu1.30) und `tini=${TINI_VERSION}` (0.19.0-1) mit Vorgabewerten; `rm -rf /var/lib/apt/lists/*`. Belegt: `ContainerHardeningIT.the_apt_packages_are_pinned` und `…the_pinned_versions_have_a_default` = **gruen**. |
+| **S-27** Produktionsprofil | Low | **behoben** | `src/main/resources/application-production.yml` (neu) mit `echobox.crypto.key-required: true` (`:25`); `Dockerfile:63` setzt `SPRING_PROFILES_ACTIVE=production` (nicht mehr `staging`); die Pipeline setzt das Profil je Umgebung (`deploy.yml:127` staging, `:155` production). Belegt: `ContainerHardeningIT` (3 Tests) = **gruen**. |
+| **A-1** Coverage-Gate | QA | **behoben** | `pom.xml:224-277` — JaCoCo 0.8.13 mit `prepare-agent` (`append=true`), `report` und **`check`** in der Phase `verify`: `BUNDLE` / `LINE` / `COVEREDRATIO` / `minimum 0.80`. Der Build **bricht ab**, wenn die Zeilenabdeckung unter 80 % faellt; ein Loeschschritt in `initialize` (`:183-206`) verhindert, dass alte Daten mitgezaehlt werden. **Beleg:** `mvn -B verify` → „All coverage checks have been met."; gemessen **86,22 % Zeilen**. `ContainerHardeningIT.the_build_enforces_the_coverage_threshold` = **gruen**. |
+| **A-6 / B-17** Uebergangstabelle | QA | **behoben** (Code **und** Doku) | Code: `DeliveryStateMachine.TRANSITIONS` (`:33-41`) enthaelt jetzt `pending -> delayed` und `scheduled -> delayed`; `onRateLimited` (`:126-131`) leitet sich aus `canTransition(status, DELAYED)` ab — die Tabelle ist die eine Quelle der Wahrheit, `canTransition` ist kein toter Code mehr. Doku: `docs/architecture/domain_model.md` §3.3 fuehrt beide Uebergaenge (Commit `28396e0`). *Rest:* der Javadoc der Klasse verweist noch auf eine ausstehende Nachziehung → **S-34** (Low). |
+
+**Ergebnis der Nachpruefung:** 8 Befunde **behoben**, 2 **teilweise behoben**
+(S-20 → S-28, S-21 → S-29), 2 QA-Befunde **behoben**. **Kein Befund der ersten Runde
+ist offen geblieben** — jeder wurde behoben oder durch einen belegten neuen Befund
+derselben Sache ersetzt.
+
+---
+
+## 3. Die neuen Befunde dieser Runde
 
 | ID | Schwere | Datei:Zeile | Befund | Ausnutzbarkeit | Empfehlung |
 |---|---|---|---|---|---|
-| **S-19** | **[SECURITY] High** | `pom.xml:16` (Spring Boot 3.3.5 → `tomcat-embed-core:10.1.31`, `spring-security:6.3.4`, `spring-framework:6.1.14`, `jackson:2.17.2`) | Der Abhängigkeitsbaum trägt **96** versionsgebundene Advisories (9 Critical, 36 High, 35 Moderate, 16 Low). **Drei davon sind im HTTP/1.1-Pfad dieses Dienstes erreichbar**: CVE-2026-24880 (Request/Response-Smuggling via invalid chunk extension, behoben in 10.1.52), CVE-2025-48988 (DoS in multipart upload, behoben in 10.1.42), CVE-2025-48989 („made you reset", behoben in 10.1.44). Die übrigen 93 sind in dieser Konfiguration **nicht** erreichbar (Begründung je Advisory in Anhang A). | **Smuggling:** jeder HTTP/1.1-Client sendet einen Request mit ungültiger Chunk-Extension; Tomcat und ein vorgeschalteter Proxy (Ingress/Load-Balancer) können die Request-Grenzen unterschiedlich auslegen → eine Anfrage wird in den Kontext eines anderen Aufrufs verschoben (Umgehung einer Proxy-Authentifizierung, Vergiftung von Antworten). **Multipart-DoS:** ein angemeldeter Mandant sendet `Content-Type: multipart/form-data`; der von Spring Boot automatisch registrierte `StandardServletMultipartResolver` veranlasst Tomcat, den Body zu parsen — ohne wirksame Ressourcenbegrenzung → Belastung von Worker-Threads und Heap. | Spring Boot auf eine Version heben, die Tomcat ≥ 10.1.55 mitbringt (Spring Boot ≥ 3.5.15 bzw. 4.0.7 — im Rahmen des Rücksprungs zu prüfen). **Rücksprung Schritt 6/7.** |
-| **S-20** | **[SECURITY] High** | `src/main/java/com/echobox/tenant/TenantParameterFilter.java:70` und `:81` | Die Grenze für die Größe des Request-Bodies (2 MiB, `PayloadSize.MAX_REQUEST_BODY_BYTES`) wird **ausschließlich** gegen `request.getContentLengthLong()` geprüft. Bei `Transfer-Encoding: chunked` (ohne `Content-Length`) liefert die Methode `-1`; `-1 > 2097152` ist falsch → **die Grenze greift nicht**. Zeile 81 liest den Body danach mit `request.getInputStream().readAllBytes()` **ohne jede Grenze** in den Heap. Tomcat setzt hier keine wirksame Grenze: `maxPostSize` gilt nur für Form-POSTs, `max-swallow-size` (4 MB, `application.yml:68`) greift nur beim Schlucken eines **nicht** gelesenen Rests. | Ein angemeldeter Mandant (jede Rolle, jeder Mandant) sendet einen chunked POST mit einem sehr großen JSON-Body. Der Dienst allokiert den Body vollständig im Heap → `OutOfMemoryError` im **geteilten** JVM → **Ausfall für alle Mandanten** (Availability über die Mandantengrenze hinweg). Der Security-Filter läuft vor dem Mandantenfilter (`DEFAULT_FILTER_ORDER + 10`), der Angriff setzt also ein gültiges Token voraus. | Body-Grenze unabhängig von `Content-Length` durchsetzen: serverseitig **begrenzt** lesen (höchstens N Bytes, danach abbrechen) **und** den Container zwingen, die Grenze zu erzwingen (`server.tomcat.max-swallow-size`/`maxPostSize` greifen nur bei Form-POSTs — zusätzlich `Content-Length` **verlangen** oder die Chunked-Übertragung ablehnen). |
-| **S-21** | **[SECURITY] Medium** | `src/main/java/com/echobox/config/SecurityConfiguration.java:90` | `NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build()` wird **ohne** einen eigenen `JwtValidator` erzeugt. Der Default-Validator (`JwtValidators.createDefault()`) prüft **nur** die Zeitstempel; eine **Audience** wird nicht geprüft und ein `exp` ist **nicht erforderlich** (ein Token ohne `exp` ist unbegrenzt gültig). | Ein Token, das derselbe Identity Provider für eine **andere** Zielgruppe (`aud`) ausgestellt hat, wird von EchoBox angenommen, sofern er `organisation_id` und eine Rolle enthält. Ein fremder Client desselben IdP (z. B. ein anderes Mandantenportal) erhält damit Zugriff auf die EchoBox-API. Ein abgelaufenes bzw. widerrufenes Token ohne `exp` bleibt gültig. | `JwtValidators.createDefaultWithValidators(...)` mit einem `JwtClaimValidator<List<String>>` auf `aud` setzen; `aud` als Konfiguration (`echobox.security.audience`) ergänzen; `exp` verpflichtend machen. |
-| **S-22** | **[SECURITY] Medium** | `src/main/java/com/echobox/config/CoreConfiguration.java:69` | Die **Länge** des `ECHobox_CRYPTO_KEY` wird nicht geprüft: `new SecretKeySpec(decode(configured), "AES")` akzeptiert jede gültige AES-Länge. Ein **16-Byte**-Schlüssel wird stillschweigend zu **AES-128** statt der in ADR-003 §1 festgelegten **AES-256**. | Ein Operator liefert — durch Fehlkonfiguration des Secret-Stores oder durch einen Tippfehler in der Basis64-/Hex-Kodierung — einen 16-Byte-Schlüssel. Der Dienst startet **ohne Warnung** und schützt die Nutzlasten mit AES-128; die Zusage aus FR-012 / NFR-004 / ADR-003 („AES-256-GCM") ist nicht mehr eingehalten, ohne dass jemand es bemerkt. | Länge prüfen (exakt 32 Byte) und den Start sonst mit einer klaren Fehlermeldung abbrechen (analog zu `key-required`, `CoreConfiguration.java:58-62`). |
-| **S-23** | **[SECURITY] Medium** | `src/main/java/com/echobox/delivery/DeliveryHttpClient.java:53` | Die Antwort des Empfängers wird mit `HttpResponse.BodyHandlers.ofString()` **ohne Größengrenze** gelesen. Der Body wird zwar **nicht** ausgewertet und **nicht** gespeichert (`DeliveryResponse.body()` wird nirgends protokolliert), aber er wird vollständig in den Speicher geladen. | Ein Angemeldeter, der einen Endpunkt auf einen bösartigen Server zeigt, antwortet mit einem sehr großen Body → der Zustell-Worker allokiert ihn vollständig → Speicherdruck im Worker, der die Zustellung stört (der eigene Tenant und — bei gemeinsamem Worker-Heap — weitere Tenants). | `BodyHandlers.limiting(...)` (feste Obergrenze) verwenden und den Body oberhalb der Grenze verwerfen; die Antwort ist vertragsseitig bedeutungslos (nur Statuscode und Ablehnungssignal zählen, `DeliveryResponse`). |
-| **S-24** | **[SECURITY] Medium** | `docs/api/openapi.yaml:89` und `:1979-1994` (eingefrorener Vertrag) ↔ `src/main/java/com/echobox/common/ProblemFactory.java:46` | Der **eingefrorene Vertrag** kennt HTTP **429** `rate_limit_exceeded` mit dem Header `Retry-After` als Antwort **jeder** Operation („API-seitiges Anfragelimit (nicht das Endpunkt-Limit aus FR-033)"). Die Implementierung hat **keine** eingehende Ratenbegrenzung: `ProblemFactory.RATE_LIMIT_EXCEASED` wird **nirgends** geworfen, ein `Retry-After` wird **nie** gesetzt (grep über `src/main/java/` und `tests/`: nur die Konstante und die Dokumentation). | Ein angemeldeter Mandant ruft die API beliebig häufig auf (Ereignis-Einlieferung, Listenabfragen) → unbegrenzte Datenbank- und CPU-Last; es gibt **keinen** Mechanismus, die Last zu drosseln, obwohl der Vertrag genau das verspricht. | **Zwei Wege, einer ist zwingend:** (a) die Implementierung nachziehen — Bucket je Mandant/Identität, `Retry-After` setzen, Ablehnung mit `Problem`; oder (b) den Vertrag in **Schritt 2** ändern (429 aus dem Antwortsatz nehmen). Der Vertrag ist eingefroren — eine stillschweigende Änderung in diesem Schritt ist nicht zulässig. |
-| **S-25** | **[SECURITY] Medium** | `.github/workflows/deploy.yml:30-31`, `:46`, `:55-56` | Die einzige Pipeline (a) führt **weder** einen Secret-Scan (gitleaks/trufflehog) **noch** einen SCA-Scan **noch** die Tests der Oberfläche aus — sie ruft nur `mvn -B verify` auf; (b) meldet sich an der Registry mit einem **statischen** Token (`secrets.REGISTRY_TOKEN`) an, obwohl der Kommentar der Datei (`:28-29`) den **OIDC-Token** ankündigt, und `permissions:` kein `id-token: write` enthält; (c) `AGENTS.md` („Secrets") verlangt einen Secret-Scan in der CI. | Ein eingeschleuster Commit mit einem Schlüssel wird unbemerkt veröffentlicht (der Secret-Scan fehlt); eine verwundbare Abhängigkeit erreicht das Image ohne Gate. Der statische Registry-Token ist ein langlebiges Geheimnis ohne automatische Rotation — im Unterschied zum OIDC-Token, der pro Lauf kurzlebig ist. | Schritt 9: `gitleaks`/`trufflehog` und ein SCA-Scan (`dependency-check`/OSV) **und** `npm run check` als Gates ergänzen; Registry-Anmeldung auf OIDC umstellen (`permissions: id-token: write` + `docker/login-action` mit `password: ${{ secrets.GITHUB_TOKEN }}`). |
-| **S-26** | **[SECURITY] Low** | `Dockerfile:29-31` | `apt-get install -y --no-install-recommends curl tini` **ohne Versionspinning** → die Paketversionen des Laufzeitimages folgen dem Repository-Zustand des Bauzeitpunkts; das Image ist nicht reproduzierbar. | Nur Provenance/Reproduzierbarkeit, kein direkter Angriffsvektor. | Pakete pinnen (`curl=<version>`) oder ein vorab gebautes, gehärtetes Basis-Image verwenden. |
-| **S-27** | **[SECURITY] Low** | `src/main/resources/application.yml:86`, `src/main/resources/application-staging.yml:24`, `Dockerfile:46` | Es existiert **kein** `application-production.yml`. `echobox.crypto.key-required` ist nur im Staging-Profil `true`; der Container pinnt `SPRING_PROFILES_ACTIVE=staging`. Startet der Dienst mit dem Profil `production`, greift das **Default**-Profil → `key-required: false` → der Dienst startet mit einem **ephemeren** Schlüssel (Warnung statt Fehler, `CoreConfiguration.java:65-66`). | Nach dem ersten Neustart sind alle Nutzlasten und Endpunkt-Secrets unlesbar (Datenverlust im Ruhezustand); die Signaturen der Empfänger brechen (der HMAC-Schlüssel ist das Endpunkt-Secret). Der Fehler ist still — nur eine Warnung im Protokoll. | `application-production.yml` mit `key-required: true` anlegen und im Bereitstellungs-Deskriptor `SPRING_PROFILES_ACTIVE=production` setzen (Schritt 9). |
+| **S-28** | **[SECURITY] High** | `src/main/java/com/echobox/tenant/TenantParameterFilter.java:160-167` (Grenze), `:82` (Content-Length-Vorpruefung) | **Die Grenze des Request-Bodies haengt am Medientyp.** `isBodyRelevant()` akzeptiert nur Bodies, deren Content-Type mit `application/json` beginnt. Spring MVC liest aber auch `application/*+json` (`MappingJackson2HttpMessageConverter` unterstuetzt `application/json` **und** `application/*+json`). Eine Anfrage mit `Content-Type: application/vnd.custom+json` faellt damit an **beiden** Grenzen vorbei: die Vorpruefung gegen `Content-Length` (`:82`) und das begrenzte Lesen (`:98`) — der Body wird vom Message-Converter **vollstaendig** in den Heap gelesen. | Ein angemeldeter Mandant (jede Rolle) sendet einen POST `/api/v1/events` mit `Content-Type: application/vnd.custom+json` und einem beliebig grossen JSON-Body (belegt: 2.097.298 Byte → **202**, 20.971.604 Byte → **202**). Der Dienst allokiert den Body vollstaendig im Heap des **geteilten** JVM → `OutOfMemoryError` → **Ausfall fuer alle Mandanten** (Availability ueber die Mandantengrenze hinweg). Ein gueltiges Token genuegt. Nebenwirkung: derselbe Weg umgeht auch die Mandantenparameter-Pruefung im Body — **nachweislich ohne Ausnutzung**, weil `fail-on-unknown-properties: true` ein unbekanntes Feld mit 422 ablehnt und der Mandant aus dem Token stammt. | Die Grenze darf **nicht** am Medientyp haengen. Sie muss fuer **jeden** Body gelten, den ein Converter liest (serverseitig begrenzt lesen unabhaengig vom Content-Type, oder eine Container-Grenze, die auch fuer Chunked gilt). Zusaetzlich: der Dienst sollte nur `application/json` akzeptieren (`consumes` je Operation), damit `application/*+json` gar nicht erst gelesen wird. **Schritt 6/7.** |
+| **S-29** | **[SECURITY] Medium** | `src/main/java/com/echobox/config/SecurityConfiguration.java:126` ↔ `src/main/resources/application.yml:107`, `.github/workflows/deploy.yml:161` | **Die Zielgruppen-Pruefung faellt bei leerer Konfiguration still aus (fail-open).** `validators()` fuegt den Audience-Validator nur hinzu, wenn die Audience **nicht leer** ist. `audience: ${ECHobox_SECURITY_AUDIENCE:echobox}` — der Vorgabewert greift nur bei einer *nicht gesetzten* Variablen; ein **leerer** Secret-Wert (typisch: leeres Secret in der Umgebung `production`) ergibt `''` → die Pruefung faellt aus. Anders als beim Schluessel (S-27, `key-required`) gibt es **keinen** Startfehler. | Ein Token desselben Identity Providers, das fuer einen **anderen** Client ausgestellt wurde, wird angenommen, sofern `organisation_id` und eine Rolle passen. Der Angreifer braucht ein gueltig signiertes Token — gerade **nicht** eines, das fuer EchoBox ausgestellt wurde. Voraussetzung ist ein leerer Secret-Wert (Fehlkonfiguration, die der Dienst stillschweigend akzeptiert). | Ein `required`-Schalter analog zu `key-required` (`echobox.security.audience-required`, im Produktionsprofil `true`) **oder** ein Startabbruch, wenn die Audience leer ist. Der Javadoc „Leer: die Zielgruppe wird nicht geprueft" beschreibt den Ist-Zustand, nicht die gewollte Zusage. **Schritt 6/7.** |
+| **S-30** | **[SECURITY] Medium** | `src/main/java/com/echobox/common/GlobalExceptionHandler.java:230` (kein eigener Fall) | **Ein nicht unterstuetzter Medientyp ergibt HTTP 500 mit Stacktrace statt eines 4xx.** `HttpMediaTypeNotSupportedException` hat keinen `@ExceptionHandler`; sie faellt in den allgemeinen Handler, der `LOG.error(..., exception)` protokolliert (`:232`) und `internal_error` (500) antwortet. Betroffen sind u.a. `text/plain` und `multipart/form-data` (der Multipart-Resolver ist per `spring.servlet.multipart.enabled: false` abgeschaltet, `application.yml:60-65`). | Ein Aufrufer, der bewusst einen nicht unterstuetzten Medientyp sendet, erzeugt **unbegrenzt** 500er **mit Stacktrace** — Protokollverstärkung, die Protokolldatei fuellt sich, das Monitoring sieht Serverfehler. Der Vertrag kennt fuer einen Fehler des Aufrufers nur 4xx (400 `malformed_request`); 500 ist laut Vertrag „unerwarteter Fehler". Kein Angriff auf Daten oder Mandanten. | `HttpMediaTypeNotSupportedException` (und `HttpMediaTypeNotAcceptableException`) auf **400 `malformed_request`** abbilden — der eingefrorene Vertrag kennt kein 415, ein Vertragswechsel waere ein Rücksprung zu Schritt 2. Stacktraces nur fuer unerwartete Fehler loggen. **Schritt 6/7.** |
+| **S-31** | **[SECURITY] Medium** | `pom.xml:52` (`<tomcat.version>10.1.55</tomcat.version>`), `:18-25` (Kommentar) | **Der gepinnte Container liegt unter der Fix-Linie von drei aktuell veroeffentlichten Tomcat-Advisories.** OSV meldet fuer `tomcat-embed-core:10.1.55`: **GHSA-9xv2-5v5q-p794** (DIGEST-Authentifizierung, Capture-Replay, CVSS Critical), **GHSA-gcx9-497g-6cp6** (Security-Constraint-Bypass, CVSS Critical), **GHSA-h3x4-894j-xpx5** (FORM-Authentifizierung, CVSS Critical) — alle drei betreffen „10.1.0-M1 through 10.1.57" und sind erst in **10.1.58** behoben. 10.1.58 wurde nie veroeffentlicht; die erste verfuegbare Version darueber ist **10.1.59** (10.1.61 ist die juengste 10.1.x). Der Pin wurde ausdruecklich eingefuehrt, um die erreichbaren Advisories zu beheben — er deckt diese drei nicht mehr ab. | **In dieser Konfiguration nicht ausnutzbar:** der Dienst nutzt ausschliesslich Bearer-Token (keine Container-Authentifizierung, keine `<login-config>`), es gibt **keine** `<security-constraint>` (eingebetteter Container ohne `web.xml` — `find src/main -name web.xml` liefert nichts) und kein FORM-Login. Der Befund ist ein Härtungs- und Wahrheitsbefund: die eigene Untergrenze ist unterschrritten, und der SCA-Gate (S-32) meldet die drei bei jedem Lauf. | `<tomcat.version>` auf mindestens **10.1.59** heben und die beiden Regressionstests mitziehen (`DependencyHardeningTest.java:34`, `ContainerHardeningIT.java:201` — beide halten 10.1.55 fest). **Schritt 6/7.** |
+| **S-32** | **[SECURITY] Medium** | `.github/workflows/deploy.yml:56-61` | **Der neue SCA-Gate schlaegt auf jedem Lauf an — es fehlt eine Baseline.** `osv-scanner-action@v2.7.0` mit `--recursive ./` beendet den Lauf mit **Exit-Code 1**, sobald Advisories gefunden werden (osv-scanner v2.7.0, `cmd/osv-scanner/internal/cmd/run.go`: `case errors.Is(err, osvscanner.ErrVulnerabilitiesFound): return 1`). Es gibt **keine** Ignorierliste (`osv-scanner.toml` mit `[[IgnoredVulns]]`). Der aktuelle Baum traegt **20** Advisories, der Frontend-Lockfile **10** (2 Critical in `tinypool`/`vitest`, 6 High) — alle in `devDependencies`. | Kein Angriffspfad — ein **Betriebsdefekt**: der Push auf `main` scheitert im SCA-Schritt, das Image wird nicht gebaut und nicht gepusht. Der Gate ist vorhanden, aber nicht kalibriert: er unterscheidet nicht zwischen „neu" und „seit langem bekannt". | Eine Baseline einfuehren (`osv-scanner.toml` mit `[[IgnoredVulns]]`-Eintraegen fuer die im Audit als nicht erreichbar bewerteten Advisories, je mit Begruendung und `ignoreUntil`), damit nur **neue** Advisories den Lauf scheitern lassen; `--ignore-dev` fuer die devDependencies des Frontends. **Schritt 9** (gemeinsam mit Schritt 6/7 fuer S-31). |
+| **S-33** | **[SECURITY] Low** | `src/main/java/com/echobox/tenant/TenantTransactionRunner.java:92`, `src/main/java/com/echobox/common/GlobalExceptionHandler.java:230`, `src/main/java/com/echobox/tenant/ApiRateLimitFilter.java:85-98` | **Ein Token ohne `organisation_id` ergibt 500 mit Stacktrace und umgeht das Anfragelimit.** `TenantContext.organisationId()` liefert `""`; `setTenant` wirft `IllegalArgumentException` (fail-closed) → allgemeiner Handler → **500 `internal_error`** + Stacktrace im Protokoll. Zugleich zaehlt `ApiRateLimitFilter.organisationIdOf()` nur Anfragen mit nicht-leerem Mandanten — genau diese Anfragen werden **nicht** gezaehlt. | Setzt ein gueltig signiertes Token ohne Mandanten voraus — das kann nur der Identity Provider (oder eine Kompromittierung des IdP) erzeugen. Wirkung: Protokollrauschen und ein nicht greifendes Anfragelimit fuer genau die Anfragen, die am wenigsten zaehlbar sind. | Ein Token ohne Mandanten ist ein Fehler des Aufrufers → **401** (nicht 500). Der Rate-Limit-Filter sollte von einem stabilen Schluessel der Identitaet ausgehen (`sub` bzw. Mandant mit Fallback), nicht vom Mandanten allein. **Schritt 6/7.** |
+| **S-34** | **[SECURITY] Low** | `src/main/java/com/echobox/delivery/DeliveryStateMachine.java:28-29` und `:120-121` | **Veralteter Javadoc.** Der Kommentar sagt: „Die Tabelle in `docs/architecture/domain_model.md` §3.3 wird in Schritt 2 nachgezogen (A-6 / B-17)". Die Tabelle **ist** nachgezogen (Commit `28396e0`). | Keiner — reine Dokumentationspflege. Code und Doku sind inhaltlich konsistent; nur der Verweis im Code ist veraltet. | Die beiden Saetze streichen oder in die Vergangenheitsform umschreiben. **Schritt 6/7.** |
+
+Strukturierte Fehlerbeschreibungen (Pfad, Zeile, Ursache, Nachweis, Empfehlung, Owner):
+`docs/qa/bugs/BUG-S-28.json` … `BUG-S-34.json` (neu) sowie `BUG-S-19.json` … `BUG-S-24.json`
+und `BUG-B-17.json` (Runde 1).
 
 ---
 
-## 3. Die zehn Prüfungen des Skills
+## 4. Die zehn Prüfungen des Skills — erneut und vollständig
 
-### 3.1 Authentifizierung — **kein Critical/High; ein Medium (S-21)**
-
-| Teilprüfung | Ergebnis | Beleg |
-|---|---|---|
-| Token-Pflicht auf **jeder** geschützten Route | **erfüllt** | `src/main/java/com/echobox/config/SecurityConfiguration.java:60-63` — `anyRequest().authenticated()`. `permitAll` gilt **nur** für `/health`, `/health/ready`, `/actuator/health`, `/actuator/health/**`; das entspricht dem Vertrag (`docs/api/openapi.yaml:1666` und `:1700` — `security: []` genau für diese beiden Operationen) und dem Health-Check des Containers (`Dockerfile:50-51`). **Kein** `permitAll` auf einem ganzen Präfix ohne Begründung. |
-| **401** ohne Token (nicht 403, nicht 500) | **erfüllt** | `SecurityConfiguration.java:99-103` — eigener `AuthenticationEntryPoint` → HTTP 401 mit dem `Problem`-Schema. Belegt durch den **neuen** Test `tests/integration/security/SecurityHardeningIT.java` → `S-HARD-1` (**grün**): 401, `code=unauthorized`, `application/problem+json`. Zusätzlich `tests/integration/security/RoleCapabilityMatrixIT.java` (84 Tests, grün). |
-| Ablauf der Token | **erfüllt** | Der Decoder setzt den Default-Validator `JwtValidators.createDefault()` (Zeitstempelprüfung). Belegt durch `tests/unit/security/JwtDecoderHardeningTest.java` → `S-HARD-4` (**grün**, abgelaufenes Token wird abgelehnt). |
-| Signaturprüfung | **erfüllt** | Der Decoder prüft die Signatur gegen den JWKS des Identity Providers. Belegt durch `S-HARD-1` (gültiges Token wird angenommen) und `S-HARD-5` (**grün**, fremder Schlüssel wird abgelehnt). |
-| Zielgruppe (**Audience**) | **NICHT erfüllt → S-21** | Kein Audience-Validator. Belegt durch `tests/unit/security/SecurityGapTest.java` → `LUECKE (Befund S-21)` (**schlägt fehl**): „Expecting code to raise a throwable". |
-| Algorithmus / kein `none` | **erfüllt** | Der JWK-Set-Decoder ist auf RS256 beschränkt. Belegt durch `S-HART-2` (**grün**, `alg: none` wird abgelehnt) und `S-HART-3` (**grün**, `HS256` mit dem öffentlichen RSA-Schlüssel als HMAC-Secret — Algorithmus-Verwirrung — wird abgelehnt). |
-| Keine selbstgebaute Kryptografie | **erfüllt** | `javax.crypto`: `Cipher.getInstance("AES/GCM/NoPadding")` (`crypto/PayloadCipher.java:40,84`), `Mac.getInstance("HmacSHA256")` (`crypto/SignatureService.java:32`, `common/CursorCodec.java:28`), `MessageDigest.isEqual` für zeitkonstante Vergleiche (`SignatureService.java:68`, `CursorCodec.java:84`). Keine Eigenimplementierung. |
-
-> **Wichtige Lücke der bisherigen Testabdeckung (behoben in diesem Schritt):** die
-> Integrationstests benutzen den Post-Processor `jwt()` aus `spring-security-test`
-> (`tests/integration/support/Auth.java:46-51`). Er setzt eine **fertige Identität**
-> und umgeht damit den Decoder — Signatur, Algorithmus und Ablauf wurden bisher
-> **von keinem Test** geprüft. `JwtDecoderHardeningTest` schließt diese Lücke.
-
-### 3.2 Autorisierung / IDOR — **kein Fund**
+### 4.1 Authentifizierung — **kein Critical/High; zwei Medium (S-29, S-33)**
 
 | Teilprüfung | Ergebnis | Beleg |
 |---|---|---|
-| **IDOR:** jede Objekt-Route prüft den **Besitz**, nicht nur die Rolle | **erfüllt** | `endpoint/EndpointService.java:184-190` (`requireOwnEndpoint` → 404), `event/EventService.java:155`, `protocol/ProtocolQueryService.java:107`, `delivery/DeliveryService.java:131` — alle Objektzugriffe laufen über `repository.findById(organisationId, id)` bzw. `requireOwnEndpoint`, also **mit** dem Mandanten aus der Identität. Belegt: `tests/integration/security/ForeignResourceIsolationIT.java` (11 Tests, grün). |
-| Reihenfolge **erst Mandant, dann Rolle** (V-39) | **erfüllt** | `EndpointService.java:102-103`, `:121-123`, `:142-144`, `:164-166` — `requireOwnEndpoint(...)` **vor** `requireEndpointAdministrator()`/`requireSecretRotationRight()`. Ein fremdes Objekt ergibt 404, eine falsche Rolle im eigenen Mandanten ergibt 403. |
-| Standard ist **verweigern** | **erfüllt** | `anyRequest().authenticated()`; `notFound` vor `forbidden`; keine Operation fällt auf „erlauben" zurück. |
-| Keine `permitAll` auf ganzen Präfixen ohne Begründung | **erfüllt** | Siehe 3.1 — genau drei Health-Pfade, mit Vertragsbezug (AC-023-1) und Dockerfile-Health-Check. |
-| Mandanten-Scoping auf **Query-Ebene**, nicht nur im Controller | **erfüllt** | **Jede** Query trägt `organisation_id = :organisationId` (z. B. `endpoint/EndpointRepository.java:69,72,86`; `delivery/DeliveryRepository.java:66,83,112,117,130,139,150,185,206,217`; `event/EventRepository.java`). **Darüber** erzwacht PostgreSQL die Trennung: RLS auf **allen zehn** fachlichen Tabellen (`schema.sql:888-961`), `USING` **und** `WITH CHECK`, `fail-closed` (fehlender Mandant → `current_setting(..., true)` liefert `NULL` → keine Zeile). **Kein** `BYPASSRLS`: `echobox_app`/`echobox_worker` sind `NOLOGIN` ohne `BYPASSRLS` (`schema.sql:62-78`). Belegt: `tests/integration/tenant/RowLevelSecurityIT.java` (4) und `TenantIsolationIT.java` (6), beide grün. |
-| Mandantenübergreifende Sicht nur über die **drei** Eigentümerfunktionen | **erfüllt** | `schema.sql:513,592,680` — genau drei `SECURITY DEFINER`-Funktionen, alle **fail-closed** (`current_setting('app.cross_tenant', true) IS DISTINCT FROM 'service_admin'` → `RETURN`), `search_path` fest verdrahtet, `EXECUTE` nur für `echobox_app`, `REVOKE … FROM PUBLIC` (`schema.sql:1102-1120`). Kein vierter Leseweg. |
+| Token-Pflicht auf **jeder** geschuetzten Route | **erfuellt** | `SecurityConfiguration.java:69-72` — `anyRequest().authenticated()`; `permitAll` gilt **nur** fuer `/health`, `/health/ready`, `/actuator/health`, `/actuator/health/**`. Das entspricht dem Vertrag (`openapi.yaml:1666`, `:1700` — `security: []` genau fuer diese beiden Operationen) und dem Health-Check des Containers (`Dockerfile:67-68`). **Kein** `permitAll` auf einem ganzen Praefix ohne Begruendung. |
+| **401** ohne Token (nicht 403, nicht 500) | **erfuellt** | `SecurityConfiguration.java:170-175` — eigener `AuthenticationEntryPoint` → 401 mit dem `Problem`-Schema. Belegt: `SecurityHardeningIT` → `S-HARD-1` (**gruen**). |
+| Ablauf der Token (`exp`) | **erfuellt** | `SecurityConfiguration.java:125` (`JwtTimestampValidator`) **und** `:138-146` (`expiryRequired()` — `exp` ist **Pflicht**). Belegt: `SecurityGapTest.a_token_without_an_expiry_must_be_rejected` = **gruen**, `S-HART-4` = **gruen**. |
+| **Nicht vor** (`nbf`) | **erfuellt** | `JwtTimestampValidator` prueft `exp` **und** `nbf` (Spring-Standard). |
+| Signaturpruefung | **erfuellt** | Der Decoder prueft die Signatur gegen den JWKS des Identity Providers. Belegt: `S-HARD-1` (gueltiges Token wird angenommen), `S-HART-5` (**gruen**, fremder Schluessel wird abgelehnt). |
+| Zielgruppe (**Audience**) | **teilweise erfuellt → S-29** | `SecurityConfiguration.java:154-163` — der Token muss die konfigurierte Audience tragen. **Aber:** bei leerer Konfiguration faellt die Pruefung still aus (`:126`). Belegt: `JwtAudienceHardeningTest` (4 Tests, gruen) gegen `SecurityGapRound2Test` → **LUECKE (Befund S-29)**, „Expecting code to raise a throwable". |
+| Algorithmus / kein `none` | **erfuellt** | `NimbusJwtDecoder.withJwkSetUri(...)` (`:111`) ist auf RS256 beschraenkt. Belegt: `S-HART-2` (**gruen**, `alg: none` abgelehnt), `S-HART-3` (**gruen**, HS256 mit dem oeffentlichen RSA-Schluessel als HMAC-Secret abgelehnt). |
+| Aussteller (`iss`) | **kein Befund** | Der Decoder prueft `iss` nicht. Der Vertrag fordert keinen Issuer (`openapi.yaml:1726-1733` nennt nur `organisation_id` und die Rollen); der IdP ist ueber die JWKS-Adresse gebunden. |
+| Keine selbstgebaute Kryptografie | **erfuellt** | `javax.crypto`: `Cipher.getInstance("AES/GCM/NoPadding")` (`crypto/PayloadCipher.java:40,84`), `Mac.getInstance("HmacSHA256")` (`crypto/SignatureService.java:32`, `common/CursorCodec.java:28`), `MessageDigest.isEqual` fuer zeitkonstante Vergleiche (`SignatureService.java:68`, `CursorCodec.java:84`). Keine Eigenimplementierung. |
 
-### 3.3 Secrets — **kein Fund (ein Low: S-27)**
-
-| Teilprüfung | Ergebnis | Beleg |
-|---|---|---|
-| Secret-Scan über `src/`, `tests/`, `.github/`, `Dockerfile` | **kein Fund** | `grep -rInE "(api[_-]?key\|secret\|password\|token\|private[_-]?key)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{8,}" src/ tests/ .github/ Dockerfile` → **2** Treffer, beide Test-Fixtures: `tests/unit/frontend/EndpointsPage.test.tsx:177` und `:224` (`'s3cr3t-rotationswert'` — derselbe Wert, den auch `AbstractApplicationIT.DEFAULT_SECRET` verwendet). Keine produktiven Geheimnisse. |
-| Keine Schlüssel in der **Konfiguration** | **erfüllt** | `src/main/resources/application.yml` und `application-staging.yml` enthalten ausschließlich `${ECHobox_…}`-Verweise und Betriebswerte; die Zeilen 85, 88, 91 sind die einzigen Geheimnis-Quellen und alle leer per Vorgabe. Belegt: `tests/integration/deployment/EnvironmentSeparationIT.java` → `no_configuration_contains_a_hardcoded_secret` (grün). |
-| Keine Schlüssel im **Image** | **erfüllt** | `Dockerfile:46-48` — `ENV` enthält nur Profil, Port und JVM-Optionen. Der `COPY` (`:40`) bringt nur das JAR. |
-| Keine Schlüssel in der **CI** | **erfüllt** | `.github/workflows/deploy.yml:71-76` und `:95-100` — nur **Namen** (`${{ secrets.… }}`); keine Werte im Repository. |
-| `.env` in `.gitignore` | **erfüllt** | `.gitignore:9` — `.env`. |
-| **Keine Schlüssel in der Git-Historie** | **erfüllt** | `git log --all -p -- . ':!docs' ':!.agent' \| grep -InE "(api[_-]?key\|secret\|password\|token)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{12,}"` → **keine** Treffer. |
-| Fehlermeldung bei fehlender Konfiguration | **erfüllt, mit einer Ausnahme** | `config/CoreConfiguration.java:58-62` — ohne Schlüssel und `key-required: true` bricht der Start mit `IllegalStateException` ab. `config/SecurityConfiguration.java:85-89` — ohne JWKS-Adresse wirft der Decoder `JwtException("Kein Identity Provider konfiguriert.")`; belegt durch `S-HARD-6` (**grün**). **Ausnahme:** `key-required` ist nur im Staging-Profil `true` → **S-27** (Low). |
-
-### 3.4 Injection — **kein Fund**
+### 4.2 Autorisierung / IDOR — **kein Fund**
 
 | Teilprüfung | Ergebnis | Beleg |
 |---|---|---|
-| Alle Queries **parametriert** | **erfüllt** | Ausschließlich `NamedParameterJdbcTemplate` mit benannten Parametern (`common/SqlParameters.java`); `grep -rcE '\+ *"'` über die fünf Repositories → **0** Treffer. Kein String-Concatenation in SQL. |
-| Keine dynamisch zusammengesetzten SQL-Fragmente | **erfüllt** | Die einzigen `String.format`-Stellen sind die statischen Spaltenlisten `DeliveryRepository.java:74,133,164` — das Argument ist die **Konstante** `RUN_COLUMNS` (`:48-53`), kein Eingabewert. Alle `ORDER BY`-Klauseln sind fest verdrahtet (grep: 7 Stellen, alle statisch). |
-| Kein `Runtime.exec` / `os.system` mit Eingabe | **erfüllt** | `grep -rn "Runtime.getRuntime\|ProcessBuilder\|os.system\|exec(" src/main/java/` → **keine** Treffer. |
-| Kein Path-Traversal | **erfüllt** | `grep -rn "new File(\|Files\.\|Path.of\|FileInputStream" src/main/java/` → **keine** Treffer. Der Dienst verarbeitet **keine** Dateipfade aus Eingaben; die Ziel-URL wird als `URI` benutzt (`delivery/DeliveryHttpClient.java:67`). |
+| **IDOR:** jede Objekt-Route prueft den **Besitz**, nicht nur die Rolle | **erfuellt** | `endpoint/EndpointService.java` (`requireOwnEndpoint` → 404), `event/EventService.java:155`, `protocol/ProtocolQueryService.java:107`, `delivery/DeliveryService.java:131` — alle Objektzugriffe laufen ueber `repository.findById(organisationId, id)`. Belegt: `ForeignResourceIsolationIT` (11 Tests, gruen). |
+| Reihenfolge **erst Mandant, dann Rolle** | **erfuellt** | `EndpointService.java:102-103`, `:121-123`, `:142-144`, `:164-166` — `requireOwnEndpoint(...)` **vor** der Rollenpruefung. Ein fremdes Objekt ergibt 404, eine falsche Rolle im eigenen Mandanten ergibt 403. |
+| Standard ist **verweigern** | **erfuellt** | `anyRequest().authenticated()`; 404 vor 403; keine Operation faellt auf „erlauben" zurueck. |
+| Keine `permitAll` auf ganzen Praefixen ohne Begruendung | **erfuellt** | Siehe 4.1 — genau drei Health-Pfade, mit Vertragsbezug. |
+| Mandanten-Scoping auf **Query-Ebene** | **erfuellt** | **Jede** Query traegt `organisation_id = :organisationId` (z.B. `endpoint/EndpointRepository.java:69,72,86`; `delivery/DeliveryRepository.java:66,83,112,117,130,139,150,185,206,217`). Darueber erzwacht PostgreSQL die Trennung: RLS auf **allen zehn** fachlichen Tabellen (`schema.sql:888-961`), `USING` **und** `WITH CHECK`, fail-closed. **Kein** `BYPASSRLS` (`schema.sql:62-78`). Belegt: `RowLevelSecurityIT` (4), `TenantIsolationIT` (6) — gruen. |
+| Mandantenuebergreifende Sicht nur ueber die **drei** Eigentuemerfunktionen | **erfuellt** | `schema.sql:513,592,680` — genau drei `SECURITY DEFINER`-Funktionen, alle fail-closed, `search_path` fest verdrahtet, `EXECUTE` nur fuer `echobox_app`, `REVOKE … FROM PUBLIC` (`schema.sql:1102-1120`). |
+| Der Mandant stammt **ausschliesslich** aus dem Token | **erfuellt** (mit einer Luecke, die **keine** Ausnutzung ist) | `TenantContext.java:46-53`; ein mitgeschickter Mandantenparameter wird mit 422 abgelehnt (`TenantParameterFilter.java:112-120`). Der Weg `application/*+json` umgeht die **Body**-Pruefung (S-28), aber ein unbekanntes Feld `organisation_id` wird wegen `fail-on-unknown-properties: true` mit 422 abgelehnt — ein Mandantenwechsel ist **nicht** moeglich. |
 
-### 3.5 Ausgabe / XSS — **kein Fund**
-
-| Teilprüfung | Ergebnis | Beleg |
-|---|---|---|
-| Kein `dangerouslySetInnerHTML` / `v-html` / `\| safe` | **erfüllt** | `grep -rn "dangerouslySetInnerHTML\|v-html\|innerHTML\|eval(\|new Function(" src/main/frontend/src/ src/main/java/` → **keine** Treffer. React escaped standardmäßig; die einzige dynamische Textausgabe ist der Kindinhalt. |
-| Fehlermeldungen geben **keine** internen Details preis | **erfüllt** | Es gibt **eine** Fehlerabbildung (`common/GlobalExceptionHandler.java`), die ausschließlich `code`, `title`, `status`, `detail` und `instance` (den **Pfad**, ohne Query-String) erzeugt (`common/ProblemFactory.java:69-90`); Stacktraces, SQL und Pfade tauchen nicht auf. `application.yml:64-66` — `include-stacktrace: never`, `include-message: never`, `include-binding-errors: never`. Der 500er nennt nur „Die Anfrage konnte nicht verarbeitet werden." (`GlobalExceptionHandler.java:230-237`). Belegt: `S-HARD-5` (**grün**) — die Fehlerantwort enthält weder `com.echobox` noch `org.springframework` noch `Exception` noch `/home/` noch `SELECT`. |
-| Nutzlast und Secrets erscheinen in keiner Ausgabe | **erfüllt** | `event/EventRepository.java` gibt niemals `payload_ciphertext` aus; `endpoint/EndpointResponse` führt kein Secret; `PayloadCipher.Ciphertext.toString()` (`crypto/PayloadCipher.java:177-179`) gibt **nur Längen** aus. |
-
-### 3.6 Session und Transport — **kein Fund**
+### 4.3 Secrets — **kein Fund**
 
 | Teilprüfung | Ergebnis | Beleg |
 |---|---|---|
-| Sitzung | **keine** | `SecurityConfiguration.java:59` — `SessionCreationPolicy.STATELESS`; `:58` — CSRF abgeschaltet (bei einem reinen Bearer-Token ohne Cookie im Browser korrekt und im Code kommentiert). Der Dienst nutzt **keine** HttpSession. |
-| Cookie-Flags der Oberfläche | **erfüllt** | `src/main/frontend/src/lib/session.ts:115-123` — `httpOnly: true`, `sameSite: 'lax'`, `path: '/'`, `secure` **nur** bei `NODE_ENV === 'production'`. Das Bearer-Token liegt im **httpOnly**-Cookie, **nicht** im Browser-Speicher (`session.ts:9-17`); der Browser spricht den Dienst **nie** direkt an. |
-| Security-Header | **erfüllt** | Die Spring-Security-Defaults der Kette liefern `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` und `Cache-Control: no-cache, no-store, …`. Belegt: `S-HARD-2` (**grün**) — alle drei Header werden geprüft. Es gibt **keine** eigene `headers(...)`-Konfiguration; die Defaults sind aktiv. |
-| HSTS / TLS | **offene Frage** | HSTS setzt Spring Security nur bei **HTTPS**-Anfragen. Der Container spricht **HTTP** auf Port 8080 (`Dockerfile:44`), TLS wird **vor** dem Dienst terminiert. Solange der vorgeschaltete Proxy/TLS-Terminierer HSTS nicht setzt, fehlt der Header. → **offene Frage Q-1**, nicht befundbar ohne die Bereitstellungstopologie (Schritt 9). |
-| CORS | **erfüllt (vertretbar)** | Es existiert **keine** CORS-Konfiguration → kein `Access-Control-Allow-Origin: *`, keine CORS-Antwortkopfzeilen. Der Browser ruft den Dienst nicht direkt: die Oberfläche ist ein Next.js-Server, der über einen **Same-Origin-Rewrite** weiterleitet (`src/main/frontend/next.config.mjs`, `rewrites()` auf `/api/v1/:path*`) und den Dienst **serverseitig** spricht (`src/main/frontend/src/lib/apiClient.ts` — „Der Browser spricht den Dienst nie direkt an — damit braucht es keine CORS-Regel und kein Token im Browser-Speicher"). **Bewertung:** vertretbar — der Rewrite ist Same-Origin, das Token bleibt httpOnly, und die Browser-Sicht bekommt keinen fremden Origin-Zugriff. Voraussetzung für den Betrieb: `ECHOBOX_API_BASE_URL` muss eine **interne** Adresse sein (Standard `http://localhost:8080`, `next.config.mjs`). |
+| Secret-Scan ueber `src/`, `tests/`, `.github/`, `Dockerfile` | **kein Fund** | `grep -rInE "(api[_-]?key\|secret\|password\|token\|private[_-]?key)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{8,}" src/ tests/ .github/ Dockerfile` → **2** Treffer, beide Test-Fixtures: `tests/unit/frontend/EndpointsPage.test.tsx:177` und `:224` (`'s3cr3t-rotationswert'` — derselbe Wert, den auch `AbstractApplicationIT.DEFAULT_SECRET` verwendet). Keine produktiven Geheimnisse. |
+| Keine Schluessel in der **Konfiguration** | **erfuellt** | `application.yml`, `application-staging.yml`, `application-production.yml` enthalten ausschliesslich `${ECHobox_…}`-Verweise und Betriebswerte. Belegt: `EnvironmentSeparationIT.no_configuration_contains_a_hardcoded_secret` (gruen). |
+| Keine Schluessel im **Image** | **erfuellt** | `Dockerfile:63-65` — `ENV` enthaelt nur Profil, Port und JVM-Optionen; der `COPY` (`:51`) bringt nur das JAR. |
+| Keine Schluessel in der **CI** | **erfuellt** | `deploy.yml:128-134`, `:156-162` — nur **Namen** (`${{ secrets.… }}`), keine Werte im Repository; kein Schritt gibt Werte aus. |
+| `.env` in `.gitignore` | **erfuellt** | `.gitignore` — `.env` (und `/test-results/`, `/playwright-report/` aus dem Root, was der offene Punkt S-23 der Runde 1 war — **erledigt**). |
+| **Keine Schluessel in der Git-Historie** | **erfuellt** | `git log --all -p -- . ':!docs' ':!.agent' \| grep -InE "(api[_-]?key\|secret\|password\|token)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{12,}"` → **keine** Treffer. |
+| Fehlermeldung bei fehlender Konfiguration | **erfuellt, mit einer Ausnahme → S-29** | `CoreConfiguration.java:58-64` (ohne Schluessel und `key-required: true` bricht der Start ab), `:71-79` (falsche Laenge → klarer Startfehler), `SecurityConfiguration.java:105-110` (ohne JWKS-Adresse wird jedes Token abgelehnt; belegt durch `S-HARD-6`). **Ausnahme:** die **Audience** faellt bei leerer Konfiguration still aus → **S-29**. |
 
-### 3.7 Rate-Limiting und Ressourcen — **zwei Befunde (S-20 High, S-23/S-24 Medium)**
+### 4.4 Injection — **kein Fund**
 
-| Teilprüfung | Ergebnis | Beleg |
+| Teilpruefung | Ergebnis | Beleg |
 |---|---|---|
-| Ratenbegrenzung **ausgehend** (je Endpunkt) | **erfüllt** | F-01: 60 Versuche je Endpunkt und Minute, konfigurierbar (`application.yml:109-113`), Zähler je Fenster in `schema.sql:345-356`, durchgesetzt in `delivery/RateLimitGuard.java` und `delivery/EndpointRateLimiter.java`. Belegt: `tests/unit/delivery/RateLimiterTest.java` (6) und `tests/integration/delivery/RateLimitedDeliveryIT.java` (5), beide grün. |
-| Ratenbegrenzung **eingehend** (API) | **NICHT erfüllt → S-24** | Kein `429` im Code, kein `Retry-After`. Belegt: `LUECKE (Befund S-24)` (**schlägt fehl**), grep: `RATE_LIMIT_EXCEEDED` nur als Konstante. |
-| **1-MB-Grenze** durchgängig | **erfüllt** | `event/PayloadSize.java:17` (1 048 576 Byte), geprüft in `event/EventService.java:123-124` → HTTP 413; DB-Constraints `events_payload_size_ck` und `events_payload_ciphertext_ck` (`schema.sql:181-184`); Vertrag: `docs/api/openapi.yaml:86`. Belegt: `S-HARD-3` (**grün**). |
-| Grenze des **Request-Bodies** | **NICHT durchgängig → S-20 (High)** | Die Grenze von 2 MiB (`PayloadSize.java:20`) wird nur gegen `Content-Length` geprüft (`TenantParameterFilter.java:70`); bei Chunked-Encoding greift sie nicht, und der Body wird unbegrenzt gelesen (`:81`). Belegt: `S-HARD-4` (**grün**, mit `Content-Length`) gegen `LUECKE (Befund S-20)` (**schlägt fehl**, „expected: 413 but was: 202"). |
-| Unbegrenzte Paginierung verhindert | **erfüllt** | `limit` ist auf 1…200 begrenzt (`endpoint/EndpointController.java:179-187`, `EndpointQueryService.MAX_LIMIT = 200`), der Vertrag begrenzt ebenso (`docs/api/openapi.yaml:1752-1760`). Die Paginierung ist **cursor-basiert** (kein Offset) — `common/CursorCodec.java`, HMAC-signiert, zeitkonstant geprüft (`:84`). |
-| Antwort-Body des Empfängers begrenzt | **NICHT erfüllt → S-23** | `delivery/DeliveryHttpClient.java:53` — `BodyHandlers.ofString()` ohne Grenze. Belegt: `LUECKE (Befund S-23)` (**schlägt fehl**): „Expecting actual: 5242880 to be less than or equal to: 1048576". |
-| Zeitlimits der Zustellung | **erfüllt** | `application.yml:114-117` — 5 s Verbindungs-, 10 s Lese-Timeout (ADR-008). |
+| Alle Queries **parametriert** | **erfuellt** | Ausschliesslich `NamedParameterJdbcTemplate` mit benannten Parametern (`common/SqlParameters.java`); `grep -rcE '\+ *"'` ueber die fuenf Repositories → **0** Treffer. Kein String-Concatenation in SQL. |
+| Keine dynamisch zusammengesetzten SQL-Fragmente | **erfuellt** | Die einzigen `String.format`-Stellen sind die statischen Spaltenlisten `DeliveryRepository.java:74,133,164` — das Argument ist die **Konstante** `RUN_COLUMNS` (`:48-53`). Alle `ORDER BY`-Klauseln sind fest verdrahtet. |
+| Kein `Runtime.exec` / `os.system` mit Eingabe | **erfuellt** | `grep -rn "Runtime.getRuntime\|ProcessBuilder\|os.system\|exec(" src/main/java/` → **keine** Treffer. |
+| Kein Path-Traversal | **erfuellt** | `grep -rn "new File(\|Files\.\|Path.of\|FileInputStream" src/main/java/` → **keine** Treffer. Der Dienst verarbeitet **keine** Dateipfade aus Eingaben; die Ziel-URL wird als `URI` benutzt (`delivery/DeliveryHttpClient.java:103`). |
 
-### 3.8 Abhängigkeiten und Container — **ein Befund (S-19 High), zwei Low**
+### 4.5 Ausgabe / XSS — **kein Fund; ein Medium (S-30)**
 
-| Teilprüfung | Ergebnis | Beleg |
+| Teilpruefung | Ergebnis | Beleg |
 |---|---|---|
-| SCA-Scan (bekannte kritische/hohe Lücken) | **Befund → S-19** | OSV-Abfrage (`https://api.osv.dev/v1/querybatch`) über alle 76 Koordinaten aus `mvn dependency:tree`: **96** versionsgebundene Advisories (9 Critical, 36 High, 35 Moderate, 16 Low). **3** davon sind im HTTP/1.1-Pfad erreichbar → S-19. Vollständige Aufstellung mit Erreichbarkeitsbegründung je Advisory in **Anhang A**. |
-| Frontend-Abhängigkeiten | **kein Laufzeitbefund** | `npm audit --json` (2026-10-22): 10 Meldungen — **2 Critical** (`tinypool`, `vitest`), **6 High** (`eslint-config-next`, `@next/eslint-plugin-next`, `braces`, `fast-glob`, `micromatch`, `postcss`), **2 Moderate** (`vitest`, `next`). **Alle** betreffen ausschließlich `devDependencies` (`src/main/frontend/package.json` — `vitest`, `tinypool` transitiv, `eslint-config-next`, `postcss` transitiv über `next`); die **Laufzeit**-Abhängigkeiten (`next` 15.5.28, `react`/`react-dom` 19.2.9) sind **nicht** betroffen. Ausnutzbar ist ein Fehler im Test-Werkzeug nur, wer bereits Schreibrecht auf dem Repository hat. **Empfehlung (Schritt 9):** Update von `vitest`/`eslint-config-next` und ein SCA-Gate in der CI. |
-| Container läuft als **non-root** | **erfüllt** | `Dockerfile:42` — `USER 10001:10001`; der Benutzer wird mit `groupadd`/`useradd` (`:34-35`) ohne `sudo`/Root-Rechte angelegt. |
-| **Gepinnte** Basis-Image-Tags | **erfüllt** | `Dockerfile:14` (`maven:3.9.9-eclipse-temurin-21`) und `:26` (`eclipse-temurin:21.0.5_11-jre-jammy`) — feste Versionen, **kein** `latest`. |
-| Multi-Stage, minimale Images | **erfüllt** | `Dockerfile:13-23` (Build) / `:25-54` (Laufzeit). Im Laufzeitimage liegt nur `/app/echobox.jar` (`:40`) — kein Maven, kein Quellcode, kein `.git`. |
-| Keine unnötigen Ports | **erfüllt** | Nur `EXPOSE 8080` (`Dockerfile:44`); die Datenbank ist nicht im Image. |
-| Keine Secrets im Image | **erfüllt** | Siehe 3.3. |
-| Health-Check | **erfüllt** | `Dockerfile:50-51` — `curl -fsS http://127.0.0.1:8080/health`. |
-| CI: keine Secrets in Logs | **erfüllt** | `deploy.yml:71-76,95-100` — die Geheimnisse werden als Umgebungsvariablen gesetzt und **nicht** ausgegeben; die Schritte `:77` und `:101` geben nur einen erklärenden Text aus. |
-| CI: OIDC statt statischer Keys | **NICHT erfüllt → Teil von S-25** | `deploy.yml:55-56` — `password: ${{ secrets.REGISTRY_TOKEN }}` (statisch), obwohl `:28-29` den OIDC-Token ankündigt. |
-| Geschützte Branches | **nicht prüfbar** | Branch-Schutz ist eine Einstellung des Repository-Hosts, nicht des Codes → **offene Frage Q-2** (Schritt 9). |
+| Kein `dangerouslySetInnerHTML` / `v-html` / `\| safe` | **erfuellt** | `grep -rn "dangerouslySetInnerHTML\|v-html\|innerHTML\|eval(\|new Function(" src/main/frontend/src/ src/main/java/` → **keine** Treffer. React escaped standardmaessig. |
+| Fehlermeldungen geben **keine** internen Details preis | **erfuellt** | Es gibt **eine** Fehlerabbildung (`common/GlobalExceptionHandler.java`), die ausschliesslich `code`, `title`, `status`, `detail` und `instance` (den **Pfad**, ohne Query-String) erzeugt (`common/ProblemFactory.java:69-90`); Stacktraces, SQL und Pfade tauchen nicht auf. `application.yml:72-74` — `include-stacktrace: never`, `include-message: never`, `include-binding-errors: never`. Belegt: `S-HARD-5` (**gruen**) — die Fehlerantwort enthaelt weder `com.echobox` noch `org.springframework` noch `Exception` noch `/home/` noch `SELECT`. |
+| Nutzlast und Secrets erscheinen in keiner Ausgabe | **erfuellt** | `event/EventRepository.java` gibt niemals `payload_ciphertext` aus; `endpoint/EndpointResponse` fuehrt kein Secret; `PayloadCipher.Ciphertext.toString()` (`crypto/PayloadCipher.java:177-179`) gibt **nur Laengen** aus. |
+| Fehler des Aufrufers werden als Serverfehler gemeldet | **NICHT erfuellt → S-30** | `HttpMediaTypeNotSupportedException` faellt in den allgemeinen Handler (`GlobalExceptionHandler.java:230`) → **500** + Stacktrace im Protokoll. Belegt: `SecurityGapRound2IT` → **LUECKE (Befund S-30)**, „Expecting actual: 500 to be between: [400, 499]". |
 
-### 3.9 Logging und Datenschutz — **kein Fund**
+### 4.6 Session und Transport — **kein Fund**
 
-| Teilprüfung | Ergebnis | Beleg |
+| Teilpruefung | Ergebnis | Beleg |
 |---|---|---|
-| Keine Passwörter, Tokens oder **vollständigen Nutzlasten** in Logs | **erfüllt** | Alle 30 Logstellen in `src/main/java/` (grep `LOG.info|warn|error`) geben **nur Metadaten** aus: Kennungen, Mandant, Zähler, Zeiten, Status (`event/EventService.java:214` — „Ereignis {} im Mandant {} angenommen ({} Abonnenten)", `delivery/DeliveryDispatcher.java:247` — Versuch/Status, `endpoint/EndpointService.java:173` — Secret-Rotation auf Version N). **Kein** Klartextpayload, **kein** Secret, **kein** Token. FR-012 / AC-007-2 sind eingehalten. |
-| Audit-Protokoll ohne Nutzlastinhalt | **erfüllt** | `schema.sql:383-399` — `details JSONB` ohne Nutzlast; `common/AuditLogRepository.java:30-37` — ausschließlich Metadatenfelder. |
-| Retention dokumentiert | **erfüllt** | F-02: 30 Tage je Datenart, Anker `last_attempt_at`; `ADR-012`, `application.yml:123-130`, `schema.sql:364-380` (Override je Mandant). Die Durchsetzung läuft mandantenübergreifend über die Eigentümerfunktion (`schema.sql:680-858`) in zwei Stufen (markieren → Purge). |
-| Recht auf Löschung | **technisch abgebildet, fachlich offen** | Die Purge-Stufe löscht Ereignisse, Zustellläufe und Versuche physisch (`schema.sql:833-841`); die Kaskade über `ON DELETE CASCADE` (`schema.sql:240-243`) nimmt die Protokollzeilen mit. Ein **mandantenspezifisches Sofort-Lösch-Kommando** gibt es nicht — die Löschung läuft über die Fristen bzw. einen Override in `retention_settings`. → **offene Frage Q-3** (Recht/Fachbereich, Gate 2), **kein** Befund. |
+| Sitzung | **keine** | `SecurityConfiguration.java:68` — `SessionCreationPolicy.STATELESS`; `:67` — CSRF abgeschaltet (bei einem reinen Bearer-Token ohne Cookie im Browser korrekt und im Code kommentiert). |
+| Cookie-Flags der Oberflaeche | **erfuellt** | `src/main/frontend/src/lib/session.ts:115-123` — `httpOnly: true`, `sameSite: 'lax'`, `path: '/'`, `secure` **nur** bei `NODE_ENV === 'production'`. Das Bearer-Token liegt im **httpOnly**-Cookie, **nicht** im Browser-Speicher (`:9-17`). |
+| Security-Header | **erfuellt** | Die Spring-Security-Defaults der Kette liefern `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` und `Cache-Control: no-cache, no-store, …`. Belegt: `S-HARD-2` (**gruen**) — alle drei Header werden geprueft. |
+| HSTS / TLS | **offene Frage (Q-1)** | HSTS setzt Spring Security nur bei **HTTPS**-Anfragen. Der Container spricht **HTTP** auf Port 8080 (`Dockerfile:55`); TLS wird **vor** dem Dienst terminiert. → **Q-1**, nicht befundbar ohne die Bereitstellungstopologie (Schritt 9). |
+| CORS | **erfuellt (vertretbar)** | Es existiert **keine** CORS-Konfiguration → kein `Access-Control-Allow-Origin: *`, keine CORS-Antwortkopfzeilen. Der Browser ruft den Dienst nicht direkt: die Oberflaeche ist ein Next.js-Server, der ueber einen **Same-Origin-Rewrite** weiterleitet (`next.config.mjs`, `rewrites()` auf `/api/v1/:path*`) und den Dienst **serverseitig** spricht (`apiClient.ts`). Voraussetzung fuer den Betrieb: `ECHOBOX_API_BASE_URL` muss eine **interne** Adresse sein. |
+
+### 4.7 Rate-Limiting und Ressourcen — **ein High (S-28), ein Medium (S-30), ein Low (S-33)**
+
+| Teilpruefung | Ergebnis | Beleg |
+|---|---|---|
+| Ratenbegrenzung **ausgehend** (je Endpunkt) | **erfuellt** | F-01: 60 Versuche je Endpunkt und Minute, konfigurierbar (`application.yml:135-139`), Zaehler je Fenster in `schema.sql:345-356`, durchgesetzt in `delivery/RateLimitGuard.java` und `delivery/EndpointRateLimiter.java`. Belegt: `RateLimiterTest` (6), `RateLimitedDeliveryIT` (5) — gruen. |
+| Ratenbegrenzung **eingehend** (API) | **erfuellt** | `ApiRateLimitFilter` (`:42`, hinter der Security-Kette) + `ApiRateLimiter` (je Mandant und Fenster). **Grenzen:** `echobox.rate-limit.limit` (Vorgabe 240) und `window-seconds` (60) — aus der Konfiguration, kein Wert im Code verdrahtet. **Fehlerverhalten:** **429** `rate_limit_exceeded` mit dem `Problem`-Schema des Vertrags. **`Retry-After`:** ganzzahlige Sekundenzahl >= 1, **nie kuerzer** als die Wartezeit bis zum Fensterende (belegt: `ApiRateLimitHardeningTest.the_retry_after_is_a_waiting_time_in_seconds`, gruen) — vertragskonform (`openapi.yaml:1826-1830`). **Mandantenbezug:** der Schluessel ist die `organisation_id` aus der Identitaet (`ApiRateLimitFilter.java:85-98`); ein zweiter Mandant bleibt unberuehrt (belegt: `ApiRateLimitIT.another_tenant_is_not_affected`, gruen). **Bypass:** nicht angemeldete Anfragen werden nicht gezaehlt (401 vor dem Filter) — der Gesundheitsendpunkt bleibt erreichbar (belegt: `ApiRateLimitIT.the_health_endpoint_is_not_rate_limited`, gruen); ein Token **ohne** Mandant wird ebenfalls nicht gezaehlt → **S-33**. **Randbedingung:** der Zaehler liegt im Speicher der Instanz — bei *n* Instanzen wirkt das Limit *n*-fach (im Schritt nicht aenderbar, braucht ein Schema → Schritt 9). **Fenster:** fest (nicht gleitend) — am Fensterwechsel ist ein Doppelpeak moeglich. |
+| **1-MB-Grenze** der Nutzlast durchgaengig | **erfuellt** | `event/PayloadSize.java:17` (1 048 576 Byte), geprueft in `event/EventService.java:123-124` → HTTP 413; DB-Constraints `events_payload_size_ck` und `events_payload_ciphertext_ck` (`schema.sql:181-184`); Vertrag `openapi.yaml:86`. Belegt: `S-HARD-3` (**gruen**). |
+| Grenze des **Request-Bodies** | **NICHT durchgaengig → S-28 (High)** | Die Grenze von 2 MiB (`PayloadSize.java:20`) wird nur fuer `application/json` geprueft (`TenantParameterFilter.java:160-167`) und **nur** gegen `Content-Length` (`:82`) — bei Chunked greift sie nicht, und `application/*+json` umgeht sie **voellig**. Belegt: `RequestBodyLimitIT` (gruen) gegen `SecurityGapRound2IT` → **LUECKE (Befund S-28)**, „expected: 413 but was: 202" (2.097.298 Byte) und **202** bei 20.971.604 Byte. |
+| Greift die Grenze bei **chunked**, **Multipart**, **gzip**, **ohne `Content-Length`**? | **gemessen** | *chunked*: grenzt (gruen). *ohne `Content-Length`* (HTTP/1.1, Body bis Connection-Close): `getContentLengthLong()` = -1 → `readBounded` begrenzt → 413. *Multipart*: `spring.servlet.multipart.enabled: false` (`application.yml:60-65`) → **kein** Multipart-Resolver, der Container parst den Body nicht; gemessen: **500** (→ S-30), **kein** Speicherzugriff. *gzip*: **nichts** dekomprimiert Request-Bodies (kein `ContentEncoding`-Filter im Code) → Jackson scheitert an den Rohbytes → **400 `malformed_request`** (gemessen), **keine** GZIP-Bomb-Gefahr. |
+| Unbegrenzte Paginierung verhindert | **erfuellt** | `limit` ist auf 1…200 begrenzt (`endpoint/EndpointController.java:179-187`), der Vertrag ebenso (`openapi.yaml:1752-1760`). Die Paginierung ist **cursor-basiert** (kein Offset) — `common/CursorCodec.java`, HMAC-signiert, zeitkonstant geprueft (`:84`). |
+| Antwort-Body des Empfaengers begrenzt | **erfuellt** | `delivery/DeliveryHttpClient.java:135-187` — `LimitedBodySubscriber`, 1 MiB. Belegt: `SecurityGapTest` (gruen), `DeliveryResponseLimitTest` (3 Tests, gruen). |
+| Zeitlimits der Zustellung | **erfuellt** | `application.yml:142-143` — 5 s Verbindungs-, 10 s Lese-Timeout (ADR-008). |
+
+### 4.8 Abhaengigkeiten und Container — **ein Medium (S-31), ein Medium (S-32)**
+
+| Teilpruefung | Ergebnis | Beleg |
+|---|---|---|
+| SCA-Scan (bekannte kritische/hohe Luecken) | **20 Advisories, davon 3 im HTTP/1.1-Pfad erreichbar → behoben** | `mvn -B dependency:tree` (110 Koordinaten) → OSV `querybatch` (2026-10-22): **96 → 20**. Die **drei** zuvor erreichbaren (CVE-2026-24880, CVE-2025-48988, CVE-2025-48989) sind **nicht** mehr enthalten — der Container ist auf 10.1.55 gehoben. Die verbleibenden 20 sind mit Begruendung je Advisory in **Anhang A** bewertet. **Neue** Tomcat-Advisories unterhalb der Fix-Linie → **S-31**. |
+| Frontend-Abhaengigkeiten | **kein Laufzeitbefund** | `npm audit --json` (2026-10-22): 10 Meldungen — **2 Critical** (`tinypool`, `vitest`), **6 High** (`eslint-config-next`, `@next/eslint-plugin-next`, `braces`, `fast-glob`, `micromatch`, `postcss`), **2 Moderate** (`vitest`, `next`). **Alle** betreffen ausschliesslich `devDependencies`; die **Laufzeit**-Abhaengigkeiten (`next` 15.5.28, `react`/`react-dom` 19.2.9) sind **nicht** betroffen. Ausnutzbar ist ein Fehler im Test-Werkzeug nur, wer bereits Schreibrecht auf dem Repository hat. |
+| Container laeuft als **non-root** | **erfuellt** | `Dockerfile:45-46` (uid/gid 10001, ohne sudo/Root-Rechte), `:53` (`USER 10001:10001`). |
+| **Gepinnte** Basis-Image-Tags | **erfuellt** | `Dockerfile:17` (`maven:3.9.9-eclipse-temurin-21`), `:29` (`eclipse-temurin:21.0.5_11-jre-jammy`) — feste Versionen, **kein** `latest`. |
+| Multi-Stage, minimale Images | **erfuellt** | `Dockerfile:17-26` (Build) / `:29-71` (Laufzeit). Im Laufzeitimage liegt nur `/app/echobox.jar` — kein Maven, kein Quellcode, kein `.git`. |
+| Keine unnoetigen Ports | **erfuellt** | Nur `EXPOSE 8080` (`Dockerfile:55`); die Datenbank ist nicht im Image. |
+| Keine Secrets im Image | **erfuellt** | Siehe 4.3. |
+| Health-Check | **erfuellt** | `Dockerfile:67-68` — `curl -fsS http://127.0.0.1:8080/health`. |
+| Gepinnte `apt`-Pakete | **erfuellt** | `Dockerfile:36-42` — `curl=${CURL_VERSION}`, `tini=${TINI_VERSION}` mit Vorgabewerten. |
+| CI: keine Secrets in Logs | **erfuellt** | `deploy.yml:128-134`, `:156-162` — Geheimnisse ausschliesslich als `env`; kein Schritt gibt Werte aus. |
+| CI: OIDC statt statischer Keys | **erfuellt** | `deploy.yml:99-107` — `password: ${{ secrets.GITHUB_TOKEN }}` (kurzlebig, pro Lauf), `permissions: packages: write, id-token: write` (`:32-35`). Der statische `REGISTRY_TOKEN` wird **nicht mehr verwendet**. |
+| CI: Secret-Scan, SCA-Scan, Oberflaechen-Tests | **vorhanden** (S-25) | `deploy.yml:51-54` (gitleaks v8.30.1), `:56-61` (OSV-Scanner v2.7.0), `:64-65` (Java inkl. Coverage-Gate), `:79-93` (Typpruefung, Lint, Vertragspruefung, Unit-Tests, Build, Playwright). **Aber:** der SCA-Schritt ist nicht kalibriert → **S-32**. |
+| Geschuetzte Branches | **nicht pruefbar** | Branch-Schutz ist eine Einstellung des Repository-Hosts, nicht des Codes → **offene Frage Q-2** (Schritt 9). |
+
+### 4.9 Logging und Datenschutz — **kein Fund; ein Low (S-33)**
+
+| Teilpruefung | Ergebnis | Beleg |
+|---|---|---|
+| Keine Passwoerter, Tokens oder **vollstaendigen Nutzlasten** in Logs | **erfuellt** | Alle Logstellen in `src/main/java/` (grep `LOG.info\|warn\|error`) geben **nur Metadaten** aus: Kennungen, Mandant, Zaehler, Zeiten, Status (`event/EventService.java:214`, `delivery/DeliveryDispatcher.java:247`, `endpoint/EndpointService.java:173`). **Kein** Klartextpayload, **kein** Secret, **kein** Token. FR-012 / AC-007-2 sind eingehalten. |
+| Audit-Protokoll ohne Nutzlastinhalt | **erfuellt** | `schema.sql:383-399` — `details JSONB` ohne Nutzlast; `common/AuditLogRepository.java:30-37` — ausschliesslich Metadatenfelder. |
+| Retention dokumentiert | **erfuellt** | F-02: 30 Tage je Datenart, Anker `last_attempt_at`; `ADR-012`, `application.yml:153-160`, `schema.sql:364-380` (Override je Mandant). Die Durchsetzung laeuft mandantenuebergreifend ueber die Eigentuemerfunktion (`schema.sql:680-858`) in zwei Stufen (markieren → Purge). |
+| Recht auf Loeschung | **technisch abgebildet, fachlich offen** | Die Purge-Stufe loescht Ereignisse, Zustelllaeufe und Versuche physisch (`schema.sql:833-841`); die Kaskade ueber `ON DELETE CASCADE` (`schema.sql:240-243`) nimmt die Protokollzeilen mit. Ein **mandantenspezifisches Sofort-Loesch-Kommando** gibt es nicht → **offene Frage Q-3** (Recht/Fachbereich, Gate 2), **kein** Befund. |
 | Karenzzeit R-01 / E-13 | **offen** | `schema.sql:704-709` — **kein** Vorgabewert; ohne gesetzten Wert wird mit 0 Tagen gerechnet. Bewusst so entschieden und im Vertrag nicht festgeschrieben → offener Punkt des Fachbereichs (Gate 2). |
+| Fehler des Aufrufers erzeugen Stacktraces im Protokoll | **NICHT erfuellt → S-30 / S-33** | `GlobalExceptionHandler.java:232` protokolliert bei jedem unerwarteten Fehler den Stacktrace — auch fuer Fehler, die der Aufrufer verursacht hat (nicht unterstuetzter Medientyp → 500; Token ohne Mandant → 500). |
 
-### 3.10 OWASP Top 10 (Querprüfung)
+### 4.10 OWASP Top 10 (Querpruefung)
 
 | ID | Kategorie | Ergebnis | Beleg / Befund |
 |---|---|---|---|
-| **A01** | Broken Access Control | **kein Fund** | RLS auf allen zehn fachlichen Tabellen (`schema.sql:888-961`), `WITH CHECK`, fail-closed, kein `BYPASSRLS`; Besitzprüfung auf **jeder** Objekt-Route (404 vor 403); drei mandantenübergreifende Eigentümerfunktionen, fail-closed und ohne Klartextprojektion; `permitAll` nur auf den drei Health-Pfaden. Belegt: `ForeignResourceIsolationIT` (11), `RoleCapabilityMatrixIT` (84), `RowLevelSecurityIT` (4), `TenantIsolationIT` (6) — alle grün. Die **Restlücke** E-12 (die Applikationsrolle kann `app.cross_tenant` setzen) ist **dokumentiert** (`docs/adr/README.md:96`) und ein offener Punkt, kein neuer Befund. |
-| **A02** | Cryptographic Failures | **kein Fund (ein Medium: S-22)** | AES-256-GCM mit 12-Byte-Nonce und 128-Bit-Tag (`crypto/PayloadCipher.java:80-106`), HMAC-SHA256-Fingerprint mit abgeleitetem Teilschlüssel (`:119-138`), zeitkonstante Vergleiche (`SignatureService.java:68`, `CursorCodec.java:84`), Schlüssel **außerhalb** der Datenbank, keine Eigenimplementierung. **S-22:** die Schlüssellänge wird nicht geprüft (AES-128-Downgrade möglich). |
-| **A03** | Injection | **kein Fund** | Ausschließlich benannte Parameter; keine SQL-Konkatenation; keine Befehlsausführung; keine Dateipfade aus Eingaben. Belegt: grep über alle Repositories (0 Treffer). |
-| **A04** | Insecure Design | **kein Fund; eine Vertragslücke (S-24)** | Das Design trennt Mandant (RLS) und Rolle (Anwendung) in der **richtigen** Reihenfolge; die mandantenübergreifende Sicht ist auf drei schmale Funktionen begrenzt; die Replay-Regel (einmal, nur Empfänger-Admin) ist über eine DB-Constraint (`UNIQUE (replay_of)`, `schema.sql:244-245`) durchgesetzt. **S-24:** die im Vertrag zugesagte eingehende Ratenbegrenzung fehlt in der Implementierung. |
-| **A05** | Security Misconfiguration | **kein Fund (zwei Low: S-26, S-27)** | Fehlermeldungen ohne internes Detail, `include-stacktrace: never`, `management.endpoints.web.exposure.include: health,info,metrics` mit `show-details: never` (`application.yml:70-77`) — `/actuator/metrics` bleibt **hinter** der Authentifizierung (`SecurityConfiguration.java:60-63`; belegt durch `S-HARD-7`). **S-26:** apt-Pakete nicht gepinnt. **S-27:** kein Produktionsprofil → ephemerer Schlüssel möglich. |
-| **A06** | Vulnerable and Outdated Components | **Befund → S-19 (High)** | 96 versionsgebundene Advisories, 3 im HTTP/1.1-Pfad erreichbar. Siehe Anhang A. |
-| **A07** | Identification and Authentication Failures | **kein Fund (ein Medium: S-21)** | 401 statt 403/500; RS256-only; `none` und HS256 abgelehnt; Ablauf geprüft; kein eigener Passwortpfad. **S-21:** Audience wird nicht geprüft, `exp` ist nicht erforderlich. |
-| **A08** | Software and Data Integrity Failures | **kein Fund** | Signaturverfahren und Header-Name sind im Vertrag eingefroren und durch einen **Vertragstest** abgesichert (`tests/contract/SignatureContractTest.java`, 6 Tests, grün); der Idempotenzvergleich läuft über einen gezielten HMAC-Fingerprint statt über einen ungeschützten Hash (ADR-007); die Idempotenz-Constraint liegt in der Datenbank (`UNIQUE (organisation_id, idempotency_key)`, `schema.sql:173-174`). |
-| **A09** | Security Logging and Monitoring Failures | **kein Fund** | Audit-Protokoll für die nachvollziehbaren Aktionen (`app.audit_log`, `schema.sql:383-399`); Betriebsprotokoll enthält nur Metadaten; Readiness/Health melden den Zustand, nicht die Daten. |
-| **A10** | Server-Side Request Forgery (SSRF) | **kein Fund; eine offene Frage** | Die Ziel-URL ist **Eingabe** des Mandanten — das ist das Produkt. Die wirksamen Begrenzungen: Schema **nur** `https` (`endpoint/EndpointTargetUrl.java:52-55`, zusätzlich DB-Constraint `endpoints_target_url_ck`, `schema.sql:100-101`), **keine** eingebetteten Zugangsdaten (`:56-60`, DB-Constraint `:102-103`), **keine** Weiterleitung auf Weiterleitungen (`delivery/DeliveryHttpClient.java:45`, `Redirect.NEVER`), **kein** Trust-all bei TLS (`:27-28`), Zeitlimits (5 s / 10 s). **Offene Frage Q-4:** ein Filter gegen interne Adressbereiche (Link-Local `169.254.0.0/16`, RFC1918) fehlt — für ein Webhook-Produkt ist das eine **bewusste** Entscheidung (Zustellung an interne Ziele ist ein legitimer Anwendungsfall), aber es ist eine **Sichtbarkeitsfrage** und keine belegte Lücke → **kein Befund**. |
+| **A01** | Broken Access Control | **kein Fund** | RLS auf allen zehn fachlichen Tabellen (`schema.sql:888-961`), `WITH CHECK`, fail-closed, kein `BYPASSRLS`; Besitzpruefung auf **jeder** Objekt-Route (404 vor 403); drei mandantenuebergreifende Eigentuemerfunktionen, fail-closed und ohne Klartextprojektion; `permitAll` nur auf den drei Health-Pfaden. Belegt: `ForeignResourceIsolationIT` (11), `RoleCapabilityMatrixIT` (84), `RowLevelSecurityIT` (4), `TenantIsolationIT` (6) — alle gruen. Die **Restluecke** E-12 (die Applikationsrolle kann `app.cross_tenant` setzen) ist dokumentiert (`docs/adr/README.md:96`) und ein offener Punkt, kein neuer Befund. |
+| **A02** | Cryptographic Failures | **kein Fund** | AES-256-GCM mit 12-Byte-Nonce und 128-Bit-Tag (`crypto/PayloadCipher.java:80-106`), HMAC-SHA256-Fingerprint mit abgeleitetem Teilschluessel (`:119-138`), zeitkonstante Vergleiche (`SignatureService.java:68`, `CursorCodec.java:84`), Schluessel **ausserhalb** der Datenbank, keine Eigenimplementierung. **S-22 ist behoben** (Schluessellaenge wird geprueft, kein AES-128-Downgrade). **S-29** betrifft die Konfiguration der Token-Pruefung, nicht die Kryptografie. |
+| **A03** | Injection | **kein Fund** | Ausschliesslich benannte Parameter; keine SQL-Konkatenation; keine Befehlsausfuehrung; keine Dateipfade aus Eingaben. Belegt: grep ueber alle fuenf Repositories (0 Treffer). |
+| **A04** | Insecure Design | **kein Fund; ein High (S-28) und eine Vertragsluecke (S-30)** | Das Design trennt Mandant (RLS) und Rolle (Anwendung) in der **richtigen** Reihenfolge; die mandantenuebergreifende Sicht ist auf drei schmale Funktionen begrenzt; die Replay-Regel ist ueber eine DB-Constraint durchgesetzt (`schema.sql:244-245`). **S-28:** eine Sicherheitsgrenze, die an einer **Eingabevariante** (dem Medientyp) haengt, ist per Konstruktion umgehbar — der Entwurf muss die Grenze an die **Nutzlastgrenze des Containers** binden, nicht an eine Medienpruefung. **S-30:** der Vertrag kennt keinen 4xx fuer einen nicht unterstuetzten Medientyp — die Fehlerabbildung ist eine Design-Entscheidung, die im Code fehlt. |
+| **A05** | Security Misconfiguration | **kein Fund; zwei Medium (S-29, S-30) und ein Low (S-33)** | Fehlermeldungen ohne internes Detail, `include-stacktrace: never`, `management.endpoints.web.exposure.include: health,info,metrics` mit `show-details: never` (`application.yml:85-92`) — `/actuator/metrics` bleibt **hinter** der Authentifizierung (belegt durch `S-HARD-7`). **S-29:** fail-open bei leerer Audience-Konfiguration. **S-30:** 500 statt 4xx. **S-33:** 500 bei Token ohne Mandant. **S-26/S-27 sind behoben** (gepinnte Pakete, Produktionsprofil). |
+| **A06** | Vulnerable and Outdated Components | **Befund → S-31 (Medium)** | 96 → **20** Advisories; die 3 zuvor erreichbaren sind behoben. Die verbleibenden sind **in dieser Konfiguration nicht erreichbar** (Anhang A) — mit einer Ausnahme: der **gepinnte** Container liegt unter der Fix-Linie von drei Critical-Advisories (**S-31**). |
+| **A07** | Identification and Authentication Failures | **kein Fund; ein Medium (S-29)** | 401 statt 403/500; RS256-only; `none` und HS256 abgelehnt; Ablauf (`exp`) **und** `nbf` geprueft, `exp` Pflicht; kein eigener Passwortpfad. **S-29:** die Zielgruppen-Pruefung faellt bei leerer Konfiguration still aus. |
+| **A08** | Software and Data Integrity Failures | **kein Fund** | Signaturverfahren und Header-Name sind im Vertrag eingefroren und durch einen **Vertragstest** abgesichert (`tests/contract/SignatureContractTest.java`, 6 Tests, gruen); der Idempotenzvergleich laeuft ueber einen gezielten HMAC-Fingerprint statt ueber einen ungeschuetzten Hash (ADR-007); die Idempotenz-Constraint liegt in der Datenbank (`schema.sql:173-174`). Beide Schema-Spiegel sind **byte-identisch** mit `.agent/knowledge/schema.sql` (geprueft). |
+| **A09** | Security Logging and Monitoring Failures | **kein Fund; zwei Low (S-30, S-33)** | Audit-Protokoll fuer die nachvollziehbaren Aktionen (`app.audit_log`, `schema.sql:383-399`); Betriebsprotokoll enthaelt nur Metadaten; Readiness/Health melden den Zustand, nicht die Daten. **S-30/S-33:** Fehler des Aufrufers landen als 500 mit Stacktrace im Protokoll — das Protokoll ist dann kein verlaessliches Signal mehr. |
+| **A10** | Server-Side Request Forgery (SSRF) | **kein Fund; eine offene Frage** | Die Ziel-URL ist **Eingabe** des Mandanten — das ist das Produkt. Die wirksamen Begrenzungen: Schema **nur** `https` (`endpoint/EndpointTargetUrl.java:52-55`, zusaetzlich DB-Constraint `endpoints_target_url_ck`, `schema.sql:100-101`), **keine** eingebetteten Zugangsdaten (`:56-60`, DB-Constraint `:102-103`), **keine** Weiterleitung (`delivery/DeliveryHttpClient.java:80`, `Redirect.NEVER`), **kein** Trust-all bei TLS, Zeitlimits (5 s / 10 s), Antwortgrenze 1 MiB. **Offene Frage Q-4:** ein Filter gegen interne Adressbereiche (Link-Local `169.254.0.0/16`, RFC1918) fehlt — fuer ein Webhook-Produkt ist das eine **bewusste** Entscheidung, aber eine Sichtbarkeitsfrage und keine belegte Luecke → **kein Befund**. |
 
 ---
 
-## Anhang A — SCA: versionsgebundene Advisories und ihre Erreichbarkeit
+## Anhang A — SCA: die 20 verbleibenden Advisories und ihre Erreichbarkeit
 
-Scan: `mvn -B dependency:tree` (76 Koordinaten) → OSV `querybatch` (2026-10-22). Gesamt:
-**96** Advisories — 9 Critical, 36 High, 35 Moderate, 16 Low.
+Scan: `mvn -B dependency:tree` (110 Koordinaten) → OSV `querybatch` (2026-10-22).
+**Gesamt 20** (Runde 1: 96) — 3 Tomcat, 11 jackson, 2 spring-webmvc, 2 commons-compress,
+1 log4j-api, 1 postgresql.
 
-### A.1 Erreichbar (3) → **S-19 (High)**
+### A.1 Tomcat (`tomcat-embed-core:10.1.55`) — 3 → **S-31**
 
-| Advisory | CVE | Schwere | Betroffene Version | Behoben in | Erreichbarkeit in dieser Konfiguration |
-|---|---|---|---|---|---|
-| GHSA-563x-q5rq-57qp | CVE-2026-24880 | High | `tomcat-embed-core:10.1.31` | 10.1.52 | **Erreichbar** — HTTP/1.1-Chunked-Parser; jeder Client kann eine ungültige Chunk-Extension senden. Ausnutzbarkeit hängt von der Auslegung durch den vorgeschalteten Proxy ab (Topologie: Schritt 9). |
-| GHSA-h3gc-qfqq-6h8f | CVE-2025-48988 | High | `tomcat-embed-core:10.1.31` | 10.1.42 | **Erreichbar** — Spring Boot registriert `StandardServletMultipartResolver` automatisch; ein angemeldeter Client mit `Content-Type: multipart/form-data` veranlasst Tomcat, den Body ohne wirksame Ressourcenbegrenzung zu parsen. |
-| GHSA-gqp3-2cvr-x8m3 | CVE-2025-48989 | High | `tomcat-embed-core:10.1.31` | 10.1.44 | **Erreichbar** — „made you reset" auf HTTP/1.1-Verbindungen. |
+| Advisory | Schwere | Betroffen | Behoben in | Erreichbarkeit in dieser Konfiguration |
+|---|---|---|---|---|
+| GHSA-9xv2-5v5q-p794 | Critical | 10.1.0-M1 … 10.1.57 | **10.1.58** | **nicht erreichbar** — die DIGEST-Authentifizierung des Containers wird nicht benutzt (ausschliesslich Bearer-Token; keine `<login-config>`; `find src/main -name web.xml` → nichts). |
+| GHSA-gcx9-497g-6cp6 | Critical | 10.1.0-M1 … 10.1.57 | **10.1.58** | **nicht erreichbar** — der Bypass setzt eine `<security-constraint>`-Konfiguration voraus; es gibt keine (eingebetteter Container ohne Deployment-Descriptor). |
+| GHSA-h3x4-894j-xpx5 | Critical | 10.1.0-M1 … 10.1.57 | **10.1.58** | **nicht erreichbar** — die FORM-Authentifizierung wird nicht benutzt. |
 
-### A.2 Nicht erreichbar — mit Begründung (93)
+> **Nicht erreichbar heisst nicht unbedenklich.** Der Pin wurde gerade eingefuehrt, um
+> die erreichbaren Advisories zu beheben — er liegt jetzt unter der Fix-Linie dieser
+> drei. → **S-31** (Medium). 10.1.58 wurde nie veroeffentlicht; die erste verfuegbare
+> Version darueber ist **10.1.59**.
+
+### A.2 Jackson (`jackson-core:2.21.4`, `jackson-databind:2.21.4`) — 11 → nicht erreichbar
 
 | Advisory-Familie | Anzahl | Warum nicht erreichbar |
 |---|---|---|
-| Tomcat **HTTP/2** (GHSA-r29c-68gh-xp6x, GHSA-25xr-qj8w-c4vf) | 2 | HTTP/2 ist **nicht aktiviert**: `server.http2.enabled` ist nirgends gesetzt (`application.yml`), der `http2`-Connectors fehlen in `mvn dependency:tree`, der Container spricht HTTP/1.1 auf 8080. |
-| Tomcat **Default-Servlet/Schreibzugriff** (GHSA-83qj-6fr2-vhqg, GHSA-27hp-xhwr-wr2m, GHSA-wmwf-9ccg-fff5) | 3 | Erfordern „writes enabled for the default servlet" (Spring Boot registriert den DefaultServlet **nicht**) bzw. PUT/Partial-PUT (keine PUT-Route im Vertrag). |
-| Tomcat **Authentifizierung** (DIGEST/FORM) (GHSA-9xv2-5v5q-p794, GHSA-h6fc-48rj-7qqh, GHSA-h3x4-894j-xpx5) | 3 | Der Dienst nutzt ausschließlich Bearer-Token; keine Container-Authentifizierung ist konfiguriert. |
-| Tomcat **Security-Constraints** (GHSA-gcx9-497g-6cp6, GHSA-5m62-pw8w-7w9f) | 2 | Keine `<security-constraint>`-Konfiguration (eingebetteter Container ohne `web.xml`); die Zugriffskontrolle liegt in der Anwendung. |
-| Tomcat **sonstige** (JsonAccessLogValve, LoadBalancerDrainingValve, WebSocket, WebDAV, Session-Fixation, Installer, WebSocket-Header, Logfile-Info, OCSP/Tomcat-Native, HTTP-Priority, Multipart-Integer-Overflow, „made you reset"-Randfälle, Ressourcen-Freigabe) | 21 | Erfordern nicht konfigurierte Komponenten (`JsonAccessLogValve`, `LoadBalancerDrainingValve`, WebSocket, WebDAV, Tomcat Native/OCSP) bzw. nicht genutzte Protokolle; Multipart-Integer-Overflow (GHSA-wr62-c79q-cv37) setzt die „unlikely multipart upload"-Konfiguration voraus. |
-| Spring Framework **Methodensicherheit / Annotationen** (GHSA-jmp9-x22r-554x) | 1 | `@EnableMethodSecurity` wird **nicht** verwendet (grep über `src/main/` → 0 Treffer). |
-| Spring Framework **SpEL / XSS / Skript-Views / Pfadbegrenzung / Versionierung / Form-Tags** (GHSA-r5w3-xv2f-j59q, GHSA-3chg-m5w7-qfv5, GHSA-pc63-qcmh-9cmg, GHSA-6p4f-wcwh-5vvm, GHSA-4773-3jfm-qmx3, GHSA-6r3c-xf4w-jxjm, GHSA-72pg-x5f8-j25j, GHSA-957g-f97v-vppc, GHSA-cjpg-rgq5-fr37, GHSA-wg35-8jpf-2xv3, GHSA-wxpp-56q6-5pcg, GHSA-6p4f-wcwh-5vvm, GHSA-x23c-287f-qqv5) | 13 | Erfordern SpEL-Auswertung, `XsltView`/Skript-Views, `VersionResourceResolver`, JSP-Form-Tags oder Pfadbegrenzung — **keine** davon wird verwendet; der Dienst liefert **keine** statischen Ressourcen über Spring MVC aus (die Oberfläche ist eine separate Next.js-Anwendung). |
-| Spring Security **Passwort / Umleitung / X.509 / Methodensicherheit** (GHSA-mg83-c7gq-rv5c, GHSA-x2r2-rvhq-2mqv, GHSA-293q-567p-wmwq, GHSA-xf7-qj7q-83fh) | 4 | Kein Passwort-Encoder, keine Weiterleitung (stateless, kein Formular-Login), keine Client-Zertifikate, kein `DaoAuthenticationProvider`. |
-| Spring Boot **Actuator / Cloud Foundry / EndpointRequest / Temp-Verzeichnis** (GHSA-mgvc-8q2h-5pgc, GHSA-rc42-6c7j-7h5r, GHSA-ggg2-9786-hwc8, GHSA-wwpq-f5c3-7hvx) | 4 | Kein `spring-cloud-cloudfoundry`; `EndpointRequest.to()` wird **nicht** verwendet (die Kette nutzt Zeichenketten-Matcher, `SecurityConfiguration.java:61`); kein Artemis; das Temp-Verzeichnis betrifft nur lokale Mehrbenutzer-Hosts (der Container läuft als uid 10001, `Dockerfile:42`). |
-| Spring Security **HTTP-Header** (GHSA-mf92-479x-3373) | 1 | Upstream **Critical**, aber die Bedingung („Anwendungen, die Kopfzeilen setzen") ist hier nicht gegeben: die Anwendung setzt **keine** eigenen Antwortkopfzeilen; die Defaults der Kette sind aktiv. Der **Wirkungsgrad** ist nicht sicher bestimmbar → als **offene Frage** geführt, nicht als Befund. |
-| Jackson **polymorphe Typen / Deserialisierungssonderfaelle** (GHSA-rmj7-2vxq-3g9f, GHSA-j3rv-43j4-c7qm, GHSA-gx83-3vf8-gh7j, GHSA-wjgm-6hv5-3cvf, GHSA-wv8q-qhhj-9h54, GHSA-5gvw-p9qm-jgwh, GHSA-5jmj-h7xm-6q6v, GHSA-3pjw-73gf-8qr5, GHSA-vvgp-rfg2-7rr6) | 9 | Kein `PolymorphicTypeValidator`, kein `activateDefaultTyping`, kein `@JsonTypeInfo`, kein `java.nio.file.Path`/`InetAddress` in den Request-Bodies; die DTOs sind Records mit expliziten `@JsonProperty` und `@JsonAnySetter` (Prüfung auf unbekannte Felder). |
-| Jackson **DoS** (GHSA-q4xh-88c3-wmh7, GHSA-p6pp-m3f8-5c89, GHSA-cxp5-3px4-pw24, GHSA-r7wm-3cxj-wff9, GHSA-7hhh-6rmp-j9qf, GHSA-72hv-8253-57qq, GHSA-q4xh-88c3-wmh7) | 7 | Betreffen den **asynchronen** Parser bzw. extreme Zahlenformate; Spring MVC liest Request-Bodies **synchron**. Ein Restrisiko (quadratisches Backtracking bei sehr langen Dezimalzahlen) ist **nicht** ausgeschlossen → als **offene Frage** geführt (Q-5). |
-| PostgreSQL-JDBC **SCRAM/Kanalbindung/PBKDF2** (GHSA-j92g-9f8w-j867, GHSA-hq9p-pm7w-8p54, GHSA-98qh-xjc8-98pq) | 3 | Betreffen die **Datenbankverbindung** (Kanalbindung `require` ist nicht konfiguriert; die PBKDF2-DoS setzt einen Angreifer auf dem Datenbankweg voraus). Nicht durch die API erreichbar. |
-| Übrige (json-smart, logback, log4j, commons-compress, micrometer, xmlunit, assertj) | 12 | `json-smart` nur über `@JsonPath` (nicht verwendet); logback/log4j/commons-compress/XMLUnit/AssertJ betreffen Datei- bzw. XML-Verarbeitung im Test- bzw. Build-Werkzeug, nicht den Request-Pfad. |
+| ReDoS: quadratisches Backtracking in `NumberInput.PATTERN_FLOAT` (GHSA-p6pp-m3f8-5c89, HIGH) | 1 | **Empirisch gemessen.** Die Schwachstelle braucht eine sehr lange Ziffernfolge, die der Jackson-Parser aber **vor** dem Regex abbricht: `StreamReadConstraints.maxNumberLength` (Vorgabe 1000) wirft `StreamConstraintsException`. Gemessen mit `jackson-core 2.21.4` auf dem Klassenpfad des Projekts: `looksLikeValidNumber("1"*40000 + ".")` = 9 305 ms — **aber nur bei direktem Aufruf**; der Parse-Pfad bricht bei 10 000 Ziffern mit `StreamConstraintsException` ab (30 ms). **Der Restrisiko-Punkt Q-5 der Runde 1 ist damit erledigt: nicht erreichbar, empirisch belegt.** |
+| `UTF8DataInputJsonParser` ohne `maxErrorTokenLength` (GHSA-7hhh-6rmp-j9qf, HIGH) | 1 | Betrifft nur `createParser(DataInput)`; Spring MVC liest ueber `InputStream`/`byte[]` (grep: keine `DataInput`-Nutzung im Code). |
+| `@JsonView`-Umgehungen (GHSA-5gvw-p9qm-jgwh, GHSA-mhm7-754m-9p8w) | 2 | Setzen `@JsonView` **und** `@JsonUnwrapped` bzw. `@JsonTypeInfo(EXTERNAL_PROPERTY)` voraus — grep ueber `src/main/java/`: **keine** Treffer. |
+| `@JsonTypeInfo` / `DefaultBaseTypeLimitingValidator` (GHSA-gx83-3vf8-gh7j, GHSA-wv8q-qhhj-9h54) | 2 | Kein `@JsonTypeInfo`, kein `PolymorphicTypeValidator`, kein `activateDefaultTyping` im Code. |
+| `InetAddress`/`InetSocketAddress` (GHSA-vvgp-rfg2-7rr6) | 1 | Kein `java.net.InetAddress`/`InetSocketAddress` in den Request-Bodies. |
+| `java.nio.file.Path` / `FileSystemProvider` (GHSA-wjgm-6hv5-3cvf) | 1 | Kein `java.nio.file.Path` in den Request-Bodies. |
+| `Duration`/`XMLGregorianCalendar` (GHSA-q4xh-88c3-wmh7) | 1 | Keine solchen Feldtypen in den DTOs (die Treffer in `EchoBoxProperties` sind Spring-Konfiguration, kein Request-Body). |
+| quadratische Forward-Reference-Aufloesung (GHSA-cxp5-3px4-pw24) | 1 | Setzt `@JsonIdentityInfo` voraus — nicht verwendet. |
+| case-insensitive `@JsonIgnoreProperties` (GHSA-5jmj-h7xm-6q6v) | 1 | Setzt `@JsonIgnoreProperties` auf Properties voraus — nicht verwendet. |
 
-> **Hinweis zur Vollständigkeit:** die Erreichbarkeits-Einstufung ist eine
-> **komponentenbezogene** Analyse des tatsächlichen Stacks (Konfiguration,
-> Dependency-Tree, Routing). Sie ist kein Ersatz für einen Hersteller-Scan des
-> fertigen Images in der Zielumgebung — der gehört in **Schritt 9**.
+### A.3 Spring MVC (`spring-webmvc:6.2.19`) — 2 → nicht erreichbar
+
+| Advisory | Schwere | Erreichbarkeit |
+|---|---|---|
+| GHSA-pc63-qcmh-9cmg (XsltView → SSRF/RCE) | Critical | Setzt `XsltView` und eine `/**`-View-Aufloesung voraus — der Dienst liefert **ausschliesslich JSON** (`@RestController`), es gibt keine View-Aufloesung (grep: keine `@Controller`, kein `ViewResolver`, kein `XsltView`). |
+| GHSA-j9f9-w8pj-32f8 (SSE-Stream-Verfälschung mit View-Fragmenten) | Critical | Setzt Server-Sent Events **mit** View-Fragmenten voraus — der Dienst hat keine SSE-Endpunkte (grep: kein `SseEmitter`, kein `text/event-stream`). |
+
+### A.4 Uebrige — 4 → nicht erreichbar (Test-/Build-Werkzeug, Datenbankweg, Logging)
+
+| Advisory | Schwere | Erreichbarkeit |
+|---|---|---|
+| GHSA-4265-ccf5-phj5, GHSA-4g9r-vxhx-9pgx (`commons-compress:1.24.0`) | Moderate | Pack200-/DUMP-Dateien — betrifft Datei- bzw. Archivverarbeitung im Test-/Build-Werkzeug, nicht den Request-Pfad. |
+| GHSA-qv9r-c865-cp47 (`log4j-api:2.24.3`) | Moderate | Log4j ist **nicht** die Logging-Implementierung (logback 1.5.34); betrifft `MapMessage.asJson()`. |
+| GHSA-j92g-9f8w-j867 (`postgresql:42.7.11`) | High | Kanalbindung (`channelBinding=require`) ist nicht konfiguriert; der Angriff setzt einen Angreifer auf dem **Datenbankweg** voraus. |
+
+> **Hinweis zur Vollstaendigkeit:** die Erreichbarkeits-Einstufung ist eine
+> komponentenbezogene Analyse des tatsaechlichen Stacks (Konfiguration,
+> Dependency-Tree, Routing, gemessenes Laufzeitverhalten). Sie ist kein Ersatz
+> fuer einen Hersteller-Scan des fertigen Images in der Zielumgebung — der
+> gehoert in **Schritt 9**. Der **SCA-Gate der Pipeline** (S-25) meldet alle 20
+> bei jedem Lauf — ohne Baseline schlaegt er dabei immer an (**S-32**).
 
 ---
 
-## Anhang B — Die Nachweiskette: jeder Befund ist festgenagelt
+## Anhang B — Nachweiskette: jeder Befund ist festgenagelt
 
-| Befund | Test | Datei | Ergebnis | Status |
+| Befund | Test / Check | Datei | Ergebnis | Status |
 |---|---|---|---|---|
-| S-21 (Audience, `exp`) | `LUECKE (Befund S-21)` ×2 | `tests/unit/security/SecurityGapTest.java` | schlägt fehl: „Expecting code to raise a throwable" | **Beleg der Lücke** |
-| S-22 (Schlüssellänge) | `LUECKE (Befund S-22)` | `tests/unit/security/SecurityGapTest.java` | schlägt fehl: „Expecting code to raise a throwable" | **Beleg der Lücke** |
-| S-23 (Antwort-Body) | `LUECKE (Befund S-23)` | `tests/unit/security/SecurityGapTest.java` | schlägt fehl: „Expecting actual: 5242880 to be less than or equal to: 1048576" | **Beleg der Lücke** |
-| S-20 (chunked Body) | `LUECKE (Befund S-20)` | `tests/integration/security/SecurityGapIT.java` | schlägt fehl: „expected: 413 but was: 202" | **Beleg der Lücke** |
-| S-24 (429) | `LUECKE (Befund S-24)` | `tests/integration/security/SecurityGapIT.java` | schlägt fehl: „Expecting value to be true but was false" | **Beleg der Lücke** |
-| S-19 (Abhängigkeiten) | — | `pom.xml:16` | OSV-Abfrage, Anhang A | **belegt durch Check** |
-| Abwehr: 401 | `S-HARD-1` | `tests/integration/security/SecurityHardeningIT.java` | grün | Abwehr belegt |
-| Abwehr: Security-Header | `S-HARD-2` | `tests/integration/security/SecurityHardeningIT.java` | grün | Abwehr belegt |
-| Abwehr: 1-MiB-Grenze | `S-HARD-3` | `tests/integration/security/SecurityHardeningIT.java` | grün | Abwehr belegt |
-| Abwehr: 2-MiB-Grenze (Content-Length) | `S-HARD-4` | `tests/integration/security/SecurityHardeningIT.java` | grün | Abwehr belegt |
-| Abwehr: keine internen Details | `S-HARD-5` | `tests/integration/security/SecurityHardeningIT.java` | grün | Abwehr belegt |
-| Abwehr: Mandantenparameter | `S-HARD-6` | `tests/integration/security/SecurityHardeningIT.java` | grün | Abwehr belegt |
-| Abwehr: nur Health ohne Token | `S-HARD-7` | `tests/integration/security/SecurityHardeningIT.java` | grün | Abwehr belegt |
-| Abwehr: RS256 / kein `none` / Ablauf / Signatur / kein IdP | `S-HART-1`…`S-HART-7` | `tests/unit/security/JwtDecoderHardeningTest.java` | grün | Abwehr belegt |
+| **S-28** (Body-Grenze umgehbar) | `LUECKE (Befund S-28)` | `tests/integration/security/SecurityGapRound2IT.java` | schlaegt fehl: „expected: 413 but was: **202**" (2.097.298 Byte); **202** bei 20.971.604 Byte | **Beleg der Lücke** |
+| **S-29** (Audience fail-open) | `LUECKE (Befund S-29)` | `tests/unit/security/SecurityGapRound2Test.java` | schlaegt fehl: „Expecting code to raise a throwable" | **Beleg der Lücke** |
+| **S-30** (500 statt 4xx) | `LUECKE (Befund S-30)` | `tests/integration/security/SecurityGapRound2IT.java` | schlaegt fehl: „Expecting actual: 500 to be between: [400, 499]" | **Beleg der Lücke** |
+| **S-31** (Container-Pin) | `LUECKE (Befund S-31)` | `tests/unit/security/SecurityGapRound2Test.java` | schlaegt fehl: „Expecting value to be true but was false" (10.1.55 < 10.1.59) | **Beleg der Lücke** |
+| S-19 (Abhaengigkeiten) | OSV-Abfrage ueber `mvn dependency:tree` | `pom.xml:27-52` | 96 → **20**; die 3 erreichbaren CVEs **nicht** mehr enthalten | **belegt durch Check** |
+| S-20 (chunked Body) | `a_chunked_request_body_above_two_mebibytes_must_be_rejected` | `tests/integration/security/SecurityGapIT.java` | gruen | **Abwehr belegt** |
+| S-20 (chunked unter der Grenze) | `RequestBodyLimitIT` (2 Tests) | `tests/integration/security/RequestBodyLimitIT.java` | gruen | **Abwehr belegt** |
+| S-21 (Audience, `exp`) | `JwtAudienceHardeningTest` (4 Tests) | `tests/unit/security/JwtAudienceHardeningTest.java` | gruen | **Abwehr belegt** |
+| S-22 (Schluessellaenge) | `CryptoKeyLengthTest` (4 Tests) | `tests/unit/crypto/CryptoKeyLengthTest.java` | gruen | **Abwehr belegt** |
+| S-23 (Antwort-Body) | `DeliveryResponseLimitTest` (3 Tests) | `tests/unit/delivery/DeliveryResponseLimitTest.java` | gruen | **Abwehr belegt** |
+| S-24 (429 + `Retry-After`) | `the_request_limit_must_answer_with_429`, `ApiRateLimitIT` (4) | `tests/integration/security/ApiRateLimitIT.java` | gruen | **Abwehr belegt** |
+| S-24 (Zaehlereigenschaften) | `ApiRateLimitHardeningTest` (5 Tests) | `tests/unit/security/ApiRateLimitHardeningTest.java` | gruen | **Abwehr belegt (neu)** |
+| S-25 (Pipeline) | Dateipruefung + YAML-Parsing | `.github/workflows/deploy.yml` | Datei umgesetzt und geparst; **Ausfuehrung** nicht moeglich (kein Runner) | **belegt durch Check** |
+| S-26 / S-27 / A-1 | `ContainerHardeningIT` (8 Tests) | `tests/integration/deployment/ContainerHardeningIT.java` | gruen | **Abwehr belegt** |
+| Abwehr: 401, Header, 1-MiB, 2-MiB, keine internen Details, Mandantenparameter, nur Health ohne Token | `S-HARD-1` … `S-HARD-7` | `tests/integration/security/SecurityHardeningIT.java` | gruen | **Abwehr belegt** |
+| Abwehr: RS256 / kein `none` / Ablauf / Signatur / kein IdP | `S-HART-1` … `S-HART-7` | `tests/unit/security/JwtDecoderHardeningTest.java` | gruen | **Abwehr belegt** |
 
 ---
 
 ## Anhang C — Offene Fragen (keine Befunde)
 
-| ID | Frage | Owner |
-|---|---|---|
-| **Q-1** | Terminiert TLS der vorgeschaltete Proxy? Wer setzt HSTS (`Strict-Transport-Security`)? Der Container selbst spricht HTTP auf Port 8080. | Schritt 9 / Betrieb |
-| **Q-2** | Sind die Branches geschützt (kein direkter Push auf `main`)? Aus dem Repository **nicht** prüfbar. | Schritt 9 / Betrieb |
-| **Q-3** | „Recht auf Löschung": reicht die fristbasierte Purge-Stufe, oder braucht es ein mandantenspezifisches Sofort-Lösch-Kommando? | Fachbereich + Recht, Gate 2 |
-| **Q-4** | Soll ein Endpunkt-Ziel in interne Adressbereiche (Link-Local, RFC 1918) verboten werden? Für ein Webhook-Produkt ist die Zustellung an interne Ziele legitim — die Frage ist eine **Sichtbarkeits**-, keine Sicherheitsfrage. | Fachbereich + Plattform, Gate 2 |
-| **Q-5** | Restrisiko `jackson-core` (quadratisches Backtracking bei sehr langen Dezimalzahlen im Request-Body) — abhängig vom späteren Jackson-Update. | Schritt 6 (mit S-19) |
-| **Q-6** | Bedingungen von CVE-2026-22732 („HTTP Headers Are not Written Under Some Conditions", Spring Security 6.3.4) — die Anwendung setzt keine eigenen Kopfzeilen; der Wirkungsgrad ist nicht bestimmbar. | Schritt 6 (mit S-19) |
-| **Q-7** | Schlüsselverwaltung nach ADR-003 §2 (je Mandant ein DEK, verschlüsselt mit einem KEK) — ist der **globale** Schlüssel (`application.yml:85`) die gewollte Vereinfachung, oder soll die mandantenweise Rotation nachgezogen werden? (Hängt an O-04.) | Architektur + Fachbereich, Gate 2 |
+| ID | Frage | Owner | Stand Runde 2 |
+|---|---|---|---|
+| **Q-1** | Terminiert TLS der vorgeschaltete Proxy? Wer setzt HSTS? Der Container selbst spricht HTTP auf Port 8080. | Schritt 9 / Betrieb | **offen** |
+| **Q-2** | Sind die Branches geschuetzt (kein direkter Push auf `main`)? Aus dem Repository **nicht** pruefbar. | Schritt 9 / Betrieb | **offen** |
+| **Q-3** | „Recht auf Loeschung": reicht die fristbasierte Purge-Stufe, oder braucht es ein mandantenspezifisches Sofort-Loesch-Kommando? | Fachbereich + Recht, Gate 2 | **offen** |
+| **Q-4** | Soll ein Endpunkt-Ziel in interne Adressbereiche (Link-Local, RFC 1918) verboten werden? Fuer ein Webhook-Produkt legitim — eine **Sichtbarkeits**-, keine Sicherheitsfrage. | Fachbereich + Plattform, Gate 2 | **offen** |
+| **Q-5** | Restrisiko `jackson-core` (quadratisches Backtracking bei sehr langen Dezimalzahlen). | — | **erledigt**: **nicht erreichbar** — `StreamReadConstraints.maxNumberLength` (1000) bricht den Zahlentoken vorher ab; empirisch gemessen (Anhang A.2). |
+| **Q-6** | Bedingungen von CVE-2026-22732 (Spring Security 6.3.4). | — | **erledigt**: Spring Security ist jetzt **6.5.11** (`mvn dependency:tree`). |
+| **Q-7** | Schluesselverwaltung nach ADR-003 §2 (je Mandant ein DEK) — ist der **globale** Schluessel die gewollte Vereinfachung? | Architektur + Fachbereich, Gate 2 | **offen** (haengt an O-04) |
+| **Q-8** | Der Zaehler des Anfragelimits liegt **je Instanz** im Speicher — bei *n* Instanzen wirkt das Limit *n*-fach. Eine instanzuebergreifende Grenze braucht ein Datenbankschema. | Schritt 9 (Schema) | **offen** — im Schritt 6/7 nicht aenderbar (Schema) |
+| **Q-9** | Der Rate-Limit-Filter zaehlt nur Anfragen **mit** Mandant; nicht angemeldete Anfragen (401) und Token ohne Mandant werden nicht gezaehlt. Soll es eine **globale** (mandantenuebergreifende) Schranke geben? | Fachbereich + Betrieb, Gate 2 | **offen** — S-33 nennt den konkreten Restfall |
 
 ---
 
 ## Anhang D — Was dieser Audit **nicht** behauptet
 
-* Er ändert **keine** Datei in `src/`, `docs/api/`, `docs/adr/`, `docs/architecture/`,
+* Er aendert **keine** Datei in `src/`, `docs/api/`, `docs/adr/`, `docs/architecture/`,
   `.agent/knowledge/` oder `docs/requirements/`. Der eingefrorene Vertrag
-  (`docs/api/openapi.yaml`, seit `8627bb6`) ist unverändert.
-* Er behauptet **nicht**, dass die 93 nicht erreichbaren Advisories unbedenklich
-  sind — sie sind für **diese** Konfiguration nicht erreichbar; ein Scan des
-  fertigen Images in der Zielumgebung gehört in Schritt 9.
-* Er behauptet **nicht**, dass die Abhängigkeiten gezielt angegriffen werden — die
-  Bewertung ist eine **Versions**- und **Erreichbarkeits**-Bewertung.
-* Er ersetzt **nicht** die Freigabe durch den Menschen: **GATE 2** steht aus, und
-  die Empfehlung dieses Audits lautet **blockieren**.
+  (`docs/api/openapi.yaml`, seit `8627bb6`) ist **unveraendert**
+  (`git diff --stat -- docs/api/` ist leer).
+* Er behauptet **nicht**, dass die 17 nicht erreichbaren Advisories unbedenklich sind —
+  sie sind fuer **diese** Konfiguration nicht erreichbar, mit Begruendung je Advisory
+  in Anhang A; ein Scan des fertigen Images in der Zielumgebung gehoert in Schritt 9.
+* Er behauptet **nicht**, dass die beiden ungemaessigten Rate-Limit-Residuen (Q-8, Q-9)
+  ein Befund sind — sie sind Randbedingungen des Betriebs und offene Fragen.
+* Er ersetzt **nicht** die Freigabe durch den Menschen: **GATE 2** steht aus, und die
+  Empfehlung dieses Audits lautet **blockieren**.
 
 ---
 
-*Erzeugt in Schritt 8 (Sicherheit & Compliance). Kanonisches Artefakt:
+*Erzeugt in Schritt 8 (Sicherheit & Compliance), zweite Runde. Kanonisches Artefakt:
 `.agent/artifacts/security-audit.md`.*

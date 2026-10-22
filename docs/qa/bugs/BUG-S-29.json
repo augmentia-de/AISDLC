@@ -1,0 +1,31 @@
+{
+  "id": "BUG-S-29",
+  "title": "Die Zielgruppen-Pruefung faellt bei leerer Konfiguration still auf 'nicht geprueft' zurueck (fail-open)",
+  "severity": "medium",
+  "category": "authentication-bypass-configuration",
+  "component": "src/main/java/com/echobox/config/SecurityConfiguration.java",
+  "path": "src/main/java/com/echobox/config/SecurityConfiguration.java",
+  "line": 126,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/config/SecurityConfiguration.java", "line": 127 },
+    { "path": "src/main/java/com/echobox/config/EchoBoxProperties.java", "line": 146 },
+    { "path": "src/main/resources/application.yml", "line": 107 },
+    { "path": ".github/workflows/deploy.yml", "line": 161 }
+  ],
+  "cause": "S-21 ist strukturell behoben: der Decoder benutzt eine eigene Pruefkette (JwtTimestampValidator, Pflicht-Ablaufzeit, Audience). Die Audience-Pruefung wird aber nur hinzugefuegt, wenn die konfigurierte Audience nicht leer ist (SecurityConfiguration.validators, Zeile 126: 'if (audience != null && !audience.isBlank())'). Die Konfiguration lautet 'audience: ${ECHobox_SECURITY_AUDIENCE:echobox}': der Vorgabewert greift nur bei einer NICHT gesetzten Umgebungsvariablen. Ist die Variable gesetzt, aber leer (typisch: ein leerer Secret-Wert in der Umgebung 'production'), ist der aufgeloeste Wert '' — und die Zielgruppen-Pruefung faellt still aus. Anders als beim Verschluesselungsschluessel (key-required, S-27) gibt es fuer die Audience kein 'required'-Schalter und keinen Startfehler.",
+  "impact": "Ein Token desselben Identity Providers, das fuer einen ANDEREN Client ausgestellt wurde (etwa ein zweites Mandantenportal desselben IdP), wird von EchoBox angenommen, sofern der Mandant und eine Rolle passen. Der Angreifer braucht ein gueltiges, signiertes Token — aber gerade nicht eines, das fuer EchoBox ausgestellt wurde. Der Ausloeser ist eine Fehlkonfiguration, die der Dienst stillschweigend akzeptiert.",
+  "exploitability": "Voraussetzung ist ein leerer Secret-Wert fuer ECHobox_SECURITY_AUDIENCE (Fehlkonfiguration) ODER ein IdP, der audiences ueber die Clients hinweg nicht trennt. Die Nutzlast ist ein gueltig signiertes Token eines fremden Clients — kein Angriff auf die Signaturpruefung noetig.",
+  "reproduction": {
+    "command": "mvn -B test -Dtest=SecurityGapRound2Test -DfailIfNoSpecifiedTests=false",
+    "test": "tests/unit/security/SecurityGapRound2Test.java#without_a_configured_audience_the_audience_must_still_be_checked",
+    "expected": "JwtException (Token wird abgelehnt)",
+    "actual": "keine Ausnahme — das Token wird angenommen",
+    "evidence": "org.opentest4j.AssertionFailedError: Expecting code to raise a throwable."
+  },
+  "recommendation": "Die Audience-Pruefung darf nicht still ausfallen. Entweder (a) analog zu 'key-required' einen Schalter 'echobox.security.audience-required' einfuehren, der im Produktionsprofil true ist und den Start ohne Audience abbricht; oder (b) der Decoder bricht mit einer klaren Fehlermeldung ab, wenn die Audience leer ist. Die Javadoc 'Leer: die Zielgruppe wird nicht geprueft' beschreibt den Ist-Zustand, nicht die gewollte Zusage.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, zweite Runde",
+  "security_finding": "S-29",
+  "related_findings": ["S-21"],
+  "status": "offen"
+}

@@ -1,0 +1,29 @@
+{
+  "id": "BUG-S-30",
+  "title": "Ein nicht unterstuetzter Medientyp ergibt HTTP 500 mit Stacktrace statt eines 4xx",
+  "severity": "medium",
+  "category": "error-handling-logging",
+  "component": "src/main/java/com/echobox/common/GlobalExceptionHandler.java",
+  "path": "src/main/java/com/echobox/common/GlobalExceptionHandler.java",
+  "line": 230,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/common/GlobalExceptionHandler.java", "line": 138 },
+    { "path": "docs/api/openapi.yaml", "line": 80 },
+    { "path": "src/main/resources/application.yml", "line": 65 }
+  ],
+  "cause": "Der GlobalExceptionHandler kennt kein '@ExceptionHandler(HttpMediaTypeNotSupportedException.class)'. Spring MVC wirft diese Ausnahme, wenn kein Message-Converter den Medientyp lesen kann (etwa 'text/plain' oder 'multipart/form-data' — der Multipart-Resolver ist per 'spring.servlet.multipart.enabled: false' abgeschaltet). Die Ausnahme faellt in den allgemeinen Handler (Zeile 230) und wird als HTTP 500 'internal_error' beantwortet; dabei protokolliert der Handler den vollstaendigen Stacktrace (LOG.error, Zeile 232).",
+  "impact": "Ein Fehler des Aufrufers wird als Serverfehler gemeldet: das Monitoring sieht 500er, das Fehlerprotokoll sammelt Stacktraces. Ein Aufrufer, der bewusst einen nicht unterstuetzten Medientyp sendet, erzeugt damit eine unbegrenzte Menge an 500ern und Stacktraces (Log-Verstarkung, Protokolldatei fuellt sich). Der Vertrag kennt fuer einen Fehler des Aufrufers nur 4xx (400 'malformed_request'); 500 ist laut Vertrag 'unerwarteter Fehler'.",
+  "exploitability": "nicht angemeldet noetig — der Medientyp wird geprueft, bevor der Body gelesen wird; jeder Aufrufer genuegt. Der Nutzpfad ist die Protokollierung, nicht der Datenbestand.",
+  "reproduction": {
+    "command": "mvn -B verify -Dtest=NoSuchUnitTest -Dit.test=SecurityGapRound2IT -DfailIfNoSpecifiedTests=false",
+    "test": "tests/integration/security/SecurityGapRound2IT.java#an_unsupported_media_type_must_not_be_answered_with_500",
+    "expected": "4xx (400 'malformed_request' gemaess eingefrorenem Vertrag)",
+    "actual": "500",
+    "evidence": "org.opentest4j.AssertionError: Expecting actual: 500 to be between: [400, 499] (Body: {\"type\":\"https://echobox.example/errors/internal-error\", ... \"code\":\"internal_error\"})"
+  },
+  "recommendation": "HttpMediaTypeNotSupportedException (und HttpMediaTypeNotAcceptableException) im GlobalExceptionHandler auf 400 'malformed_request' abbilden — der eingefrorene Vertrag kennt kein 415, ein Vertragswechsel waere ein Rücksprung zu Schritt 2. Der allgemeine Handler sollte stacktraces nur fuer unerwartete Fehler loggen, nicht fuer Fehler des Aufrufers.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, zweite Runde",
+  "security_finding": "S-30",
+  "status": "offen"
+}

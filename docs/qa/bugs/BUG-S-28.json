@@ -1,0 +1,31 @@
+{
+  "id": "BUG-S-28",
+  "title": "Die Grenze des Request-Bodies laesst sich ueber den Medientyp umgehen (application/*+json)",
+  "severity": "high",
+  "category": "resource-exhaustion",
+  "component": "src/main/java/com/echobox/tenant/TenantParameterFilter.java",
+  "path": "src/main/java/com/echobox/tenant/TenantParameterFilter.java",
+  "line": 166,
+  "secondary_locations": [
+    { "path": "src/main/java/com/echobox/tenant/TenantParameterFilter.java", "line": 82 },
+    { "path": "src/main/java/com/echobox/tenant/TenantParameterFilter.java", "line": 160 },
+    { "path": "src/main/java/com/echobox/event/PayloadSize.java", "line": 20 },
+    { "path": "src/main/resources/application.yml", "line": 80 }
+  ],
+  "cause": "Die Nacharbeit zu S-20 hat den Body begrenzt gelesen (readBounded) — aber nur fuer Bodies, deren Medientyp mit 'application/json' beginnt (isBodyRelevant, Zeile 160-167). Spring MVC liest dagegen jeden Medientyp, den der Jackson-Converter unterstuetzt: MappingJackson2HttpMessageConverter unterstuetzt 'application/json' UND 'application/*+json'. Eine Anfrage mit 'Content-Type: application/vnd.irgendwas+json' faellt damit an der Grenze vorbei: weder die Content-Length-Vorpruefung (Zeile 82) noch das begrenzte Lesen greifen; der Body wird vom Message-Converter vollstaendig in den Heap gelesen. Die Grenze des Request-Bodies haengt damit weiterhin am Medientyp.",
+  "impact": "Ein angemeldeter Mandant (jede Rolle) sendet einen POST /api/v1/events mit 'Content-Type: application/vnd.custom+json' und einem beliebig grossen JSON-Body. Der Dienst allokiert den Body vollstaendig im Heap des geteilten JVM -> OutOfMemoryError -> Ausfall fuer ALLE Mandanten. Die Grenze der Nutzlast (1 MiB) greift dabei nicht, weil die Nutzlast klein bleiben kann (z.B. 20 MiB Leerraum im Body). Nebenwirkung: derselbe Weg umgeht auch die Mandantenparameter-Pruefung im Body — nachweislich ohne Ausnutzung, weil 'fail-on-unknown-properties: true' ein unbekanntes Feld mit 422 ablehnt (der Mandant stammt aus dem Token).",
+  "exploitability": "authentifiziert; ein beliebiges Token genuegt (jede Rolle, jeder Mandant). Der Angriff setzt ein gueltiges Token voraus; jeder angemeldete Mandant kann ihn ausfuehren. Die Umgehung ist im Produktivbetrieb wirksam, weil der Jackson-Converter den Medientyp 'application/*+json' unterstuetzt.",
+  "reproduction": {
+    "command": "mvn -B verify -Dtest=NoSuchUnitTest -Dit.test=SecurityGapRound2IT -DfailIfNoSpecifiedTests=false",
+    "test": "tests/integration/security/SecurityGapRound2IT.java#the_request_body_limit_must_not_be_bypassed_by_the_media_type",
+    "expected": "413",
+    "actual": "202",
+    "evidence": "org.opentest4j.AssertionFailedError: expected: 413 but was: 202 (Body: 2.097.298 Byte mit 'Content-Type: application/vnd.custom+json'). Gegenprobe mit 20.971.604 Byte: ebenfalls 202 — die Grenze greift in keiner Groessenordnung."
+  },
+  "recommendation": "Die Grenze des Request-Bodies darf nicht am Medientyp haengen. Sie muss fuer JEDEN Body gelten, den ein Message-Converter liest — z.B. als Container-Grenze (Tomcat: 'server.tomcat.max-swallow-size' reicht nicht; 'maxPostSize' gilt nur fuer Form-POSTs) oder als Filter, der den Body unabhaengig vom Medientyp begrenzt liest und bei Ueberschreitung mit 413 abbricht. Zusaetzlich sollte der Dienst nur 'application/json' akzeptieren (produzieren statt konsumieren: 'spring.mvc.contentnegotiation' bzw. eine explizite 'consumes'-Einschraenkung je Operation), damit 'application/*+json' gar nicht erst gelesen wird.",
+  "owner": "Schritt 6/7 (aisdlc-execution)",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, zweite Runde",
+  "security_finding": "S-28",
+  "related_findings": ["S-20"],
+  "status": "offen"
+}

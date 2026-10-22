@@ -1,0 +1,29 @@
+{
+  "id": "BUG-S-32",
+  "title": "Der neue SCA-Gate der Pipeline schlaegt auf jedem Lauf an — keine Baseline fuer die als nicht erreichbar bewerteten Advisories",
+  "severity": "medium",
+  "category": "ci-cd-misconfiguration",
+  "component": ".github/workflows/deploy.yml",
+  "path": ".github/workflows/deploy.yml",
+  "line": 56,
+  "secondary_locations": [
+    { "path": ".github/workflows/deploy.yml", "line": 51 },
+    { "path": ".github/workflows/deploy.yml", "line": 57 }
+  ],
+  "cause": "S-25 hat einen SCA-Schritt eingefuegt: 'google/osv-scanner-action/osv-scanner-action@v2.7.0' mit 'scan-args: --recursive ./'. Der Scanner beendet den Lauf mit Exit-Code 1, sobald er Advisories findet (osv-scanner v2.7.0, cmd/osv-scanner/internal/cmd/run.go: 'case errors.Is(err, osvscanner.ErrVulnerabilitiesFound): return 1'). Es gibt keine Ignorierliste (osv-scanner.toml mit '[[IgnoredVulns]]'), die die als 'in dieser Konfiguration nicht erreichbar' bewerteten Advisories ausnimmt. Der aktuelle Abhaengigkeitsbaum traegt 20 Advisories (3 Tomcat, 11 jackson, 2 spring-webmvc, 2 commons-compress, 1 log4j-api, 1 postgresql); der Frontend-Lockfile traegt 10 weitere (2 Critical in tinypool/vitest, 6 High).",
+  "impact": "Die Pipeline ist durch die eigene Gate-Regel dauerhaft rot: jeder Push auf main scheitert im SCA-Schritt, das Image wird nicht gebaut und nicht gepusht. Der Gate ist damit 'vorhanden', aber nicht 'kalibriert' — er unterscheidet nicht zwischen 'neu' und 'seit langem bekannt'. Die Pipeline aus S-25 ist damit als Bereitstellungsweg nicht benutzbar, bis eine Baseline existiert.",
+  "exploitability": "kein Angriffspfad — ein Betriebsdefekt. Er ist aber der Grund, warum die CI heute kein Image liefert, und er verdeckt die eigentliche Wirkung des Gates (neue Advisories zu melden).",
+  "reproduction": {
+    "command": "OSV-Abfrage (POST https://api.osv.dev/v1/querybatch) ueber alle 110 Koordinaten aus 'mvn dependency:tree'  →  20 Advisories ; 'npm audit --json' (src/main/frontend)  →  10 Meldungen ; osv-scanner v2.7.0: run.go 'case errors.Is(err, osvscanner.ErrVulnerabilitiesFound): return 1'",
+    "test": "kein Test — der Nachweis ist der ausgefuehrte Scan plus der Quelltext des Scanners",
+    "expected": "nur neue Advisories lassen den Lauf scheitern",
+    "actual": "jede Advisory lässt den Lauf scheitern",
+    "evidence": "OSV-Abfrage: 20 versionengebundene Advisories im aktuellen Baum; npm audit: 2 Critical, 6 High, 2 Moderate; osv-scanner v2.7.0 beendet mit Exit-Code 1."
+  },
+  "recommendation": "Eine Baseline einfuehren: 'osv-scanner.toml' im Repository mit '[[IgnoredVulns]]'-Eintraegen fuer die im Audit als nicht erreichbar bewerteten Advisories (je mit Begruendung und 'ignoreUntil'), damit nur NEUE Advisories den Lauf scheitern lassen. Die Eintraege sind zu pflegen (S-31, S-32). Zusaetzlich '--ignore-dev' fuer die devDependencies des Frontends (oder eine getrennte Baseline fuer src/main/frontend/package-lock.json).",
+  "owner": "Schritt 9 (aisdlc-qa) — gemeinsam mit Schritt 6/7 fuer die Versionsanhebung",
+  "found_in": "Schritt 8 - Sicherheit & Compliance, zweite Runde",
+  "security_finding": "S-32",
+  "related_findings": ["S-25", "S-31"],
+  "status": "offen"
+}
