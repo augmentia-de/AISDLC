@@ -1,3 +1,3 @@
-# risk-register
+# risk-register.md
 
-> Platzhalter — wird in Phase 2 erzeugt.
+Platzhalter - wird von Schritt X befüllt.

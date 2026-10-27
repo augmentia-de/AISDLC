@@ -1,3 +1,3 @@
-# architecture
+# architecture.md
 
-> Platzhalter — wird in Phase 2 erzeugt.
+Platzhalter - wird von Schritt X befüllt.
