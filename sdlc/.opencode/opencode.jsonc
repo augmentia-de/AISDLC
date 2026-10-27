@@ -1,0 +1,53 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "aisdlc-requirements",
+
+  "experimental": {
+    // Der Orchestrator (Top-Level) startet die Rollen-Agenten, diese starten
+    // ggf. Stack-Agenten. Ohne diesen Wert blockiert OpenCode die Verschachtelung
+    // nach der ersten Ebene ("Subagent depth limit reached") - Default ist 1.
+    "subagent_depth": 2
+  },
+
+  // ==========================================================================
+  // FRAMEWORK-SCHICHT - systemagnostisch.
+  //
+  // Diese Datei kennt KEINEN Stack, keine Bibliothekspfade und keine
+  // stack-spezifischen Skills. Das Projekt ergaenzt die Stack-Schicht in der
+  // Datei `opencode.jsonc` im Projekt-Root.
+  //
+  // Merge-Reihenfolge (OpenCode): Root-Config zuerst, dann `.opencode/`,
+  // dann Agent-Frontmatter. Letzter Treffer gewinnt. Daraus folgt:
+  //   * Positive Regeln des Frameworks stehen HIER und gewinnen gegen die
+  //     Stack-Schicht - die Framework-Skills bleiben immer sichtbar.
+  //   * Catch-all-DENYs gehoeren in die STACK-Schicht, sonst wuerden sie
+  //     die Stack-Erlaubnisse wieder aushebeln.
+  // ==========================================================================
+
+  "permissions": [
+    // Skills: nur die des Frameworks. Die Stack-Skills erlaubt die
+    // Stack-Schicht - ihr Catch-all-Deny steht VOR dieser Datei.
+    { "action": "skill", "resource": "aisdlc-*", "effect": "allow" },
+    { "action": "skill", "resource": "strangler-fig", "effect": "allow" },
+    { "action": "skill", "resource": "module-migration", "effect": "allow" },
+    { "action": "skill", "resource": "test-self-correction", "effect": "allow" },
+
+    // Subagenten: die Rollen-Agents des Frameworks plus alle Stack-Agenten.
+    { "action": "subagent", "resource": "aisdlc-*", "effect": "allow" },
+    { "action": "subagent", "resource": "stack/*", "effect": "allow" },
+    { "action": "subagent", "resource": "general", "effect": "allow" },
+    { "action": "subagent", "resource": "explore", "effect": "allow" },
+
+    // Shell: Default Deny nach Least Privilege. Schutz liegt primär in den
+    // Pfad-Rechten der Agents, Shell wird agentenspezifisch allowlistet.
+    // Reihenfolge zaehlt: letzter Treffer gewinnt.
+    { "action": "shell", "resource": "*", "effect": "deny" },
+    // Explizite Ausnahmen für destruktive/global riskante Befehle
+    { "action": "shell", "resource": "*git push*", "effect": "ask" },
+    { "action": "shell", "resource": "*git reset --hard*", "effect": "ask" },
+    { "action": "shell", "resource": "*git clean*", "effect": "ask" },
+    { "action": "shell", "resource": "*rm -rf*", "effect": "ask" },
+    { "action": "shell", "resource": "*sudo*", "effect": "deny" },
+    { "action": "shell", "resource": "*chmod 777*", "effect": "deny" }
+  ]
+}

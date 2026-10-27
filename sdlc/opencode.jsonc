@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // ==========================================================================
+  // STACK-SCHICHT - projektspezifisch, vom Framework unabhaengig.
+  //
+  // Diese Datei gehoert dem PROJEKT, nicht dem Framework. Sie wird bei jedem
+  // Stack-Wechsel ersetzt - die Framework-Schicht in `.opencode/opencode.jsonc`
+  // bleibt unangetastet.
+  //
+  // Merge-Regel (OpenCode): Root-Config zuerst, `.opencode/`-Config danach,
+  // Agent-Frontmatter zuletzt. Letzter Treffer gewinnt. Daraus folgt:
+  //   * Der Catch-all-Deny steht HIER, vor den eigenen Erlaubnissen.
+  //   * Die Framework-Skills (aisdlc-*) bleiben sichtbar, weil ihre
+  //     Allow-Regel in `.opencode/opencode.jsonc` weiter hinten steht.
+  // ==========================================================================
+
+  "skills": {
+    "paths": [
+      // Pfade zu den Skill-Bibliotheken dieses Stacks. Relative Pfade loesen
+      // gegen das Arbeitsverzeichnis auf, nicht gegen die Config-Datei.
+      // Leer lassen, wenn der Stack keine externen Skills nutzt.
+      "./skills"
+    ]
+  },
+
+  "permissions": [
+    // Skills: erst sperren, dann freigeben. Was nicht freigegeben ist, sieht
+    // das Modell nicht - das ist der Auswahlmechanismus und der Context-Schutz.
+    // (Im Referenzlauf waren 12 von 32 sichtbaren Skills falscher Stack:
+    // dotnet, fastapi, golang, python, quarkus, rust, react-native.)
+    { "action": "skill", "resource": "*", "effect": "deny" },
+    { "action": "skill", "resource": "aisdlc-*", "effect": "allow" },
+    // Hier die Praefixe des Stacks eintragen, z. B.:
+    // { "action": "skill", "resource": "springboot-*", "effect": "allow" },
+    // { "action": "skill", "resource": "java-*", "effect": "allow" },
+    // { "action": "skill", "resource": "react-*", "effect": "allow" },
+    // { "action": "skill", "resource": "typescript-*", "effect": "allow" },
+
+    // Subagenten: erst sperren, dann die Stack-Agenten freigeben. Die
+    // Rollen-Agents des Frameworks bleiben ueber `.opencode/opencode.jsonc`
+    // erlaubt, weil deren Allow-Regel weiter hinten steht.
+    { "action": "subagent", "resource": "*", "effect": "deny" },
+    // { "action": "subagent", "resource": "stack/java/backend", "effect": "allow" },
+    // { "action": "subagent", "resource": "stack/react/frontend", "effect": "allow" }
+  ]
+}
