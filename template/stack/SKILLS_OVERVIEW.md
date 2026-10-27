@@ -2,7 +2,7 @@
 
 Kuratierte Skills aus `cursor-rules-java` und `ECC`, organisiert nach Stack-Kategorie.
 
-## Übersicht: 70 Skills nach Kategorie
+## Übersicht: 73 Skills nach Kategorie
 
 ### Java (17)
 | Skill | Quelle |
@@ -25,7 +25,7 @@ Kuratierte Skills aus `cursor-rules-java` und `ECC`, organisiert nach Stack-Kate
 | java-testing-unit-testing | cursor-rules-java |
 | java-type-design | cursor-rules-java |
 
-### Spring (10)
+### Spring (11)
 | Skill | Quelle |
 | :-- | :-- |
 | spring-boot-core | cursor-rules-java |
@@ -33,17 +33,22 @@ Kuratierte Skills aus `cursor-rules-java` und `ECC`, organisiert nach Stack-Kate
 | spring-boot-modulith | cursor-rules-java |
 | spring-boot-rest | cursor-rules-java |
 | spring-boot-security | cursor-rules-java |
+| spring-boot-testing-acceptance | cursor-rules-java |
+| spring-boot-testing-integration | cursor-rules-java |
+| spring-boot-testing-unit | cursor-rules-java |
 | spring-boot-validation | cursor-rules-java |
 | spring-data-jdbc | cursor-rules-java |
+| spring-flyway | cursor-rules-java |
 | spring-jdbc | cursor-rules-java |
 | spring-kafka | cursor-rules-java |
 | spring-mongodb | cursor-rules-java |
 
-### Quarkus (11)
+### Quarkus (13)
 | Skill | Quelle |
 | :-- | :-- |
 | quarkus-core | cursor-rules-java |
 | quarkus-create-project | cursor-rules-java |
+| quarkus-flyway | cursor-rules-java |
 | quarkus-jdbc | cursor-rules-java |
 | quarkus-kafka | cursor-rules-java |
 | quarkus-panache | cursor-rules-java |
@@ -52,6 +57,8 @@ Kuratierte Skills aus `cursor-rules-java` und `ECC`, organisiert nach Stack-Kate
 | quarkus-security | cursor-rules-java |
 | quarkus-security-ecc | ECC |
 | quarkus-tdd | ECC |
+| quarkus-testing-integration | cursor-rules-java |
+| quarkus-testing-unit | cursor-rules-java |
 | quarkus-validation | cursor-rules-java |
 | quarkus-verification | ECC |
 
@@ -121,8 +128,8 @@ Kuratierte Skills aus `cursor-rules-java` und `ECC`, organisiert nach Stack-Kate
 | java-pro | wshobson-agents | `.opencode/agents/java-pro.md` |
 
 ## Nicht kopierte Skills (bei Bedarf aus Quellen kopieren)
-- Spring: spring-flyway, spring-boot-testing-unit/integration/acceptance, spring-boot-create-project, spring-boot-core, spring-boot-modulith, spring-boot-validation, spring-mongodb-migrations-mongock
-- Quarkus: quarkus-flyway, quarkus-testing-unit/integration/acceptance, quarkus-create-project, quarkus-core, quarkus-validation, quarkus-mongodb, quarkus-mongodb-migrations-mongock
+- Spring: spring-boot-create-project, spring-boot-core, spring-boot-modulith, spring-boot-validation, spring-mongodb, spring-mongodb-migrations-mongock
+- Quarkus: quarkus-create-project, quarkus-core, quarkus-validation, quarkus-mongodb, quarkus-mongodb-migrations-mongock
 - Micronaut: micronaut-create-project, micronaut-core, micronaut-rest, micronaut-validation, micronaut-jdbc, micronaut-data, micronaut-flyway, micronaut-kafka, micronaut-mongodb, micronaut-testing-unit/integration/acceptance
 - Java: java-refactoring-with-modern-features, java-refactoring-high-performance, java-performance-jmeter, java-performance-gatling, java-profiling-*, java-observability-metrics-micrometer, java-observability-tracing-opentelemetry, java-testing-acceptance-tests, java-maven-dependencies, java-maven-plugins, java-maven-documentation, java-maven-search
 - Regulations: regulations-eu-nis2, regulations-eu-mifid-ii, regulations-eu-market-abuse-regulation, regulations-eu-digital-services-act, regulations-eu-digital-markets-act, regulations-eu-data-act, regulations-eu-cyber-resilience-act, regulations-eu-product-liability-directive, regulations-iso-42001, regulations-iso-25010
