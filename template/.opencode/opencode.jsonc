@@ -38,14 +38,11 @@
     { "action": "subagent", "resource": "general", "effect": "allow" },
     { "action": "subagent", "resource": "explore", "effect": "allow" },
 
-    // Shell: alles laeuft ohne Rueckfrage. Der Schutz der Pipeline liegt in den
-    // Pfadrechten (edit deny/allow je Agent), NICHT in der Shell.
-    // "ask" als Grundregel kostete im Referenzlauf 45 % Leerlauf: eine offene
-    // Permission-Abfrage friert die Session ein, bis der Mensch antwortet.
-    { "action": "shell", "resource": "*", "effect": "allow" },
-    // Ausnahmen. Reihenfolge zaehlt: letzter Treffer gewinnt. Die Muster sind
-    // tolerant, weil ein Rewrite-Plugin Kommandos vor der Pruefung umschreiben
-    // kann ('git push' -> 'rtk git push').
+    // Shell: Default Deny nach Least Privilege. Schutz liegt primär in den
+    // Pfad-Rechten der Agents, Shell wird agentenspezifisch allowlistet.
+    // Reihenfolge zaehlt: letzter Treffer gewinnt.
+    { "action": "shell", "resource": "*", "effect": "deny" },
+    // Explizite Ausnahmen für destruktive/global riskante Befehle
     { "action": "shell", "resource": "*git push*", "effect": "ask" },
     { "action": "shell", "resource": "*git reset --hard*", "effect": "ask" },
     { "action": "shell", "resource": "*git clean*", "effect": "ask" },

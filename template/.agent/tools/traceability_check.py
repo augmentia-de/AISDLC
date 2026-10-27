@@ -321,9 +321,37 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="Ausgabe als JSON")
     ap.add_argument("--fill", action="store_true",
                     help="Beleg und Fuehlbericht schreiben (nur belegbare Pfade)")
+    ap.add_argument("--mode", choices=["off", "light", "full"], default=None, help="Profilmodus")
+    ap.add_argument("--soft-fail", action="store_true", help="Nur warnen, Exit-Code 0")
     args = ap.parse_args()
 
+    mode = args.mode
+    if mode is None:
+        cfg = pathlib.Path(".agent/config.json")
+        if cfg.exists():
+            try:
+                c = json.loads(cfg.read_text(encoding="utf-8"))
+                mode = c.get("traceability", "full")
+            except Exception:
+                mode = "full"
+        else:
+            mode = "full"
+
     root = pathlib.Path(args.root).resolve()
+    if mode == "off":
+        if args.fill:
+            art = root / ".agent" / "artifacts"
+            art.mkdir(parents=True, exist_ok=True)
+            (art / "traceability.md").write_text("# Traceability (deaktiviert im Profil)
+
+Traceability-Pruefung ist im aktuellen Profil deaktiviert.
+", encoding="utf-8")
+            (art / "traceability-fill.md").write_text("# Traceability-Fuehlbericht (deaktiviert)
+
+Keine Pruefung durchgefuehrt.
+", encoding="utf-8")
+        print("Traceability deaktiviert (Profil).")
+        return 0
     try:
         gaps, beleg = check(root)
     except SystemExit as exc:
@@ -348,6 +376,23 @@ def main() -> int:
     if not luecken:
         print("Keine Luecken - die Kette Anforderung -> Story -> Feature -> Test -> Code "
               "ist vollstaendig belegt.")
+        return 0
+    if mode == "light" or args.soft_fail:
+        print(f"HINWEIS: {len(luecken)} Luecke(n) gefunden, aber im Modus '{mode}' als Soft-Fail behandelt (nicht blockierend).")
+        # Still print summary
+        by_art: dict = defaultdict(list)
+        for g in luecken:
+            by_art[g["art"]].append(g)
+        for art, items in by_art.items():
+            print(f"  {art.upper()} ({len(items)}):")
+            for g in items[:10]:
+                print(f"    {g['id']:<40} {g['grund']}")
+            if len(items) > 10:
+                print(f"    ... und {len(items) - 10} weitere")
+            print()
+        if hinweise:
+            print(f"{len(hinweise)} HINWEIS(E) - melden, blockieren nicht.")
+        return 0
     else:
         by_art: dict[str, list[dict]] = defaultdict(list)
         for g in luecken:
@@ -370,6 +415,8 @@ def main() -> int:
             if len(items) > 20:
                 print(f"    ... und {len(items) - 20} weitere")
             print()
+    if mode == "light" or args.soft_fail:
+        return 0
     return 1 if luecken else 0
 
 

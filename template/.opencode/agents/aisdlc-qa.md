@@ -23,6 +23,31 @@ permissions:
   - action: edit
     resource: ".agent/artifacts/**"
     effect: allow
+  # Least Privilege: QA/Test/Scan relevant
+  - action: shell
+    resource: "*git log*"
+    effect: allow
+  - action: shell
+    resource: "*git status*"
+    effect: allow
+  - action: shell
+    resource: "*git diff*"
+    effect: allow
+  - action: shell
+    resource: "*mvn test*"
+    effect: allow
+  - action: shell
+    resource: "*mvn verify*"
+    effect: allow
+  - action: shell
+    resource: "*npm test*"
+    effect: allow
+  - action: shell
+    resource: "*npm run test*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: deny
   # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
   # Agent-Regeln werden zuletzt angehaengt und wuerden jede globale Allow-Regel
   # ueberschreiben (last match wins).

@@ -20,9 +20,10 @@ permissions:
   - action: edit
     resource: ".agent/artifacts/**"
     effect: allow
-  # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
-  # Agent-Regeln werden zuletzt angehaengt und wuerden jede globale Allow-Regel
-  # ueberschreiben (last match wins).
+  # Least Privilege: Requirements liest/dokumentiert primär, keine Shell-Ausführung
+  - action: shell
+    resource: "*"
+    effect: deny
 ---
 
 You are the Requirements Orchestrator. You translate vague requirements, ideas or

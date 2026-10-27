@@ -12,7 +12,7 @@ Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
 
 ## Behaviour Rules
 
-1. Always read this file before starting any task. Read the briefing first (rule 12).
+1. Always read this file before starting any task. Read the briefing first (rule 12). **Read profile first:** load `.agent/config.json` (profile `mvp` or `enterprise`). The orchestrator is the gatekeeper for profile-based behavior.
 2. Write all output artifacts to the designated directories (see Folder Ownership).
 3. Never modify files outside your assigned folder (see Folder Ownership).
 4. Never delete files without explicit human approval.
@@ -46,18 +46,19 @@ Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
 
 Without approval, the pipeline does not advance. No exceptions.
 
+**Profile-aware Gates:** Respect `.agent/config.json`. In `profile: mvp`, gates can be presented in shortened form, but **Folder-Ownership** and **atomic commits** remain mandatory. In `profile: enterprise`, full governance applies.
+
 **Traceability is a gate condition, not a footnote.** The check
 `python3 .agent/tools/traceability_check.py` must report **zero gaps** before
-GATE 2. A gap means: a requirement with a story has no provable test, or a test
+GATE 2 in `traceability: full` with `gates.traceability_hard_fail: true`. A gap means: a requirement with a story has no provable test, or a test
 that proves nothing. The check compares the artefacts against the file system - a
 filled matrix is not a proof, the existing file is. The check runs **before** the
-gate, not after it: in the reference run the matrix stayed unfilled for 15 hours
-because nothing looked at it until step 7 was long done.
+gate. 
+
+**Soft/Hard Fail:** In `traceability: light` or when not all gates are hard-failing, the orchestrator must present a traceability report with gaps and allow human approval ("accept gaps & proceed") when appropriate. Only hard-fail for `external/public` contracts with full traceability.
 
 **Contract freeze.** The contract `docs/api/openapi.yaml` is **frozen after step 4**
-(the stress test), not after gate 1. 13 contract defects were found in the stress
-test, every one of them after the freeze, and every one invalidated schema, code and
-tests. Changes after the freeze require a jump back to step 2.
+(the stress test), not after gate 1. Consult `docs/architecture/contract-matrix.md` for classification (`internal|external|public`). Changes after freeze require a jump back to step 2 **only for `external/public`**; for `internal` use a justified change with impact analysis. 13 contract defects were found in the stress test, every one of them after the freeze.
 
 **Agent-Wechsel am Gate:** the agent of the finished step stays active until the human
 approves. Only then does the human switch to the agent of the next step.
@@ -163,12 +164,14 @@ Vertrag. `.agent/knowledge/openapi.yaml` ist ein Verweis darauf, keine Kopie.
 - `REQUIREMENT_GAP`: Anforderung unvollständig → Rücksprung zu Phase 1.
 - `ARCHITECTURAL_BLOCKER`: Design undurchführbar → Rücksprung zu Phase 2.
 - Git-Reset der betroffenen `src/`-Dateien bei ARCHITECTURAL_BLOCKER.
+- **Fast-Track/Patch:** In `profile: mvp` with `allow_fast_track: true`, small bugfixes/patches may go directly to `aisdlc-execution` without re-running full PRD gates. **Never** fast-track if changes touch `docs/api/**`, `openapi.yaml`, or files classified `external/public` in `docs/architecture/contract-matrix.md`. Always verify contract impact first. In `profile: enterprise`, fast-track is heavily restricted.
 
 ## Secrets
 
 - Alle Umgebungsvariablen in `.env` (nie hardcodiert). `.env` ist in `.gitignore`.
 - Secret-Scan in CI/CD (`gitleaks` oder `trufflehog`). Keine Credentials in
   Quellcode, Config-Dateien, Logs, Dockerfiles oder Pipelines.
+- In `profile: mvp` enforce at least a minimal secrets/dependency scan (diff-based). In `profile: enterprise` full security requirements apply.
 
 ## Output
 

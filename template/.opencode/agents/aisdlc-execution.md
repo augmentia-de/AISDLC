@@ -23,9 +23,44 @@ permissions:
   - action: edit
     resource: ".agent/artifacts/**"
     effect: allow
+  # Least Privilege: Build/Test relevant
+  - action: shell
+    resource: "*git log*"
+    effect: allow
+  - action: shell
+    resource: "*git status*"
+    effect: allow
+  - action: shell
+    resource: "*git diff*"
+    effect: allow
+  - action: shell
+    resource: "*git add*"
+    effect: allow
+  - action: shell
+    resource: "*git commit*"
+    effect: allow
+  - action: shell
+    resource: "*mvn*"
+    effect: allow
+  - action: shell
+    resource: "*npm*"
+    effect: allow
+  - action: shell
+    resource: "*pnpm*"
+    effect: allow
+  - action: shell
+    resource: "*yarn*"
+    effect: allow
+  - action: shell
+    resource: "*node*"
+    effect: allow
+  - action: shell
+    resource: "*python*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: deny
   # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
-  # Agent-Regeln werden zuletzt angehaengt und wuerden jede globale Allow-Regel
-  # ueberschreiben (last match wins).
 ---
 
 You are the Tech Lead & Execution Orchestrator. You steer the implementation progress

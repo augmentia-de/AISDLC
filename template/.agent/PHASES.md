@@ -17,19 +17,19 @@ Ein Schritt ist **keine** Instanz und **kein** Agent.
 
 ## Schritt → Instanz → Agent → Skill
 
-| Schritt | Workflow-Datei | Instanz | Agent | Skill (Optional) | Gate |
-|---|---|---|---|---|---|
-| 0 Legacy-Analyse | — | `phase0` | — | — | optional |
-| 1 Anforderungserhebung | `01-requirements.md` | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check` | — |
-| 1a Anforderungs-Grill-Me | (in 01) | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress` | — |
-| 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | `aisdlc-openapi-first`, `aisdlc-glossary-adr`, `aisdlc-migration-plan` | **GATE 1** danach |
-| 3 Simplify & Reduktion | `03-simplify.md` | `phase2` | `aisdlc-architecture` | `aisdlc-simplify` | — |
-| 4 Grill-Me-Stresstest | `04-grill-me-stress.md` | `phase2` | `aisdlc-architecture` | `aisdlc-grill-stress` | — |
-| 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd`, `aisdlc-test-matrix`, `aisdlc-traceability-check` | — |
-| 6 KI-Code-Generation | `06-implementation.md` | `phase3` | `aisdlc-execution` | `aisdlc-feature-scaffold`, `aisdlc-containerize` | — |
-| 7 Refactoring & Clean-up | `07-refactoring.md` | `phase3` | `aisdlc-execution` | `aisdlc-simplify` | — |
-| 8 Sicherheit & Compliance | `08-security.md` | `phase4` | `aisdlc-qa` | `aisdlc-security-scan` | **GATE 2** danach |
-| 9 Deployment & Betrieb | `09-deploy.md` | `phase4` | `aisdlc-qa` | `aisdlc-ci-pipeline`, `aisdlc-containerize`, `aisdlc-deploy` | — |
+| Schritt | Workflow-Datei | Instanz | Agent | Skill (Optional) | Gate | MVP | Enterprise | Bemerkung |
+|---|---|---|---|---|---|---|---|---|
+| 0 Legacy-Analyse | — | `phase0` | — | — | optional | optional | optional | Nur bei Bedarf |
+| 1 Anforderungserhebung | `01-requirements.md` | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check` | — | **yes** | **yes** | Kern - PRD reicht meist im MVP |
+| 1a Anforderungs-Grill-Me | (in 01) | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress` | — | optional | **yes** | Im MVP gezielter Einsatz möglich |
+| 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | `aisdlc-openapi-first`, `aisdlc-glossary-adr`, `aisdlc-migration-plan` | **GATE 1** danach | minimal | **yes** | MVP: nur minimaler Architektur-Überblick, keine vollständigen ADR-Sets falls nicht nötig |
+| 3 Simplify & Reduktion | `03-simplify.md` | `phase2` | `aisdlc-architecture` | `aisdlc-simplify` | — | no | **yes** | Oft überspringbar im MVP |
+| 4 Grill-Me-Stresstest | `04-grill-me-stress.md` | `phase2` | `aisdlc-architecture` | `aisdlc-grill-stress` | — | optional | **yes** | Für externe/public APIs empfohlen, sonst überspringbar im MVP |
+| 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd`, `aisdlc-test-matrix`, `aisdlc-traceability-check` | — | optional | **yes** | MVP: fokussierte Tests, nicht zwingend vollständige Teststrategie |
+| 6 KI-Code-Generation | `06-implementation.md` | `phase3` | `aisdlc-execution` | `aisdlc-feature-scaffold`, `aisdlc-containerize` | — | **yes** | **yes** | Kern |
+| 7 Refactoring & Clean-up | `07-refactoring.md` | `phase3` | `aisdlc-execution` | `aisdlc-simplify` | — | optional | **yes** | Im MVP oft Teil von Schritt 6 |
+| 8 Sicherheit & Compliance | `08-security.md` | `phase4` | `aisdlc-qa` | `aisdlc-security-scan` | **GATE 2** danach | minimal | **yes** | MVP: mindestens Secrets/Dependency-Scan, keine vollständige Compliance-Dokumentation |
+| 9 Deployment & Betrieb | `09-deploy.md` | `phase4` | `aisdlc-qa` | `aisdlc-ci-pipeline`, `aisdlc-containerize`, `aisdlc-deploy` | — | **yes** | **yes** | Kern |
 
 **Die Skills sind Verfahrens-Schritte, keine Rollen.** Die `aisdlc-*`-Skills liefern
 das **Verfahren** (wann, welche Artefakte, welche Prüfungen); das **Handwerk** kommt

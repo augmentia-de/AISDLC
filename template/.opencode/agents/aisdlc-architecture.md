@@ -23,6 +23,19 @@ permissions:
     effect: allow
   # .agent/artifacts/ ist der kanonische Zielort der Schritt-Artefakte
   # (architecture.md, folder-structure.md).
+  # Least Privilege: nur read-only Git-Befehle falls nötig
+  - action: shell
+    resource: "*git log*"
+    effect: allow
+  - action: shell
+    resource: "*git status*"
+    effect: allow
+  - action: shell
+    resource: "*git diff*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: deny
   - action: edit
     resource: ".agent/artifacts/**"
     effect: allow
