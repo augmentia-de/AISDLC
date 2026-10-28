@@ -1,4 +1,0 @@
-# VERWEIS — keine Kopie.
-# Der kanonische API-Vertrag liegt in: docs/api/openapi.yaml
-# Diese Datei ist absichtlich keine Kopie (Spiegel-Regel gilt nur fuer schema.sql).
-# Alle Aenderungen am Vertrag erfolgen ausschliesslich in docs/api/openapi.yaml.

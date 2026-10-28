@@ -38,16 +38,22 @@ cp "$SDLC/opencode.jsonc" "$TARGET/"
 # Verzeichnisse anlegen
 mkdir -p "$TARGET/src" "$TARGET/tests" "$TARGET/docs/requirements" "$TARGET/docs/architecture" "$TARGET/docs/api" "$TARGET/docs/adr" "$TARGET/docs/qa" "$TARGET/docs/execution"
 
-# Stack-Skills kopieren
+# Stack-Skills kopieren + Stack-Ordner als Referenz
+mkdir -p "$TARGET/stack"
 for s in "$@"; do
   if [ -d "$STACK/$s/skills" ]; then
     echo "Kopiere Stack: $s"
     mkdir -p "$TARGET/.opencode/skills"
     cp -r "$STACK/$s/skills/"* "$TARGET/.opencode/skills/" 2>/dev/null || true
+  fi
+  if [ -d "$STACK/$s" ]; then
+    echo "Kopiere Stack-Referenz: $s"
+    cp -r "$STACK/$s" "$TARGET/stack/" 2>/dev/null || true
   else
     echo "WARNUNG: Stack '$s' nicht gefunden in $STACK"
   fi
 done
+cp "$STACK/SKILLS_OVERVIEW.md" "$TARGET/stack/" 2>/dev/null || true
 
 # Git-Repository initialisieren
 echo "Initialisiere Git-Repository..."
