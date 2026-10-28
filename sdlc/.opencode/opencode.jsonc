@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "default_agent": "aisdlc-requirements",
+  "default_agent": "aisdlc-orchestrator",
 
   "experimental": {
     // Der Orchestrator (Top-Level) startet die Rollen-Agenten, diese starten
