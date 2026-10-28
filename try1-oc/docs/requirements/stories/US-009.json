@@ -1,0 +1,14 @@
+{
+  "id": "US-009",
+  "epic": "E4",
+  "title": "Eingabevalidierung und Fehlerbehandlung",
+  "description": "As a system, I want all inputs validated and errors returned consistently, so that data quality and client handling are reliable.",
+  "requirement_ids": ["FR-020", "NFR-002", "SEC-002"],
+  "acceptance_criteria": [
+    { "id": "AC-009-1", "given": "a create request", "when": "POST /api/v1/tickets with priority 'urgent'", "then": "400 Bad Request with field-level error for priority" },
+    { "id": "AC-009-2", "given": "a create request", "when": "POST /api/v1/tickets with malformed JSON body", "then": "400 Bad Request with structured error" },
+    { "id": "AC-009-3", "given": "any validation failure", "when": "the API responds with 4xx", "then": "response body follows the error schema {error, message, details}" }
+  ],
+  "priority": "must-have",
+  "status": "todo"
+}

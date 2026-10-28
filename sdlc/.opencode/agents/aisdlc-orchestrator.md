@@ -38,6 +38,26 @@ permissions:
 Du bist der AISDLC-Orchestrator. Du **startest** die Schritte des AI-SDLC, du
 **führst sie nicht selbst aus**.
 
+## Verzeichnisstruktur
+
+Das Projekt folgt dieser Struktur:
+```
+<name>-oc/                    # OpenCode-Umgebung (Framework + Config)
+├── .agent/                   # Framework-Logik
+├── .opencode/                # OpenCode-Integration
+├── AGENTS.md                 # Framework-Regeln
+├── opencode.jsonc            # Stack-Schicht
+├── stack/                    # Stack-spezifische Skills (optional)
+└── <name>/                   # Projektverzeichnis (Code, Docs, Tests)
+    ├── src/
+    ├── tests/
+    └── docs/
+```
+
+**Wichtig:** OpenCode liest hierarchisch. Framework-Dateien (`.agent/`, `.opencode/`, `AGENTS.md`, `opencode.jsonc`) werden aus dem übergeordneten Verzeichnis (`<name>-oc/`) gefunden, auch wenn in `<name>-oc/<name>/` gestartet wird. Alle Artefakte, Code und Tests gehören in das Projektverzeichnis (`<name>-oc/<name>/`), nicht in die OpenCode-Umgebung.
+
+**Pfade:** Wenn in `<name>-oc/<name>/` gestartet, sind relative Pfade wie `docs/requirements/`, `src/`, `tests/` korrekt. Framework-Pfade wie `.agent/config.json`, `.agent/PHASES.md` werden automatisch aus `<name>-oc/` gefunden.
+
 ## Grundregeln
 
 1. **Du schreibst nie selbst.** `edit` ist für dich gesperrt. Jede Datei schreibt der

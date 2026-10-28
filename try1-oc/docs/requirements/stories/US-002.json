@@ -1,0 +1,13 @@
+{
+  "id": "US-002",
+  "epic": "E1",
+  "title": "Ticket-Detail abrufen",
+  "description": "As a support agent, I want to retrieve a single ticket by id, so that I can see its full details.",
+  "requirement_ids": ["FR-005", "FR-019"],
+  "acceptance_criteria": [
+    { "id": "AC-002-1", "given": "a ticket exists with id T", "when": "GET /api/v1/tickets/{T}", "then": "200 OK with the ticket details" },
+    { "id": "AC-002-2", "given": "no ticket with id X", "when": "GET /api/v1/tickets/{X}", "then": "404 Not Found with structured error" }
+  ],
+  "priority": "must-have",
+  "status": "todo"
+}

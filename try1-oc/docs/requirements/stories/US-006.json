@@ -1,0 +1,14 @@
+{
+  "id": "US-006",
+  "epic": "E2",
+  "title": "Filter nach Status und Prioritaet",
+  "description": "As a support lead, I want to filter tickets by status and priority (combinable), so that I can focus on relevant tickets.",
+  "requirement_ids": ["FR-009", "FR-010", "FR-011"],
+  "acceptance_criteria": [
+    { "id": "AC-006-1", "given": "tickets with mixed statuses", "when": "GET /api/v1/tickets?status=open", "then": "200 OK with only open tickets" },
+    { "id": "AC-006-2", "given": "tickets with mixed priorities", "when": "GET /api/v1/tickets?priority=high", "then": "200 OK with only high-priority tickets" },
+    { "id": "AC-006-3", "given": "tickets with mixed status and priority", "when": "GET /api/v1/tickets?status=open&priority=high", "then": "200 OK with the intersection" }
+  ],
+  "priority": "must-have",
+  "status": "todo"
+}

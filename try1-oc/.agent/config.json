@@ -1,6 +1,6 @@
 {
   "$schema": "./schemas/config.schema.json",
-  "profile": "enterprise",
+  "profile": "mvp",
   "allow_fast_track": false,
   "traceability": "full",
   "gates": {
