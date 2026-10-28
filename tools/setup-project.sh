@@ -51,6 +51,17 @@ done
 # Projektverzeichnis anlegen (nur Code, keine Framework-Dateien)
 mkdir -p "$PROJECT_DIR/src" "$PROJECT_DIR/tests" "$PROJECT_DIR/docs/requirements" "$PROJECT_DIR/docs/architecture" "$PROJECT_DIR/docs/api" "$PROJECT_DIR/docs/adr" "$PROJECT_DIR/docs/qa" "$PROJECT_DIR/docs/execution"
 
+# Git-Repository initialisieren (Orchestrator erwartet git repo)
+echo "Initialisiere Git-Repository..."
+cd "$PROJECT_DIR"
+git init -q 2>/dev/null || true
+git config user.email "aisdlc@local" 2>/dev/null || true
+git config user.name "AISDLC" 2>/dev/null || true
+# Initialer Commit (leer, damit git log funktioniert)
+git add -A 2>/dev/null || true
+git commit -q -m "chore: initial project setup" 2>/dev/null || true
+cd - > /dev/null
+
 # Stack-Ordner als Referenz in OC_DIR
 mkdir -p "$OC_DIR/stack"
 for s in "$@"; do

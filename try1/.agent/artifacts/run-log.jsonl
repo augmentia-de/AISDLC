@@ -1,1 +1,0 @@
-{"event":"_format","schema":"ts,event,step,agent,commit,duration_s,gate,result,by,reason,check,gaps","note":"Lauf-Protokoll. Schreibt der aisdlc-orchestrator, eine Zeile je Ereignis, append-only. Formate: step_start, step_end, jump_back, gate, check, retry."}
