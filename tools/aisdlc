@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# AISDLC CLI
+# Einheitliches CLI für das AI-SDLC-Framework
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$SCRIPT_DIR/.."
+STACK="$ROOT/stack"
+
+cmd="${1:-status}"
+shift || true
+
+case "$cmd" in
+  init)
+    exec "$SCRIPT_DIR/setup-project.sh" "$@"
+    ;;
+  update)
+    exec "$SCRIPT_DIR/update-project.sh" "$@"
+    ;;
+  status)
+    if [ -f ".agent/state.json" ]; then
+      echo "=== AI-SDLC Status ==="
+      python3 -c "
+import json
+s=json.load(open('.agent/state.json'))
+print('Run:', s.get('run_id'))
+print('Profile:', s.get('profile'))
+print('Current Step:', s.get('current_step'))
+print('Status:', s.get('status'))
+print('Agent:', s.get('agent'))
+print('Last Commit:', s.get('last_commit'))
+print('Gates:', json.dumps(s.get('gates'), indent=2))
+" 2>/dev/null || cat .agent/state.json
+    else
+      echo "Kein .agent/state.json gefunden. Im Projektverzeichnis starten?"
+    fi
+    ;;
+  next)
+    python3 -c "
+import json
+try:
+    s=json.load(open('.agent/state.json'))
+    print('Nächster Schritt:', s.get('current_step')+1)
+    print('Status:', s.get('status'))
+    print('Profil:', s.get('profile'))
+except Exception as e:
+    print(e)
+" 2>/dev/null || echo "state.json nicht gefunden"
+    ;;
+  check)
+    if [ -f ".agent/tools/traceability_check.py" ]; then
+      python3 .agent/tools/traceability_check.py --fill "$@"
+    else
+      echo "traceability_check.py nicht gefunden"
+    fi
+    ;;
+  validate)
+    echo "=== Validierung ==="
+    [ -f ".agent/config.json" ] && echo "OK: .agent/config.json" || echo "FEHLT: .agent/config.json"
+    [ -f ".agent/PHASES.md" ] && echo "OK: .agent/PHASES.md" || echo "FEHLT: .agent/PHASES.md"
+    [ -f "AGENTS.md" ] && echo "OK: AGENTS.md" || echo "FEHLT: AGENTS.md"
+    [ -d ".git" ] && echo "OK: Git Repository" || echo "FEHLT: Git Repository"
+    [ -f ".agent/state.json" ] && echo "OK: .agent/state.json" || echo "FEHLT: .agent/state.json"
+    ;;
+  *)
+    echo "AISDLC CLI"
+    echo ""
+    echo "Commands:"
+    echo "  init <name> <stacks...>    Projekt erstellen"
+    echo "  update <dir> <cmd> ...    Skills verwalten"
+    echo "  status                   Aktueller Status"
+    echo "  next                     Nächster Schritt"
+    echo "  check                    Traceability prüfen"
+    echo "  validate                 Struktur validieren"
+    ;;
+esac

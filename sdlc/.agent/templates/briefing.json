@@ -1,0 +1,14 @@
+{
+  "$schema": "../schemas/briefing.schema.json",
+  "from_step": 0,
+  "to_step": 1,
+  "agent": "",
+  "profile": "enterprise",
+  "read": [],
+  "decisions": [],
+  "open_points": [],
+  "do_not": [],
+  "contract_frozen": false,
+  "last_commit": "",
+  "briefing_at": ""
+}

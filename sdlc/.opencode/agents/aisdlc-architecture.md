@@ -33,9 +33,6 @@ permissions:
   - action: shell
     resource: "*git diff*"
     effect: allow
-  - action: shell
-    resource: "*"
-    effect: deny
   - action: edit
     resource: ".agent/artifacts/**"
     effect: allow

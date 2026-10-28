@@ -57,9 +57,6 @@ permissions:
   - action: shell
     resource: "*python*"
     effect: allow
-  - action: shell
-    resource: "*"
-    effect: deny
   # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
 ---
 

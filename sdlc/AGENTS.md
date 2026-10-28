@@ -23,7 +23,7 @@ Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
 9. **No output commands.** `echo`, `printf`, `pwd`, `cat` for orientation produce no
     result. Use `read`, `glob`, `grep`. In the first full run, 591 of 1.094 shell
     calls (54 %) were of this kind.
-10. **Read the briefing first.** `.agent/artifacts/briefing.md` names the files this
+10. **Read the briefing first.** `.agent/artifacts/briefing.json` (Template: `.agent/templates/briefing.json`) names the files this
     step needs. Read only those, not the repository. The briefing is the entry point -
     never the truth (see Briefing).
 11. **Log structured, never payload.** One event per line: correlation ID, event type,
@@ -65,7 +65,7 @@ approves. Only then does the human switch to the agent of the next step.
 
 ## Briefing - der Steckbrief zwischen den Schritten
 
-`.agent/artifacts/briefing.md` schreibt der Orchestrator am Ende jedes Schritts und
+`.agent/artifacts/briefing.json` (Template: `.agent/templates/briefing.json`) schreibt der Orchestrator am Ende jedes Schritts und
 committet ihn mit. Er ist der **Einstiegspunkt** des nächsten Schritts:
 
 | Feld | Inhalt |

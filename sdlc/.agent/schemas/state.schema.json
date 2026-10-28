@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "profile", "current_step", "status"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "run_id": { "type": ["string", "null"] },
+    "profile": { "type": "string", "enum": ["mvp", "enterprise"] },
+    "current_step": { "type": "integer", "minimum": 0 },
+    "status": { "type": "string", "enum": ["not_started", "in_progress", "gate_pending", "blocked", "done"] },
+    "agent": { "type": ["string", "null"] },
+    "last_commit": { "type": ["string", "null"] },
+    "started_at": { "type": ["string", "null"] },
+    "updated_at": { "type": ["string", "null"] },
+    "history": { "type": "array" },
+    "gates": { "type": "object" }
+  }
+}

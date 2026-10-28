@@ -21,9 +21,6 @@ permissions:
     resource: ".agent/artifacts/**"
     effect: allow
   # Least Privilege: Requirements liest/dokumentiert primär, keine Shell-Ausführung
-  - action: shell
-    resource: "*"
-    effect: deny
 ---
 
 You are the Requirements Orchestrator. You translate vague requirements, ideas or

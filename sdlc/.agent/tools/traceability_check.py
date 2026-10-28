@@ -44,7 +44,7 @@ import sys
 from collections import defaultdict
 
 # Akzeptanzkriterium-Kennung: AC-003-1 (Markdown/Feature) oder ac003_1 (Java-Methode)
-AC_PAT = re.compile(r"\bAC[-_]?(\d{3})[-_](\d+)\b", re.I)
+AC_PAT = re.compile(r"\bAC[-_]?(\d{3})[-_](\d+)(?![0-9])", re.I)
 # Anforderungs-Kennung in PRD-Tabellenzeilen
 PRD_ROW = re.compile(r"^\|\s*((?:FR|NFR|SEC|DP|CON)-\d+)\s*\|", re.M)
 # Java-Produktionsklasse: public class X / record X / interface X
@@ -167,7 +167,7 @@ def check(root: pathlib.Path) -> tuple[list[dict], dict]:
     for path, acs in features.items():
         base = path.rsplit("/", 1)[-1]
         for sid, s_acs in story_acs.items():
-            if base.startswith(sid) or (acs and s_acs & acs):
+            if base.startswith(sid) or (acs and s_acs & set(acs)):
                 story_with_feature.add(sid)
     for sid in sorted(stories):
         if sid not in story_with_feature:
@@ -342,14 +342,8 @@ def main() -> int:
         if args.fill:
             art = root / ".agent" / "artifacts"
             art.mkdir(parents=True, exist_ok=True)
-            (art / "traceability.md").write_text("# Traceability (deaktiviert im Profil)
-
-Traceability-Pruefung ist im aktuellen Profil deaktiviert.
-", encoding="utf-8")
-            (art / "traceability-fill.md").write_text("# Traceability-Fuehlbericht (deaktiviert)
-
-Keine Pruefung durchgefuehrt.
-", encoding="utf-8")
+            (art / "traceability.md").write_text("# Traceability (deaktiviert im Profil)\n\nTraceability-Pruefung ist im aktuellen Profil deaktiviert.\n", encoding="utf-8")
+            (art / "traceability-fill.md").write_text("# Traceability-Fuehlbericht (deaktiviert)\n\nKeine Pruefung durchgefuehrt.\n", encoding="utf-8")
         print("Traceability deaktiviert (Profil).")
         return 0
     try:

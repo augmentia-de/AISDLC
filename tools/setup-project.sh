@@ -73,3 +73,23 @@ echo ""
 echo "Starte opencode wie folgt:"
 echo "  cd $TARGET"
 echo "  opencode"
+
+# state.json sicherstellen
+if [ ! -f "$TARGET/.agent/state.json" ]; then
+  PROFILE=$(python3 -c "import json; print(json.load(open('$TARGET/.agent/config.json')).get('profile','enterprise'))" 2>/dev/null || echo "enterprise")
+  cat > "$TARGET/.agent/state.json" << JSON
+{
+  "\$schema": "./schemas/state.schema.json",
+  "run_id": null,
+  "profile": "$PROFILE",
+  "current_step": 0,
+  "status": "not_started",
+  "agent": null,
+  "last_commit": null,
+  "started_at": null,
+  "updated_at": null,
+  "history": [],
+  "gates": {"gate1": {"status": "pending"}, "gate2": {"status": "pending"}}
+}
+JSON
+fi

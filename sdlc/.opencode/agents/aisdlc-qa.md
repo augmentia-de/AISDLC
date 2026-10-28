@@ -45,9 +45,6 @@ permissions:
   - action: shell
     resource: "*npm run test*"
     effect: allow
-  - action: shell
-    resource: "*"
-    effect: deny
   # shell-Permissions regelt opencode.jsonc global. Kein eigener catch-all hier:
   # Agent-Regeln werden zuletzt angehaengt und wuerden jede globale Allow-Regel
   # ueberschreiben (last match wins).

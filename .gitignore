@@ -1,1 +1,5 @@
 /.idea/
+
+/ .agent/state.json
+
+sdlc/.agent/state.json
