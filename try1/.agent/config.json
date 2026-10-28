@@ -1,0 +1,19 @@
+{
+  "$schema": "./schemas/config.schema.json",
+  "profile": "enterprise",
+  "allow_fast_track": false,
+  "traceability": "full",
+  "gates": {
+    "enforce_gate1": true,
+    "enforce_gate2": true,
+    "traceability_hard_fail": true
+  },
+  "security": {
+    "enforce_minimal_scan": true,
+    "block_on_critical_secrets": true
+  },
+  "context": {
+    "briefing_first": true,
+    "strict_three_line_reply": false
+  }
+}
