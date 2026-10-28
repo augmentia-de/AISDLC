@@ -1,36 +1,30 @@
--- ============================================================================
--- <Projektname> — PostgreSQL-Schema (Template)
---
--- Diese Datei ist das KANONISCHE Datenbankschema des Projekts. Sie wird in
--- Phase 2 (Konzept & Architektur) aus dem Datenmodell erzeugt.
---
--- Regeln:
---   * Jede fachliche Tabelle traegt organisation_id und steht unter RLS.
---   * Basis-Lookups (Login, Token-Rotation, Einladung) brauchen SECURITY
---     DEFINER-Funktionen, weil der Mandant dort erst ermittelt wird.
---   * Der Mandant kommt immer aus dem Auftragssatz, nie aus einem Parameter.
---   * Indizes: idempotent anlegen (CREATE INDEX IF NOT EXISTS).
---
--- Diese Datei wird in der Architekturphase versioniert. Eine Kopie im
--- Commit-Scope der Architekturphase ist byte-identisch; ein Mirror-Test erzwingt
--- das (siehe Schema-Entscheidung im zugehoerigen ADR).
--- ============================================================================
+-- Kanonisches Schema (mini-ticket)
+-- Postgres (prod) + SQLite (dev/test) kompatibel (portable Typen: TEXT).
+-- Spiegel-Regel: docs/architecture/schema.sql ist byte-identisch (SchemaMirrorIT).
 
-BEGIN;
+PRAGMA foreign_keys = ON;
 
--- ---------------------------------------------------------------- Schema
-CREATE SCHEMA IF NOT EXISTS app;
+CREATE TABLE IF NOT EXISTS tickets (
+    id          TEXT    PRIMARY KEY,
+    title       TEXT    NOT NULL CHECK (length(title) BETWEEN 1 AND 200),
+    description TEXT             CHECK (description IS NULL OR length(description) <= 4000),
+    priority    TEXT    NOT NULL CHECK (priority IN ('low','medium','high')) DEFAULT 'medium',
+    status      TEXT    NOT NULL CHECK (status IN ('open','in_progress','resolved','closed')) DEFAULT 'open',
+    created_at  TEXT    NOT NULL,
+    updated_at  TEXT    NOT NULL
+);
 
--- ---------------------------------------------------------------- Basis-Tabellen
--- <hier die Tabellen des Projekts>
+CREATE INDEX IF NOT EXISTS idx_tickets_status     ON tickets (status);
+CREATE INDEX IF NOT EXISTS idx_tickets_priority   ON tickets (priority);
+CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets (created_at DESC);
 
--- ---------------------------------------------------------------- Mandantierung
--- <hier die SECURITY DEFINER Basis-Lookups>
+CREATE TABLE IF NOT EXISTS comments (
+    id          TEXT    PRIMARY KEY,
+    ticket_id   TEXT    NOT NULL REFERENCES tickets (id) ON DELETE CASCADE,
+    text        TEXT    NOT NULL CHECK (length(text) BETWEEN 1 AND 2000),
+    author      TEXT    NOT NULL DEFAULT 'anonymous',
+    created_at  TEXT    NOT NULL
+);
 
--- ---------------------------------------------------------------- RLS
--- <hier die Row-Level-Security-Deklarationen>
-
--- ---------------------------------------------------------------- Indizes
--- <hier die Indizes>
-
-COMMIT;
+CREATE INDEX IF NOT EXISTS idx_comments_ticket_id  ON comments (ticket_id);
+CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments (created_at ASC);

@@ -40,23 +40,22 @@ Du bist der AISDLC-Orchestrator. Du **startest** die Schritte des AI-SDLC, du
 
 ## Verzeichnisstruktur
 
-Das Projekt folgt dieser Struktur:
+Das Projekt folgt dieser Struktur (alles in einem Verzeichnis, Git-Repo):
 ```
-<name>-oc/                    # OpenCode-Umgebung (Framework + Config)
+<projekt>/                    # Git-Repo + Projekt-Root
 ├── .agent/                   # Framework-Logik
 ├── .opencode/                # OpenCode-Integration
 ├── AGENTS.md                 # Framework-Regeln
 ├── opencode.jsonc            # Stack-Schicht
 ├── stack/                    # Stack-spezifische Skills (optional)
-└── <name>/                   # Projektverzeichnis (Code, Docs, Tests)
-    ├── src/
-    ├── tests/
-    └── docs/
+├── src/                      # Code
+├── tests/                    # Tests
+└── docs/                     # Dokumentation
 ```
 
-**Wichtig:** OpenCode liest hierarchisch. Framework-Dateien (`.agent/`, `.opencode/`, `AGENTS.md`, `opencode.jsonc`) werden aus dem übergeordneten Verzeichnis (`<name>-oc/`) gefunden, auch wenn in `<name>-oc/<name>/` gestartet wird. Alle Artefakte, Code und Tests gehören in das Projektverzeichnis (`<name>-oc/<name>/`), nicht in die OpenCode-Umgebung.
+**Wichtig:** Alles liegt in einem Verzeichnis. Git-Repo ist das Projekt-Root. Framework-Dateien und Projekt-Dateien sind im selben Repo getrackt. Alle Artefakte, Code und Tests gehören ins Projekt-Root.
 
-**Pfade:** Wenn in `<name>-oc/<name>/` gestartet, sind relative Pfade wie `docs/requirements/`, `src/`, `tests/` korrekt. Framework-Pfade wie `.agent/config.json`, `.agent/PHASES.md` werden automatisch aus `<name>-oc/` gefunden.
+**Pfade:** Relative Pfade wie `docs/requirements/`, `src/`, `tests/` sind korrekt. Framework-Pfade wie `.agent/config.json`, `.agent/PHASES.md` sind im selben Verzeichnis.
 
 ## Grundregeln
 

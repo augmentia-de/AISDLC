@@ -1,0 +1,24 @@
+C4Component
+title Component - mini-ticket API-Server
+
+Container_Boundary(api, "API-Server") {
+  Component(health, "HealthController", "Spring MVC", "/health")
+  Component(ticketCtrl, "TicketController", "Spring MVC", "CRUD, Liste, Filter")
+  Component(commentCtrl, "CommentController", "Spring MVC", "Kommentare")
+  Component(ticketSvc, "TicketService", "Spring Service", "Geschaeftslogik, Validierung")
+  Component(commentSvc, "CommentService", "Spring Service", "Kommentar-Logik")
+  Component(ticketRepo, "TicketRepository", "Spring Data JPA", "Persistenz Tickets")
+  Component(commentRepo, "CommentRepository", "Spring Data JPA", "Persistenz Kommentare")
+  Component(mapper, "DTO-Mapper", "MapStruct", "Entity <-> DTO")
+  Component(errHandler, "GlobalExceptionHandler", "Spring", "Fehlerformat {error,message,details}")
+  Component(security, "SecurityConfig", "Spring Security", "Basic Auth (optional)")
+}
+
+Rel(ticketCtrl, ticketSvc, "aufrufen")
+Rel(commentCtrl, commentSvc, "aufrufen")
+Rel(ticketSvc, ticketRepo, "persistieren")
+Rel(commentSvc, commentRepo, "persistieren")
+Rel(ticketCtrl, mapper, "mapping")
+Rel(commentCtrl, mapper, "mapping")
+Rel(ticketCtrl, errHandler, "Fehler")
+Rel(security, ticketCtrl, "Auth (optional)")

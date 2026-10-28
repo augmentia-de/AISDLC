@@ -1,0 +1,462 @@
+openapi: 3.0.3
+info:
+  title: Mini-Ticket API
+  version: 1.0.0
+  description: |
+    REST-API fuer das Mini-Ticket-System (Support-Tickets, Kommentare).
+    Intern (CON-001), API-Prefix /api/v1 (CON-002), keine externen Integrationen (CON-003).
+    Vertrag ist die einzige Quelle der Wahrheit. Eingefroren nach Schritt 4 (Stresstest).
+  contact:
+    name: Support-Team
+servers:
+  - url: http://localhost:8080
+    description: Lokal / Dev
+  - url: https://api.example.com
+    description: Produktion
+tags:
+  - name: Health
+    description: Betriebsbereitschaft
+  - name: Tickets
+    description: Ticket-CRUD, Liste, Filter
+  - name: Comments
+    description: Kommentare zu Tickets
+security:
+  - basicAuth: []
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Health-Check
+      description: Liefert den Betriebsstatus. Keine Authentifizierung erforderlich.
+      security: []
+      responses:
+        '200':
+          description: Server laeuft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+  /api/v1/health:
+    get:
+      tags: [Health]
+      operationId: getHealthV1
+      summary: Health-Check (Alias unter API-Prefix)
+      description: Alias von /health fuer Clients, die den API-Prefix verwenden.
+      security: []
+      responses:
+        '200':
+          description: Server laeuft
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/v1/tickets:
+    post:
+      tags: [Tickets]
+      operationId: createTicket
+      summary: Ticket anlegen
+      description: Legt ein neues Ticket an. Titel Pflicht; Prioritaet Default medium; Status Default open.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketCreate'
+            example:
+              title: Login failed
+              description: cannot log in
+              priority: high
+      responses:
+        '201':
+          description: Ticket angelegt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '400':
+          description: Ungueltige Eingabe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Nicht authentifiziert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Interner Fehler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Tickets]
+      operationId: listTickets
+      summary: Tickets auflisten (Filter, Sortierung, Pagination)
+      description: |
+        Liefert Tickets sortiert nach created_at absteigend. Filter status/priority kombinierbar (AND).
+        Pagination ueber limit/offset; total enthaelt Gesamtanzahl (ohne Pagination).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filter nach Status
+          schema:
+            $ref: '#/components/schemas/TicketStatus'
+        - name: priority
+          in: query
+          required: false
+          description: Filter nach Prioritaet
+          schema:
+            $ref: '#/components/schemas/TicketPriority'
+        - name: limit
+          in: query
+          required: false
+          description: Seitenlaenge (Default 50, Max 200)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: Offset (Default 0)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Liste von Tickets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketList'
+        '400':
+          description: Ungueltiger Filter- oder Paginierungsparameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Nicht authentifiziert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Interner Fehler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/tickets/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Ticket-ID (UUID)
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Tickets]
+      operationId: getTicket
+      summary: Ticket-Detail abrufen
+      responses:
+        '200':
+          description: Ticket gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '401':
+          description: Nicht authentifiziert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Ticket nicht gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Interner Fehler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [Tickets]
+      operationId: updateTicket
+      summary: Ticket aktualisieren (Titel, Beschreibung, Prioritaet, Status)
+      description: Partielles Update. Nur uebergebene Felder werden geaendert; status setzt den Status ohne Transition-Validierung (A-02).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketUpdate'
+      responses:
+        '200':
+          description: Ticket aktualisiert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '400':
+          description: Ungueltige Eingabe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Nicht authentifiziert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Ticket nicht gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Interner Fehler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/tickets/{id}/comments:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Ticket-ID (UUID)
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Comments]
+      operationId: createComment
+      summary: Kommentar zu einem Ticket anlegen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '201':
+          description: Kommentar angelegt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Ungueltige Eingabe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Nicht authentifiziert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Ticket nicht gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Interner Fehler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Comments]
+      operationId: listComments
+      summary: Kommentare eines Tickets auflisten
+      description: Sortiert nach created_at aufsteigend.
+      responses:
+        '200':
+          description: Liste von Kommentaren
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '401':
+          description: Nicht authentifiziert
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Ticket nicht gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Interner Fehler
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic Auth (nur wenn aktiviert; siehe ADR-004). In Dev/Test standardmaessig deaktiviert.
+  schemas:
+    TicketStatus:
+      type: string
+      enum: [open, in_progress, resolved, closed]
+    TicketPriority:
+      type: string
+      enum: [low, medium, high]
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    Ticket:
+      type: object
+      required: [id, title, priority, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 4000
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+        status:
+          $ref: '#/components/schemas/TicketStatus'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    TicketCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 4000
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+          default: medium
+    TicketUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 4000
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+        status:
+          $ref: '#/components/schemas/TicketStatus'
+    Comment:
+      type: object
+      required: [id, text, author, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        author:
+          type: string
+          default: anonymous
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    CommentCreate:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    TicketList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ticket'
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+        offset:
+          type: integer
+    ErrorDetail:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Maschinenlesbarer Fehlercode (z. B. validation_failed, not_found)
+        message:
+          type: string
+          description: Menschenlesbare Meldung (Englisch)
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+          description: Feldbezogene Fehler (bei Validierung)
