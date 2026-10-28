@@ -24,6 +24,7 @@ description: Phase 9 — Deployment and operations
    - Staging URL, Production URL, Smoke test results (pass/fail)
 
 ## Output
+Project README at root (`README.md`) updated with quickstart/deployment reference.
 `.agent/artifacts/deploy-report.md`
 
 ## Regeln

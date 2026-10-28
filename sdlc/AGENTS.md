@@ -31,6 +31,10 @@ Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
     in `.agent/artifacts/logging.md`; the security scan checks against it.
 12. **Write the run log.** Every step start/end, gate, check and jump-back as one JSON
     line in `.agent/artifacts/run-log.jsonl`. Only the orchestrator writes it.
+12a. **Skill-Invocations loggen (Debug).** Jeder Aufruf eines `aisdlc-*`-Skills wird als
+    `skill_start`/`skill_end`-Event in `run-log.jsonl` protokolliert (Helper:
+    `.agent/tools/skill_log.py <skill> <agent> <step> [start|end]`). So ist nachvollziehbar,
+    welche Skills wirklich liefen.
 13. **Big artefacts start with a table.** Artefact > ~20 KB: table on top (finding,
     severity, status, where fixed). Prose stays below. Table is entry point, prose
     is proof.

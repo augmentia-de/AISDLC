@@ -45,6 +45,7 @@ description: Phase 6 — Implementation and coding (parallel build streams)
 ## Output
 Working application code in `src/`, `tests/`, `infra/`.
 Inline documentation (JSDoc/Docstrings).
+Project README at root (`README.md`) with quickstart, build/test/run and structure.
 Commits (Conventional Commits) and PR descriptions.
 
 ## Regeln
@@ -56,7 +57,7 @@ Siehe `AGENTS.md`: keine Ausgabe-Kommandos, Vertrag nach Schritt 4 eingefroren.
 ```bash
 mkdir -p src/ tests/ docs/execution/
 git reset -q
-git add -A -- src/ tests/ docs/execution/
+git add -A -- src/ tests/ docs/execution/ README.md
 git commit -m "feat(sdlc-6): Implementierung der Stories" \
   -m "Schritt 6 - KI-Code-Generation | Agent: aisdlc-execution | Artefakte: src/, tests/, docs/execution/"
 ```

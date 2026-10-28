@@ -39,6 +39,7 @@ Lies zuerst: `.agent/config.json`, `.agent/PHASES.md`, `.agent/state.json`, `AGE
 4. **Briefing**: Erstelle `.agent/artifacts/briefing.json` aus `.agent/templates/briefing.json`. Update `current_step`. Commite es.
 5. **Gate**: Bei Schritt 2 oder 8 setze `status: gate_pending`, halte an und frage mit `question` nach Freigabe. Update Gates in `state.json`.
 6. **Protokoll**: Schreibe Event in `.agent/artifacts/run-log.jsonl` (step_start/end, gate, check).
+   Bei Skill-Nutzung zusaetzlich `skill_start`/`skill_end` ueber `.agent/tools/skill_log.py`.
 
 ## Regeln
 - **1 Subagent / Schritt** - nie parallel
