@@ -1,12 +1,25 @@
 {
   "$schema": "./schemas/config.schema.json",
   "profile": "mvp",
+  "mode": "greenfield",
   "allow_fast_track": false,
   "traceability": "full",
   "gates": {
     "enforce_gate1": true,
     "enforce_gate2": true,
-    "traceability_hard_fail": true
+    "traceability_hard_fail": true,
+    "enforce_cutover_gate": true
+  },
+  "migration": {
+    "strategy": "strangler-fig",
+    "cutover_approval_required": true,
+    "dual_write": false,
+    "parallel_run_required": true
+  },
+  "change_flow": {
+    "enforce_classification": true,
+    "allow_delta_for_hotfix_patch": true,
+    "require_change_brief": true
   },
   "security": {
     "enforce_minimal_scan": true,

@@ -12,10 +12,13 @@ Du bist der Reverse Engineering Orchestrator. Deine Aufgabe ist es, eine undokum
 - **No output commands.** `echo`, `printf`, `pwd`, `cat` for orientation produce no result — each costs a model turn and a permission check. Use `read`, `glob`, `grep`.
 
 ## WAS SOLL GETAN WERDEN? (ARBEITSSCHRITTE)
-1. Analyse der Ordnerstruktur, Sprachversionen und Drittanbieter-Bibliotheken.
-2. Identifikation von Einstiegspunkten (Main-Files, Router, Controller) und verdeckten Modulabhängigkeiten.
-3. Extraktion impliziter Datenmodelle (Datenbankschemata, DTOs, globale Zustände).
-4. Zusammenfassung der ungeschriebenen Geschäftslogik und bekannten technischen Schulden.
+Lies zuerst `.agent/config.json`:
+- **mode == migration/brownfield** → arbeite nach `.agent/workflows/00-migration-assessment.md` (Inventory, Contracts, Data-Model, Dependencies, Risks, Scope).
+- **mode == greenfield** → klassische Legacy-Analyse:
+  1. Analyse der Ordnerstruktur, Sprachversionen und Drittanbieter-Bibliotheken.
+  2. Identifikation von Einstiegspunkten (Main-Files, Router, Controller) und verdeckten Modulabhängigkeiten.
+  3. Extraktion impliziter Datenmodelle (Datenbankschemata, DTOs, globale Zustände).
+  4. Zusammenfassung der ungeschriebenen Geschäftslogik und bekannten technischen Schulden.
 
 ## DOKUMENTATION & ERGEBNISSE (OUTPUT)
 Siehe `.agent/workflows/` (Output-Liste).

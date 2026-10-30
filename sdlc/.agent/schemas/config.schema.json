@@ -10,6 +10,11 @@
       "enum": ["mvp", "enterprise"],
       "default": "enterprise"
     },
+    "mode": {
+      "type": "string",
+      "enum": ["greenfield", "migration", "brownfield"],
+      "default": "greenfield"
+    },
     "allow_fast_track": { "type": "boolean", "default": false },
     "traceability": {
       "type": "string",
@@ -22,7 +27,31 @@
       "properties": {
         "enforce_gate1": { "type": "boolean", "default": true },
         "enforce_gate2": { "type": "boolean", "default": true },
-        "traceability_hard_fail": { "type": "boolean", "default": true }
+        "traceability_hard_fail": { "type": "boolean", "default": true },
+        "enforce_cutover_gate": { "type": "boolean", "default": true }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["strangler-fig", "big-bang", "module-migration", "parallel-run"],
+          "default": "strangler-fig"
+        },
+        "cutover_approval_required": { "type": "boolean", "default": true },
+        "dual_write": { "type": "boolean", "default": false },
+        "parallel_run_required": { "type": "boolean", "default": true }
+      }
+    },
+    "change_flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enforce_classification": { "type": "boolean", "default": true },
+        "allow_delta_for_hotfix_patch": { "type": "boolean", "default": true },
+        "require_change_brief": { "type": "boolean", "default": true }
       }
     },
     "security": {

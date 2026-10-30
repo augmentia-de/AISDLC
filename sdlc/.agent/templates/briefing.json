@@ -4,11 +4,19 @@
   "to_step": 1,
   "agent": "",
   "profile": "enterprise",
+  "mode": "greenfield",
   "read": [],
   "decisions": [],
   "open_points": [],
   "do_not": [],
   "contract_frozen": false,
+  "change": {
+    "type": "feature",
+    "scope": "module",
+    "contract_impact": "none",
+    "breaking": false,
+    "reason": ""
+  },
   "last_commit": "",
   "briefing_at": ""
 }

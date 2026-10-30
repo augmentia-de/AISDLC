@@ -9,11 +9,23 @@
     "to_step": { "type": "integer" },
     "agent": { "type": "string" },
     "profile": { "type": "string" },
+    "mode": { "type": "string", "enum": ["greenfield", "migration", "brownfield"] },
     "read": { "type": "array", "items": { "type": "string" } },
     "decisions": { "type": "array" },
     "open_points": { "type": "array" },
     "do_not": { "type": "array" },
     "contract_frozen": { "type": "boolean" },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["hotfix", "patch", "feature", "chore"] },
+        "scope": { "type": "string", "enum": ["local", "module", "cross-module"] },
+        "contract_impact": { "type": "string", "enum": ["none", "internal", "external", "public"] },
+        "breaking": { "type": "boolean" },
+        "reason": { "type": "string" }
+      }
+    },
     "last_commit": { "type": "string" },
     "briefing_at": { "type": "string" }
   }

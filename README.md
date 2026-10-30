@@ -20,6 +20,64 @@ Der Orchestrator durchläuft pro Feature vier Feedback-Loops und eskalieren sich
 
 **Eskalation:** Erkennt OpenCode während der Implementierung eine unvollständige Anforderung (`REQUIREMENT_GAP`) oder ein undurchführbares Design (`ARCHITECTURAL_BLOCKER`), stoppt es sofort und meldet sich mit strukturiertem JSON an den Orchestrator. Dieser ergänzt die Anforderungen (nahtloser Weiterbau) bzw. überarbeitet Architektur/API, setzt betroffene Dateien per Git zurück und startet die Implementierung neu.
 
+## Flows (Ausführungsmodi)
+
+Der Orchestrator wählt den Pfad anhand von `.agent/config.json` (`mode`, `change_flow`, `profile`) und dem `change`-Block im Briefing. Drei Modi sind vorgesehen:
+
+### A) Greenfield-Flow (Volllauf, Schritte 1–9)
+
+Für neue Projekte oder größere Features. Vollständige Phasen, beide Gates.
+
+| # | Schritt | Workflow | Agent | Gate |
+|---|---|---|---|---|
+| 1 | Anforderungserhebung | `01-requirements.md` | `aisdlc-requirements` | — |
+| 1a | Anforderungs-Grill-Me | (in 01) | `aisdlc-requirements` | — |
+| 2 | Konzept & Architektur | `02-architecture.md` | `aisdlc-architecture` | **GATE 1** |
+| 3 | Simplify & Reduktion | `03-simplify.md` | `aisdlc-architecture` | — |
+| 4 | Grill-Me-Stresstest | `04-grill-me-stress.md` | `aisdlc-architecture` | Contract-Freeze |
+| 5 | Test-Driven Setup | `05-tdd.md` | `aisdlc-execution` | — |
+| 6 | KI-Code-Generation | `06-implementation.md` | `aisdlc-execution` | — |
+| 7 | Refactoring & Clean-up | `07-refactoring.md` | `aisdlc-execution` | — |
+| 8 | Sicherheit & Compliance | `08-security.md` | `aisdlc-qa` | **GATE 2** (Traceability 0 Lücken) |
+| 9 | Deployment & Betrieb | `09-deploy.md` | `aisdlc-qa` | — |
+
+### B) Migration-Flow (`mode: migration` / `brownfield`)
+
+Für bestehende Systeme. Strangler-Fig / Module-Migration, paralleler Betrieb, Cutover-Gate.
+
+| # | Schritt | Workflow | Agent | Gate |
+|---|---|---|---|---|
+| 0a | Migration-Assessment | `00-migration-assessment.md` | `aisdlc-requirements` | Scope-Freigabe |
+| 1 | Anforderungserhebung | `01-requirements.md` | `aisdlc-requirements` | — |
+| 2 | Konzept & Architektur | `02-architecture.md` | `aisdlc-architecture` | GATE 1 |
+| 2b | Migration-Plan | `02b-migration-plan.md` | `aisdlc-architecture` | **GATE 1 (Migration)** |
+| 3–4 | Simplify / Stresstest | `03/04-*.md` | `aisdlc-architecture` | Contract-Freeze (nur neue externe/public) |
+| 5–7 | TDD / Impl / Refactor | `05/06/07-*.md` | `aisdlc-execution` | — |
+| 8 | Security & Compliance | `08-security.md` | `aisdlc-qa` | GATE 2 |
+| 9 | Deployment / Cutover | `09-deploy.md` | `aisdlc-qa` | **CUTOVER-GATE** |
+
+Besonderheiten: Adapter/ACL zwischen Alt und Neu sind vom Contract-Freeze ausgenommen. Migrationsskripte müssen idempotent sein; Backout-Plan Pflicht.
+
+### C) Delta-Flow (Hotfix/Patch/Small Feature)
+
+Für kleine Änderungen ohne vollständige PRD/Architektur. Voraussetzung: `change.type in {hotfix, patch}`, `contract_impact in {none, internal}`, `breaking == false`.
+
+| # | Schritt | Workflow | Agent |
+|---|---|---|---|
+| 1a | Change-Brief | `01a-change-brief.md` | `aisdlc-requirements` |
+| 5a | Delta TDD | `05a-delta-tdd.md` | `aisdlc-execution` |
+| 6a | Delta-Implementierung | `06a-delta-impl.md` | `aisdlc-execution` |
+| 8a | Delta QA | `08a-delta-qa.md` | `aisdlc-qa` |
+
+GATE 1 wird übersprungen; GATE 2 als **light** (nur betroffene ACs). Bei `contract_impact in {external, public}` oder Änderung an `openapi.yaml` → **niemals** Delta-Flow.
+
+### Routing-Regeln (Kurzfassung)
+
+- `mode == migration/brownfield` → Assessment (0a) + Migration-Plan (2b) + Cutover-Gate.
+- `change.type in {hotfix, patch}` + intern + nicht-breaking → Delta-Flow.
+- Sonst → Greenfield-Volllauf.
+- Fast-Track (MVP) nur bei `allow_fast_track: true` und obiger Delta-Bedingung.
+
 ## Verzeichnisstruktur
 
 ```
@@ -138,7 +196,7 @@ Dieses Projekt wurde um Konzepte aus dem [Agentic Software Delivery Framework](h
 | `AGENTS.md` | Immune System — Behaviour Rules, Hard Gates, Folder Ownership, Secrets. Jeder Agent liest diese Datei zuerst. |
 | `.agent/knowledge/` | Zentrale Knowledge Base: `openapi.yaml`, `schema.sql`, `stack.md` |
 | `.agent/artifacts/` | Zentraler Artefaktspeicher für alle Phasen-Ergebnisse |
-| `.agent/workflows/` | 9 Workflow-Dateien (01-requirements bis 09-deploy) mit Gates und Output-Definitionen |
+| `.agent/workflows/` | 15 Workflow-Dateien (00–09 + 0a/1a/2b/5a/6a/8a) mit Gates und Output-Definitionen |
 | `.agent/PHASES.md` | **Single Source of Truth**: Schritt → Instanz → Agent → Skill → Gate |
 
 ### Hard Gates
@@ -175,9 +233,9 @@ Sechs Primary-Agents sind in `.opencode/agents/` definiert:
 | Agent | Schritte | Schreibt in |
 |---|---|---|
 | `aisdlc-requirements` | 1 + 1a | `docs/requirements/` |
-| `aisdlc-architecture` | 2–4 | `docs/architecture/`, `docs/api/`, `docs/adr/` |
-| `aisdlc-execution` | 5–7 | `src/`, `tests/`, `docs/execution/` |
-| `aisdlc-qa` | 8–9 | `tests/`, `docs/qa/` |
+| `aisdlc-architecture` | 2–4, 2b | `docs/architecture/`, `docs/api/`, `docs/adr/`, `docs/migration/` |
+| `aisdlc-execution` | 5–7, 5a, 6a | `src/`, `tests/`, `docs/execution/` |
+| `aisdlc-qa` | 8–9, 8a | `tests/`, `docs/qa/` |
 
 **Stack-Agents (austauschbar)**
 
@@ -198,7 +256,8 @@ Sechs Primary-Agents sind in `.opencode/agents/` definiert:
 | `aisdlc-tdd` | 5 |
 | `aisdlc-security-scan` | 8 |
 | `aisdlc-deploy` | 9 |
-| `strangler-fig`, `module-migration`, `test-self-correction` | nach Bedarf |
+| `strangler-fig`, `module-migration` | 0a, 2b (Migration) |
+| `test-self-correction` | nach Bedarf |
 
 Jeder Agent hat folder-scoped Schreibrechte und einen eigenen System-Prompt.
 Details: `how-to/how-to.md`, Zuordnung: `.agent/PHASES.md`.

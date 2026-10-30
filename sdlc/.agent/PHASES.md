@@ -20,15 +20,21 @@ Ein Schritt ist **keine** Instanz und **kein** Agent.
 | Schritt | Workflow-Datei | Instanz | Agent | Skill (Optional) | Gate | MVP | Enterprise | Bemerkung |
 |---|---|---|---|---|---|---|---|---|
 | 0 Legacy-Analyse | — | `phase0` | — | — | optional | optional | optional | Nur bei Bedarf |
+| 0a Migration-Assessment | `00-migration-assessment.md` | `phase0` | `aisdlc-requirements` | `module-migration`, `strangler-fig` | optional | optional | **yes** (bei mode=migration) | Nur bei mode=migration/brownfield |
 | 1 Anforderungserhebung | `01-requirements.md` | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check` | — | **yes** | **yes** | Kern - PRD reicht meist im MVP |
+| 1a Change-Brief (Delta) | `01a-change-brief.md` | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress` (opt.) | — | **yes** (hotfix/patch) | **yes** | Nur fuer hotfix/patch/small feature |
 | 1a Anforderungs-Grill-Me | (in 01) | `phase1` | `aisdlc-requirements` | `aisdlc-grill-stress` | — | optional | **yes** | Im MVP gezielter Einsatz möglich |
 | 2 Konzept & Architektur | `02-architecture.md` | `phase2` | `aisdlc-architecture` | `aisdlc-openapi-first`, `aisdlc-glossary-adr`, `aisdlc-migration-plan` | **GATE 1** danach | minimal | **yes** | MVP: nur minimaler Architektur-Überblick, keine vollständigen ADR-Sets falls nicht nötig |
+| 2b Migration-Plan | `02b-migration-plan.md` | `phase2` | `aisdlc-architecture` | `aisdlc-migration-plan`, `strangler-fig`, `aisdlc-glossary-adr` | **GATE 1 (Migration)** | optional | **yes** (mode=migration) | Nur bei mode=migration/brownfield |
 | 3 Simplify & Reduktion | `03-simplify.md` | `phase2` | `aisdlc-architecture` | `aisdlc-simplify` | — | no | **yes** | Oft überspringbar im MVP |
 | 4 Grill-Me-Stresstest | `04-grill-me-stress.md` | `phase2` | `aisdlc-architecture` | `aisdlc-grill-stress` | — | optional | **yes** | Für externe/public APIs empfohlen, sonst überspringbar im MVP |
 | 5 Test-Driven Setup | `05-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd`, `aisdlc-test-matrix`, `aisdlc-traceability-check` | — | optional | **yes** | MVP: fokussierte Tests, nicht zwingend vollständige Teststrategie |
+| 5a Delta TDD | `05a-delta-tdd.md` | `phase3` | `aisdlc-execution` | `aisdlc-tdd` | — | **yes** (hotfix/patch) | **yes** | Nur betroffene Tests + Regressionen |
 | 6 KI-Code-Generation | `06-implementation.md` | `phase3` | `aisdlc-execution` | `aisdlc-feature-scaffold`, `aisdlc-containerize` | — | **yes** | **yes** | Kern |
+| 6a Delta-Implementierung | `06a-delta-impl.md` | `phase3` | `aisdlc-execution` | `aisdlc-feature-scaffold` (opt.), `aisdlc-simplify` | — | **yes** (hotfix/patch) | **yes** | Nur affected_paths |
 | 7 Refactoring & Clean-up | `07-refactoring.md` | `phase3` | `aisdlc-execution` | `aisdlc-simplify` | — | optional | **yes** | Im MVP oft Teil von Schritt 6 |
 | 8 Sicherheit & Compliance | `08-security.md` | `phase4` | `aisdlc-qa` | `aisdlc-security-scan` | **GATE 2** danach | minimal | **yes** | MVP: mindestens Secrets/Dependency-Scan, keine vollständige Compliance-Dokumentation |
+| 8a Delta QA | `08a-delta-qa.md` | `phase4` | `aisdlc-qa` | `aisdlc-security-scan` | **GATE 2 (light)** | **yes** (hotfix/patch) | **yes** | Diff-basiert, betroffene Module |
 | 9 Deployment & Betrieb | `09-deploy.md` | `phase4` | `aisdlc-qa` | `aisdlc-ci-pipeline`, `aisdlc-containerize`, `aisdlc-deploy` | — | **yes** | **yes** | Kern |
 
 **Die Skills sind Verfahrens-Schritte, keine Rollen.** Die `aisdlc-*`-Skills liefern
@@ -44,6 +50,7 @@ Kontextkosten bleiben bei 0, bis der Schritt wirklich gebraucht wird.
 |---|---|---|---|
 | **GATE 1** | 2 (Architektur) | PRD vollständig, Architektur und Entscheidungen ok | Kein Anwendungscode vor menschlicher Freigabe. Prüft die **Richtung**, nicht den fertigen Vertrag. |
 | **GATE 2** | 8 (Security) | QA 0 Critical, Security 0 Critical/High, **Traceability 0 Lücken** | Kein Deployment vor menschlicher Freigabe |
+| **CUTOVER-GATE** | 2b/9 (Migration) | Routing ok, Migrationsskripte idempotent, Backout getestet, Monitoring vorhanden | Kein finaler Cutover vor menschlicher Freigabe |
 
 **Die Traceability-Bedingung** (`python3 .agent/tools/traceability_check.py` → 0 Lücken)
 gehört zu GATE 2, weil sie erst nach Schritt 5/6 überhaupt prüfbar ist: eine
@@ -77,14 +84,20 @@ das Gate prueft den fertigen Commit. Ohne Commit ist der Schritt nicht abgeschlo
 | Schritt | Agent | Type | Subject | Pfade |
 |---|---|---|---|---|
 | 0 Legacy-Analyse | `phase0` | docs | `docs(sdlc-0): Legacy-Analyse` | `docs/00_legacy_analysis/`, `.agent/artifacts/` |
+| 0a Migration-Assessment | `aisdlc-requirements` | docs | `docs(sdlc-0): Migration-Assessment und Legacy-Inventar` | `docs/migration/`, `.agent/artifacts/` |
 | 1 Anforderungserhebung | `aisdlc-requirements` | docs | `docs(sdlc-1): PRD, User Stories und Traceability-Matrix` | `docs/requirements/`, `.agent/artifacts/` |
+| 1a Change-Brief (Delta) | `aisdlc-requirements` | docs | `docs(sdlc-fix): Change-Brief und betroffene Pfade` | `docs/execution/`, `.agent/artifacts/` |
 | 2 Konzept & Architektur | `aisdlc-architecture` | docs | `docs(sdlc-2): API-Contract, Domain-Modell und ADRs` | `docs/architecture/`, `docs/api/`, `docs/adr/`, `.agent/artifacts/` |
+| 2b Migration-Plan | `aisdlc-architecture` | docs | `docs(sdlc-2b): Migration-Plan und Cutover-Strategie` | `docs/migration/`, `docs/adr/`, `.agent/artifacts/` |
 | 3 Simplify & Reduktion | `aisdlc-architecture` | refactor | `refactor(sdlc-3): Architektur vereinfacht` | `docs/architecture/`, `docs/api/`, `docs/adr/`, `.agent/artifacts/` |
 | 4 Grill-Me-Stresstest | `aisdlc-architecture` | docs | `docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen` | `docs/architecture/`, `.agent/artifacts/` |
 | 5 Test-Driven Setup | `aisdlc-execution` | test | `test(sdlc-5): Teststrategie und fehlschlagende Tests` | `tests/`, `.agent/artifacts/` |
+| 5a Delta TDD | `aisdlc-execution` | test | `test(sdlc-fix): Delta-Tests und Regressionsfälle` | `tests/`, `.agent/artifacts/` |
 | 6 KI-Code-Generation | `aisdlc-execution` | feat | `feat(sdlc-6): Implementierung der Stories` | `src/`, `tests/`, `docs/execution/` |
+| 6a Delta-Implementierung | `aisdlc-execution` | feat | `feat(sdlc-fix): Delta-Implementierung` | `src/`, `tests/`, `docs/execution/` |
 | 7 Refactoring & Clean-up | `aisdlc-execution` | refactor | `refactor(sdlc-7): Refactoring und Clean-up` | `src/`, `tests/`, `.agent/artifacts/` |
 | 8 Sicherheit & Compliance | `aisdlc-qa` | docs | `docs(sdlc-8): Security-Audit und QA-Bericht` | `tests/`, `docs/qa/`, `.agent/artifacts/` |
+| 8a Delta QA | `aisdlc-qa` | docs | `docs(sdlc-fix): Delta-QA und Security-Bericht` | `tests/`, `docs/qa/`, `.agent/artifacts/` |
 | 9 Deployment & Betrieb | `aisdlc-qa` | build | `build(sdlc-9): Deployment-Pipeline und Deploy-Report` | `docs/execution/`, `infra/`, `.github/`, `.agent/artifacts/` |
 
 **Body-Format:** `Schritt <n> - <Schrittname> | Agent: <agent-id> | Artefakte: <pfade>`

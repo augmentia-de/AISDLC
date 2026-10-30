@@ -47,6 +47,9 @@ Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
   is still a draft here.
 - **After Step 8** (Security & Compliance complete) - before Deploy runs.
   The agent must present QA and Security findings and wait for human approval.
+- **CUTOVER-GATE** (nur bei mode=migration/brownfield, vor finalem Umschalten).
+  Routing, idempotente Migrationsskripte, getesteter Backout und Monitoring müssen
+  nachweisbar sein. Kein finaler Cutover ohne menschliche Freigabe.
 
 Without approval, the pipeline does not advance. No exceptions.
 
@@ -168,7 +171,9 @@ Vertrag. `.agent/knowledge/openapi.yaml` ist ein Verweis darauf, keine Kopie.
 - `REQUIREMENT_GAP`: Anforderung unvollständig → Rücksprung zu Phase 1.
 - `ARCHITECTURAL_BLOCKER`: Design undurchführbar → Rücksprung zu Phase 2.
 - Git-Reset der betroffenen `src/`-Dateien bei ARCHITECTURAL_BLOCKER.
-- **Fast-Track/Patch:** In `profile: mvp` with `allow_fast_track: true`, small bugfixes/patches may go directly to `aisdlc-execution` without re-running full PRD gates. **Never** fast-track if changes touch `docs/api/**`, `openapi.yaml`, or files classified `external/public` in `docs/architecture/contract-matrix.md`. Always verify contract impact first. In `profile: enterprise`, fast-track is heavily restricted.
+- **Fast-Track/Patch (Delta-Flow):** Bei `profile: mvp` und `allow_fast_track: true` sowie `change_flow.allow_delta_for_hotfix_patch: true` dürfen hotfix/patch/feature (type in {hotfix, patch, feature}, contract_impact in {none, internal}, scope in {local, module}, breaking=false) über den Delta-Pfad (1a → 5a → 6a → 8a) laufen. **Niemals** bei `contract_impact in {external, public}` oder Änderungen an `docs/api/openapi.yaml`. Contract-Impact wird zuerst gegen `docs/architecture/contract-matrix.md` geprüft. In `profile: enterprise` ist Delta-Flow nur bei expliziter Freigabe erlaubt.
+
+**Migration (mode=migration/brownfield):** Contract-Freeze gilt nicht für Adapter/ACL zwischen Alt und Neu. Nur neue externe/public Verträge sind eingefroren. Migration erfordert CUTOVER-GATE (Routing, idempotente Migrationsskripte, getesteter Backout, Monitoring) vor finalem Umschalten.
 
 ## Secrets
 
