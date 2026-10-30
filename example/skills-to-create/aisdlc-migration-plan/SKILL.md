@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 A migration that is wrong on a live database is an incident. The plan has to work with the
 **previous** application version still running.
@@ -15,7 +15,7 @@ A migration that is wrong on a live database is an incident. The plan has to wor
 - Step 2, when the schema is designed — decide the migration strategy there.
 - Step 6, before writing the migration file.
 
-## Inputs
+##Inputs
 
 - `.agent/knowledge/schema.sql`
 - `docs/api/openapi.yaml` (breaking changes are API changes too)
@@ -25,12 +25,12 @@ A migration that is wrong on a live database is an incident. The plan has to wor
 
 1. Inventory the schema change and the application code that reads the old shape.
 2. Split it into expand / migrate / switch / contract steps.
-3. Decide the rollback path for every step.
+3. Decide the rollback path for each step.
 4. Write one migration file per step, in order.
 
 ## Expand / contract
 
-| Phase | Action | Safe with old code? |
+| phase | Action | Safe with old code? |
 |---|---|---|
 | **Expand** | Add nullable column / new table / new index | yes |
 | **Migrate** | Backfill in batches, idempotent | yes |
@@ -54,7 +54,7 @@ back. A migration without an answer is not ready.
 - Rollback section per migration
 - `.agent/artifacts/migration-plan.md`
 
-## Rules
+##Rules
 
 - Every migration is idempotent or has an explicit "run once" marker.
 - Backfills are batched, resumable and rate-limited.

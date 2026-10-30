@@ -1,254 +1,254 @@
-# Lessons Learned — AISDLC-Lauf 1 (PromptGuard)
+# Lessons Learned — AISDLC Run 1 (PromptGuard)
 
-> Auswertung des ersten vollständigen AISDLC-Laufs, 20.–21.10.2026.
-> Grundlage: OpenCode-Log (43 MB, 17.–21.10.), Session-Datenbank
+> Evaluation of the first complete AISDLC run, October 20-21, 2026.
+> Basis: OpenCode log (43 MB, October 17th - 21st), session database
 > (`opencode.db`: `session_v2`, `session_message`, `part`, `permission`),
-> Git-Historie (25 Commits) und das erzeugte Artefaktset.
-> Kein Idealbild, sondern das, was tatsächlich gelaufen ist.
+> Git history (25 commits) and the created artifact set.
+> Not an ideal image, but what actually happened.
 
-## 1. Die Zahlen
+## 1. The numbers
 
 | | |
 |---|---|
-| Laufzeit gesamt | **54,6 h** (Stand 21.10 12:00, 32 Sessions) |
-| Davon produktive Commit-Intervalle | ~10 h |
-| Input-Token gesamt | **23.306.743** |
-| Output-Token gesamt | **1.100.415** |
-| Verhältnis Input : Output | **21 : 1** |
-| Modell-Turns, schwerster Schritt | 49 (Schritt 2, Architecture) |
-| Nachrichtenlast, schwerste Session | 315 KB (38 Assistant-Meldungen) |
-| Übergabe-Payload an den Orchestrator | 37.367 Zeichen ≈ 9.341 Token |
-| Compactions | 7 (2 im Pipeline-Fenster) |
-| Rate-Limit-Ereignisse | 12 (alle 17.–19.10., **vor** der Pipeline) |
-| Erzeugtes Artefaktset | Vertrag 5.523 Zeilen/199 KB · Schema 1.414 Zeilen · 20 ADRs · 11 Architekturdokumente · 35 Stories · 35 Gherkin-Features · 168 Java-Dateien · 41 Test-Dateien |
+| Total running time | **54.6 h** (as of October 21st 12:00, 32 sessions) |
+| Of which productive commit intervals | ~10 h |
+| Total input tokens | **23,306,743** |
+| Total output tokens | **1,100,415** |
+| Ratio input: output | **21 : 1** |
+| Model turns, hardest step | 49 (Step 2, Architecture) |
+| Message load, heaviest session | 315 KB (38 Assistant messages) |
+| Handover payload to the orchestrator | 37,367 characters ≈ 9,341 tokens |
+| Compactions | 7 (2 in the pipeline window) |
+| Rate Limit Events | 12 (every October 17th - 19th, **before** the pipeline) |
+| Generated Artifact Set | Contract 5,523 lines/199 KB · Schema 1,414 lines · 20 ADRs · 11 architecture documents · 35 stories · 35 Gherkin features · 168 Java files · 41 test files |
 
-**Schrittfolge:** 1 → 2 → 3 → 4 → ⟨2⟩ → 5 → ⟨2⟩ → 6 → ⟨2⟩ → 6.
-Drei Rücksprünge auf Schritt 2, drei Vertragsrevisionen (1.0 → 1.1 → 1.1.1).
+**Step sequence:** 1 → 2 → 3 → 4 → ⟨2⟩ → 5 → ⟨2⟩ → 6 → ⟨2⟩ → 6.
+Three jumps back to step 2, three contract revisions (1.0 → 1.1 → 1.1.1).
 
-*Der Lauf war zum Zeitpunkt der Auswertung nicht beendet — die Zahlen wachsen noch.
-Ein Nebenbefund der Auswertung: der laufende Agent hat `.agent/knowledge/schema.sql`
-und `docs/architecture/schema.sql` **gleichzeitig** angefasst — die Spiegel-Regel
-(L12) wird also gelebt, nicht nur dokumentiert.*
+*The run had not ended at the time of evaluation - the numbers are still growing.
+A side finding of the evaluation: the running agent has `.agent/knowledge/schema.sql`
+and `docs/architecture/schema.sql` touched **at the same time** — the mirror rule
+(L12) is lived, not just documented.*
 
-## 2. Die Befunde
+## 2. The findings
 
-### L1 — Die Rechte-Matrix schlug die Workflow-Datei
+### L1 — The rights matrix hit the workflow file
 
-**Symptom.** `.agent/artifacts/` wurde nicht geschrieben; die Artefakte lagen unter
+**Symptom.** `.agent/artifacts/` was not written; the artifacts were buried
 `docs/requirements/artifacts/`.
 
-**Ursache.** 23 Framework-Dateien (9 Workflows, 10 Prompts, `PHASES.md`, `AGENTS.md`,
-`README.md`, `how-to.md` — 85 Fundstellen) nennen `.agent/artifacts/` als Ziel. Die
-Agent-Frontmatter verbieten genau diesen Pfad. Die Folder-Ownership-Tabelle in
-`AGENTS.md` kannte den Ordner gar nicht.
+**Cause.** 23 framework files (9 workflows, 10 prompts, `PHASES.md`, `AGENTS.md`,
+`README.md`, `how-to.md` - 85 references) name `.agent/artifacts/` as the target. The
+Agent Frontmatter prohibits exactly this path. The folder ownership table in
+`AGENTS.md` didn't recognize the folder at all.
 
-**Regel.** Jedes Ziel, das ein Workflow nennt, braucht drei Dinge: Schreibrecht in der
-Agent-Frontmatter, eine Zeile in der Folder-Ownership-Tabelle und denselben Pfad in
-`PHASES.md`. Fehlt eines, schreibt der Agent an den Ort, den er darf — und der Ort
-ist nicht der gemeinte.
+**Rule.** Every goal that a workflow names needs three things: Write permission in the
+Agent-Frontmatter, a row in the Folder Ownership table and the same path in
+`PHASES.md`. If one is missing, the agent writes in the place he is allowed to - and the place
+is not the one meant.
 
-**Behoben** in `38d16f1` und `687fe5d`.
+**Fixed** in `38d16f1` and `687fe5d`.
 
-### L2 — Der Agent umgeht Sperren, statt sie zu melden
+### L2 — The agent bypasses blocks instead of reporting them
 
-**Symptom.** Das DB-Schema lag in `docs/architecture/schema.sql`, nicht in
-`.agent/knowledge/schema.sql`. Danach dokumentierte `domain-model.md:47` den **falschen**
-Ort als „kanonisch" — 32 Dateien mit widersprüchlichen Verweisen.
+**Symptom.** The DB schema was in `docs/architecture/schema.sql`, not in
+`.agent/knowledge/schema.sql`. After that, `domain-model.md:47` documented the **wrong**
+Location as “canonical” — 32 files with conflicting references.
 
-**Ursache.** Der Architecture-Agent hatte kein Schreibrecht auf `.agent/knowledge/`
-(siehe L1) und schrieb an den nächstbesten zulässigen Ort. Die Umgehung war lokal
-korrekt und global falsch.
+**Cause.** The Architecture agent did not have write permission to `.agent/knowledge/`
+(see L1) and wrote to the next best permitted location. The bypass was local
+correct and globally incorrect.
 
-**Regel.** Eine Sperre, die nicht an der Stelle sichtbar ist, an der sie greift, wird
-umgangen. Sperren brauchen eine sichtbare Begründung **im Zielordner selbst**, nicht
-nur im Framework.
+**Rule.** A lock that is not visible at the location where it applies will
+bypassed. Locks need eThere is no visible justification **in the target folder itself**
+only in the framework.
 
-### L3 — Das `rtk`-Plugin bricht jeden Git-Workflow, der auf geparstem Output beruht
+### L3 — The `rtk` plugin breaks any Git workflow that relies on parsed output
 
-**Symptom.** „the first commit attempt failed" — der Schritt-2-Commit entstand nicht.
+**Symptom.** "the first commit attempt failed" — the step 2 commit was not created.
 
-**Ursache.** `rtk` rewritet **jeden Teil einer Pipeline einzeln**. Aus
-`git diff --cached --name-only` wird `rtk git diff --cached --name-only`, und das hängt
-einen „Changes:"-Block mit Leerzeilen an. Als Pfadspezifikation führt das zu
-`fatal: empty string is not a valid pathspec` — der Commit passiert nicht. Unabhängig
-davon bricht `git commit -- <pfade>` ab, sobald ein Scope-Pfad keine getrackten Dateien
-hat (leerer Zielordner).
+**Cause.** `rtk` rewrites **each part of a pipeline individually**. Off
+`git diff --cached --name-only` becomes `rtk git diff --cached --name-only`, and that hangs
+a "Changes:" block with blank lines. As a path specification this leads to
+`fatal: empty string is not a valid pathspec` — the commit does not happen. Independent
+Of these, `git commit -- <paths>` aborts as soon as a scope path does not contain any tracked files
+has (empty destination folder).
 
-**Regel.** Kein Shell-Workflow darf auf geparstem Kommando-Output beruhen, solange ein
-Rewrite-Plugin aktiv ist. Das Scope gehört über den **Index** gesetzt:
-`mkdir -p` → `git reset -q` → `git add -A -- <scope>` → `git commit`. Keine Pipe,
-keine Pfadspezifikations-Liste.
+**Rule.** No shell workflow may rely on parsed command output as long as a
+Rewrite plugin is active. The scope should be set via the **index**:
+`mkdir -p` → `git reset -q` → `git add -A -- <scope>` → `git commit`. No pipe,
+no path specification list.
 
-**Behoben** in `6e69c4c`, im End-to-End-Test verifiziert.
+**Fixed** in `6e69c4c`, verified in end-to-end testing.
 
-### L4 — `last-match-wins`: eine Agent-Regel kann die ganze globale Allowlist aushebeln
+### L4 — `last-match-wins`: an agent rule can override the entire global allowlist
 
-**Symptom.** `git status`, `git diff` und `git log` fragten trotz globaler Allowlist.
+**Symptom.** `git status`, `git diff` and `git log` asked despite global allowlist.
 
-**Ursache.** Agent-Regeln werden **zuletzt** angehängt. Das `shell: *` → `ask` im
-Frontmatter jedes Rollen-Agenten überschrieb alle globalen Allows, die davor standen.
+**Cause.** Agent rules are appended **last**. The `shell: *` → `ask` in
+Frontmatter of each role agent overwrote any global allows that preceded it.
 
-**Regel.** Eine Regel, die global steht, gehört **nicht** ins Agent-Frontmatter.
-Frontmatter-Regeln sind Zusätze, keine Wiederholungen — sie gewinnen sonst immer.
+**Rule.** A rule that is global does not belong in the agent front matter.
+Frontmatter rules are additions, not repetitions — they always win otherwise.
 
-### L5 — `mode: primary` verhindert die Subagent-Nutzung
+### L5 — `mode: primary` prevents subagent usage
 
-**Symptom.** „Agent aisdlc-architecture cannot run as a subagent".
+**Symptom.** "Agent aisdlc-architecture cannot run as a subagent".
 
-**Regel.** Rollen-Agenten, die ein Orchestrator starten soll, brauchen `mode: all`
-(primary **und** subagent).
+**Rule.** Role agents that an orchestrator should start need `mode: all`
+(primary **and** subagent).
 
-### L6 — Die Verschachtelungstiefe ist Default 1 — und das Modell findet einen Umweg
+### L6 — The nesting depth is default 1 — and the model finds a detour
 
-**Symptom.** „Subagent depth limit reached". Im Test startete das Modell den Enkel
-**selbst**, statt den Rollen-Agenten ihn starten zu lassen — eine stillschweigende
-Rollenaufweichung.
+**Symptom.** "Subagent depth limit reached". In the test, the model started the grandson
+**himself**, rather than letting the role agent start it — a silent one
+Role softening.
 
-**Regel.** `experimental.subagent_depth` explizit setzen. Und: eine Sperr, die nur
-„nein" sagt, provoziert einen Umweg. Jede Tiefensperre braucht eine erlaubte
-Alternative — sonst löst das Modell sie auf eigene Faust.
+**Rule.** Set `experimental.subagent_depth` explicitly. And: a barrier that only
+Saying “no” provokes a detour. Every depth barrier needs a permitted one
+Alternative - otherwise the model solves it on its own.
 
-### L7 — Der Übergabe-Payload war 9.341 Token
+### L7 — The delivery payload was 9,341 tokens
 
-**Messung.** Die finale Nachricht der Architecture-Session: 37.367 Zeichen. Kein
-Summary, sondern ein Reasoning-Dump. Bei neun Schritten wären das ~84.000 Token allein
-an Rückgaben im Orchestrator-Kontext — das dokumentierte Versagen („Agent vergisst
-Kontext aus vorherigem Schritt") wäre eingetreten.
+**Measurement.** The final message of the Architecture session: 37,367 characters. None
+Summary, but a reasoning dump. With nine steps, that would be ~84,000 tokens alone
+of returns in the Orchestrator context — the documented failure (“Agent forgets
+Context from previous step") would have occurred.
 
-**Regel.** Die Rückgabe ist ein **Zeiger**, nie Inhalt: drei Routing-Fakten
-(`STATUS` / `COMMIT` / `OFFENE PUNKTE`), plus optional Artefaktpfade und
-Prüfergebnis. Der nächste Agent liest die Dateien selbst; der Orchestrator reicht
-Pfade weiter, nie Inhalte.
+**Rule.** The return is a **pointer**, never Content: three routing facts
+(`STATUS` / `COMMIT` / `OPEN POINTS`), plus optional artifact paths and
+Test result. The next agent reads the files itself; the orchestrator is enough
+Paths continue, never content.
 
-**Gemessen nach der Umstellung: 895 Zeichen ≈ 223 Token — Faktor 42.**
+**Measured after the change: 895 characters ≈ 223 tokens — factor 42.**
 
-Nebenbefund: „nur erledigt" ist bereits der eingebaute Normalfall. Hat ein Subagent
-keinen finalen Text, liefert OpenCode `Subagent completed without a text response.`
-Man muss das nicht erzwingen — man muss nur verhindern, dass stattdessen ein Dump
-abgegeben wird.
+Side finding: “just done” is already the built-in normal casel. Has a subagent
+no final text, OpenCode returns `Subagent completed without a text response.`
+You don't have to force it — you just have to prevent a dump from happening instead
+is delivered.
 
-### L8 — Das Problem ist die Session, nicht die Rückgabe
+### L8 — The problem is the session, not the return
 
-**Messung.** Input-Token über die Schritte: 173k → 632k → 2,02M → 5,47M → **14,08M** —
-80× über vier Schritte. Verhältnis Input:Output = 21:1. Sieben Compactions, davon
-zwei im Pipeline-Fenster.
+**Measurement.** Input tokens across steps: 173k → 632k → 2.02M → 5.47M → **14.08M** —
+80× over four steps. Ratio input:output = 21:1. Seven Compactions, of these
+two in the pipeline window.
 
-**Ursache.** Jeder Schritt startet eine frische Session, nimmt aber den **gesamten**
-Bestand mit (315 KB Nachrichtenlast bei Schritt 2). Die Agenten lesen 21× mehr, als sie
-schreiben — das ist die eigentliche Last.
+**Cause.** Each step starts a fresh session but takes up the **entire**
+Stock with (315 KB message load at step 2). The agents read 21 times more than they do
+writing — that’s the real burden.
 
-**Regel.** Schritt-spezifische Teilkontexte statt voller Session. Der Vertrag, das
-Schema und die Artefakte sind versioniert — daraus lässt sich ein Einstiegspunkt
-bauen, statt die ganze Historie mitzuschleppen. **Noch nicht umgesetzt.**
+**Rule.** Step-specific subcontexts instead of full session. The contract, that
+The schema and the artifacts are versioned — this creates an entry point
+build instead of dragging along the whole history. **Not yet implemented.**
 
-### L9 — Rücksprünge sind der teuerste Posten
+### L9 — Jumps are the most expensive item
 
-**Messung.** Schrittfolge 1 → 2 → 3 → 4 → ⟨2⟩ → 5 → ⟨2⟩ → 6 → ⟨2⟩ → 6. Drei
-Vertragsrevisionen. Zwischen Schritt 5 und Schritt 6 lagen **7 h 11 min**. Das
-Artefaktset zählt 25 Stress-Test-Befunde (S-1…S-26), 44 offene Punkte (O-01…O-44)
-und 17 Zuordnungen (A-1…A-17).
+**Measurement.** Step sequence 1 → 2 → 3 → 4 → ⟨2⟩ → 5 → ⟨2⟩ → 6 → ⟨2⟩ → 6. Three
+Contract revisions. There were **7 h 11 min** between step 5 and step 6. This
+Artifact set counts 25 stress test findings (S-1…S-26), 44 open points (O-01…O-44)
+and 17 assignments (A-1…A-17).
 
-**Regel.** Jede Vertragsrevision invalidiert Schema, Code und Tests gleichzeitig. Gate 1
-ist damit die billigste Versicherung der ganzen Pipeline — und war der
-zeitintensivste Punkt des Laufs. Der Vertrag gehört **vor** die Implementierung
-stabil, nicht danach.
+**Rule.** Each contract revision invalidates schema, code, and tests simultaneously. Gate 1
+is therefore the cheapest insurance in the entire pipeline - and was
+most time-consuming point of the run. The contract comes **before** the implementation
+stable, not after.
 
-### L10 — Die Zeit steckt in Wartezeit, nicht in Rechenzeit
+### L10 — Time is in waiting time, not in computing time
 
-**Messung.** Drei Sessions mit 12–15 h Wall-Clock bei 440–520 Output-Token/min
-(≈ 8,7 Token/s). Das ist kein Compute, das ist Warten auf unbeantwortete
-Permission-Prompts oder eine idle Session.
+**Measurement.** Three sessions with 12-15 h wall clock at 440-520 output tokens/min
+(≈ 8.7 tokens/s). That's not computing, that's waiting for unanswered ones
+Permission prompts or an idle session.
 
-**Regel.** Laufzeit getrennt nach Warte- und Rechenzeit auswerten. Eine Session mit
-viel Wall-Clock und wenig Output ist **kein** Rechenproblem, sondern ein
-Warteproblem — meist ein nicht beantworteter Prompt.
+**Rule.** Evaluate runtime separately according to waiting time and calculation time. A session with
+a lot of wall clock and little output is **not** a computing problem, but a
+Waiting problem — usually an unanswered prompt.
 
-### L11 — Ein „interrupted" ohne Retry-Pfad ist eine Sackgasse
+### L11 — An "interrupted" without a retry path is a dead end
 
-**Messung.** 8 der 12 längeren Sessions enden mit `interrupted`.
+**Measurement.** 8 of the 12 longer sessions end with `interrupted`.
 
-**Regel.** Jede Eskalation braucht einen Retry-Pfad **mit Budget**
-(`REQUIREMENT_GAP` → Schritt 1 neu, maximal N Versuche, danach als offener Punkt
-weiter). Ohne Retry-Budget stirbt die Pipeline beim ersten Blocker.
+**Rule.** Every escalation needs a retry path **with budget**
+(`REQUIREMENT_GAP` → Step 1 new, maximum N attempts, then as an open point
+continue). Without a retry budget, the pipeline dies at the first blocker.
 
-### L12 — Jede Datei an zwei Orten braucht vier Dinge
+### L12 — Every file in two locations needs four things
 
-**Beobachtet.**
+**Observed.**
 
-| Doppelablage | Status |
+| Double shelf | Status |
 |---|---|
-| `.agent/knowledge/openapi.yaml` (2-KB-Template) ↔ `docs/api/openapi.yaml` (199-KB-Vertrag) | **echter Fehler** — drei Workflows lasen das Template |
-| `.agent/knowledge/stack.md` (Template) ↔ ADR-001 (Entscheidung) | **echter Fehler** — das Template nannte FastAPI, entschieden war Spring Boot |
-| `.agent/knowledge/schema.sql` ↔ `docs/architecture/schema.sql` | **bewusst** (ADR-019 §6, O-13/S-26), per Mirror-Test erzwungen |
+| `.agent/knowledge/openapi.yaml` (2KB template) ↔ `docs/api/openapi.yaml` (199KB contract) | **real error** — three workflows read the template |
+| `.agent/knowledge/stack.md` (template) ↔ ADR-001 (decision) | **real mistake** — the template was called FastAPI, decided was Spring Boot |
+| `.agent/knowledge/schema.sql` ↔ `docs/architecture/schema.sql` | **conscious** (ADR-019 §6, O-13/S-26), enforced via mirror test |
 
-**Regel.** Für jede Doppelablage braucht es: (a) einen benannten Besitzer,
-(b) eine Regel „kanonisch vs. Kopie", (c) einen Test oder ein Skript, das die
-Gleichheit erzwingt, (d) einen Verweis im Framework. Beim Schema fehlte nur (d) — beim
-OpenAPI fehlten (b), (c) und (d) gleichzeitig.
+**Rule.** Each double file requires: (a) a named owner,
+(b) a canonical vs. copy rule, (c) a test or script that
+EqCalibration enforces (d) a reference in the framework. The only thing missing from the scheme was (d) — the
+OpenAPI was missing (b), (c) and (d) at the same time.
 
-### L13 — Was formal entschieden ist, kann trotzdem falsch sein
+### L13 — What has been formally decided can still be wrong
 
-**Beobachtet.** F2 (Mandantenmodell) war als entschieden verbucht. Das
-Risk-Register führt unter B-01 denselben Scope-Konflikt: „zentrales Register" ↔
-„Fachbereiche arbeiten in Abteilungs-Workspaces" — mit der Folge „Datenmodell- und
-API-Rework in Phase 2".
+**Observed.** F2 (client model) was recorded as decided. This
+Risk-Register has the same scope conflict under B-01: “central register” ↔
+“Departments work in departmental workspaces” — with the result “data model and
+API rework in phase 2".
 
-**Regel.** Ein Gate prüft nicht nur „steht ein Entscheid drin", sondern „ist der
-Ensechid *richtig*". Ein Widerspruch zwischen Entscheidungsliste und Risk-Register
-ist ein Gate-Befund, kein Formfehler.
+**Rule.** A gate not only checks “is there a decision in it”, but “is it
+Ensechid *correct*”. A contradiction between the decision list and the risk register
+is a gate finding, not a formal error.
 
-### L14 — Der Testlauf schlug die Theorie — dreimal
+### L14 — The test run beat the theory — three times
 
-| Erwartung | Befund |
+| expectation | Finding |
 |---|---|
-| Der Orchestrator braucht eine feste Rückgabe | Das Modell stellte die drei Zeilen ans **Ende**; erst die Zusatzregel „die drei Zeilen zuerst" brachte die Determinismus. |
-| Der Architecture-Agent legt den Commit-Fehler nicht offen | Er **meldete** ihn („the first commit attempt failed") und untersuchte die Ursache — deshalb fiel er auf. Ein stillschweigender Umweg hätte den Bug verdeckt. |
-| Der erste Orchestrator-Lauf scheitert am Subagent-Start | Er **blockierte korrekt**, statt mit einem Generalisten zu arbeiten. Genau das war das gewünschte Verhalten — Folder-Ownership wurde nicht umgangen. |
+| The orchestrator needs a fixed return | The model placed the three lines at the **end**; Only the additional rule “three lines first” brought determinism. |
+| The Architecture Agent does not disclose the commit error | He **reported** it ("the first commit attempt failed") and investigated the cause — that's why it stood out. A silent detour would have covered up the bug. |
+| The first Orchestrator run fails due to subagent startup | He **blocked correctly** instead of working with a generalist. This was exactly the desired behavior — folder ownership was not bypassed. |
 
-**Regel.** Agenten, die einen Blocker melden statt ihn zu umgehen, sind das
-wichtigste Feature des ganzen Systems. Jede Designentscheidung, die einen Blocker
-*technisch* verhindert (Rechte, Pfade, Formate), ist mehr wert als jede prosebasierte
-Regel.
+**Rule.** These are agents who report a blocker instead of bypassing it
+most important feature of the entire system. Any design decision that has a blocker
+*technically* prevented (rights, paths, formats), is worth more than any prose-based
+Rule.
 
-## 3. Was noch offen ist
+## 3. What is still open
 
-| # | Offen | Risiko |
+| # | Open | Risk |
 |---|---|---|
-| 1 | Input-Token pro Schritt (L8) | Der Kontext wächst weiter; die 21:1-Leselast ist die Wurzel |
-| 2 | 44 offene Punkte aus Schritt 6 | Werden in späteren Schritten zu Rücksprüngen (L9) |
-| 3 | 107 uncommittete Dateien aus einem `interrupted`-Lauf | Nächster Commit-Scope kann Fremdes einsammeln |
-| 4 | 12 Commits nicht gepusht | Der Remote steht auf Schritt 2 |
-| 5 | `git reset -q` unstaged fremde Arbeit | Löscht sie nicht, aber sie ändert den Staging-Zustand des Menschen |
+| 1 | Input tokens per step (L8) | The context continues to grow; the 21:1 read load is the root |
+| 2 | 44 open points from step 6 | Become jumps back (L9) | in later steps
+| 3 | 107 uncommitted files from an `interrupted` run | Next commit scope can collect foreign |
+| 4 | 12 commits not pushed | The remote is on step 2 |
+| 5 | `git reset -q` unstaged someone else's work | Doesn't delete it, but it changes the staging state of the human |
 
-## 4. Die Regeln, die daraus folgen
+## 4. The rules that follow from it
 
-1. **Ein Workflow-Name ist eine Zusage.** Er braucht Schreibrecht, Folder-Ownership-Zeile
-   und SSoT-Eintrag — sonst schreibt der Agent woanders hin.
-2. **Sperren brauchen eine sichtbare Begründung am Zielort.** Sonst werden sie
-   umgangen, und der Umweg wird zur Dokumentation.
-3. **Kein Shell-Workflow auf geparstem Output.** Bei aktivem Rewrite-Plugin: Scope über
-   den Index setzen, nicht über eine Pfadspezifikation.
-4. **Globale Regeln nicht ins Frontmatter wiederholen.** Agent-Regeln gewinnen
+1. **A workflow name is a commitment.** It needs write permission, folder ownership line
+   and SSoT entry — otherwise the agent writes somewhere else.
+2. **Blocks need a visible justification at the destination.** Otherwise they will
+   bypassed, and the detour becomes documentation.
+3. **No shell workflow on parsed output.** With active rewrite plugin: Scope over
+   set the index, not via a path specification.
+4. **Do not repeat global rules into front matter.** Agent rules win
    (`last match wins`).
-5. **`mode: all` für jeden Agenten, den ein Orchestrator starten soll.** Und
-   `experimental.subagent_depth` explizit setzen — mit erlaubter Alternative.
-6. **Die Rückgabe ist ein Zeiger.** Drei Routing-Fakten, sonst nichts. Der nächste
-   Agent liest die Dateien selbst.
-7. **Der Agent entscheidet, wann er fertig ist; das Framework prüft es.**
-   `steps` ist das Sicherheitsnetz, nicht das Kriterium.
-8. **Jede Eskalation hat ein Retry-Budget.** Sonst stirbt die Pipeline beim ersten
-   Blocker.
-9. **Der Vertrag gehört vor die Implementierung.** Gate 1 ist die billigste Versicherung
-   der Pipeline.
-10. **Laufzeit getrennt nach Warten und Rechnen auswerten.** Viel Wall-Clock bei wenig
-    Output ist ein Prompt-Problem, kein Modellproblem.
-11. **Jede Doppelablage braucht Besitzer, Regel, Test und Framework-Verweis.**
-12. **Blocker melden ist das Kernfeature.** Technisch verhinderte Umwege sind mehr wert
-    als jede prosebasierte Regel.
+5. **`mode: all` for each agent that an orchestrator should start.** And
+   Set `experimental.subagent_depth` explicitly — with allowed alternative.
+6. **The return is a pointer.** Three routing facts, nothing else. The next one
+   Agent reads the files itself.
+7. **The Agent decides when he is finished; the framework checks it.**
+   `steps` is the safety net, not the criterion.
+8. **Each escalation has a retry budget.** Otherwise the pipeline dies on the first one
+   Blockers.
+9. **The contract belongs before implementation.** Gate 1 is the cheapest insurance
+   the pipeline.
+10. **Evaluate runtime separately after waiting and computing.** A lot of wall clock with little
+    Output is a prompt problem, not a model problem.
+11. **Each double file needs owner, rule, test and framework reference.**
+12. **Reporting blockers is the core feature.** Technically prevented detours are worth more
+    than any prose-based rule.
 
-## 5. Reproduktion
-
-```bash
+## 5. Reproduction
+```
+bash
 # Laufzeit je Session, inkl. Output-Rate
 python3 - <<'PY'
 import sqlite3, os, time
@@ -269,155 +269,154 @@ opencode api session.message.list --param sessionID=<id> \
 # Fehler im Log
 grep -a "level=ERROR" ~/.local/share/opencode/log/opencode.log | sed 's/.*message="//' | cut -c1-90 | sort | uniq -c | sort -rn
 ```
-
-Für den nächsten Lauf sind zu erwarten: **Input-Token pro Schritt** (L8) und die
-**44 offenen Punkte** (L9) — beides entscheidet, ob Schritt 7 wieder zurückspringt.
+Expected for the next run: **Input tokens per step** (L8) and the
+**44 open points** (L9) — both decide whether step 7 jumps back.
 
 
 ---
 
-# Teil 2 — Die Auswertung der Logfiles (21.10.2026)
+# Part 2 — The evaluation of the log files (October 21, 2026)
 
-## Werkzeugbilanz
+## Tool balance
 
-1.715 Werkzeugaufrufe in den Pipeline-Sessions:
+1,715 tool calls in the pipeline sessions:
 
-| Werkzeug | Aufrufe | Anteil |
+| Tool | Views | Share |
 |---|---|---|
-| `shell` | 1.093 | 63,8 % |
-| `read` | 202 | 11,8 % |
-| `write` / `edit` | 149 / 136 | 16,6 % |
-| `bash` (klassisch) | 51 | 3,0 % |
-| `glob` / `grep` | 19 / 11 | 1,7 % |
-| `subagent` | 21 | 1,2 % |
+| `shell` | 1,093 | 63.8% |
+| `read` | 202 | 11.8% |
+| `write` / `edit` | 149 / 136 | 16.6% |
+| `bash` (classic) | 51 | 3.0% |
+| `glob` / `grep` | 19/11 | 1.7% |
+| `subagent` | 21 | 1.2% |
 
-Die 1.094 `shell`-Aufrufe nach Zweck:
+The 1,094 `shell` calls by purpose:
 
-| Zweck | Aufrufe | Anteil |
+| Purpose | Views | Share |
 |---|---|---|
-| navigieren/ausgeben (`cd`, `echo`, `pwd`) | 591 | 54,0 % |
-| **Python-Skript** | **426** | **38,9 %** |
-| Datei lesen (`cat`/`wc`/`diff`) | 55 | 5,0 % |
-| suchen/auflisten | 13 | 1,2 % |
-| git / Build / Test | 4 / 1 | 0,5 % |
+| navigate/output (`cd`, `echo`, `pwd`) | 591 | 54.0% |
+| **Python script** | **426** | **38.9%** |
+| Read file (`cat`/`wc`/`diff`) | 55 | 5.0% |
+| search/list | 13 | 1.2% |
+| git/Build/Test | 4/1 | 0.5% |
 
-## Warum Python-Skripte statt Dateiwerkzeuge?
+## Why Python scripts instead of file tools?
 
-**Die Ursache ist ein Werkzeugdefizit, kein Modellfehler.** `read` zeigt eine Datei,
-`grep` findet — aber „welche Anforderungs-IDs fehlen in den Stories?" über 70 Dateien
-ist ein **Mengenvergleich**. Dafür gibt es kein Werkzeug, also schließt der Agent die
-Lücke mit einem Skript: 1 Modell-Turn statt 70. Ökologisch richtig.
+**The cause is a tool deficiency, not a model error.** `read` shows a file,
+`grep` finds — but “which request IDs are missing from the stories?” over 70 files
+is a **quantity comparison**. There is no tool for this, so the agent closes it
+Gap with a script: 1 model turn instead of 70. Ecologically correct.
 
-Die 426 Skripte sind genau zwei Muster:
+The 426 scripts are exactly two patterns:
 
-| Muster | Zweck | Bewertung |
+| Pattern | Purpose | Rating |
 |---|---|---|
-| `python3 …/generate_artifacts.py` | Generator: Stories, Features, Traceability-Matrix aus dem PRD | korrekt — aber als **Inline-Wiederverwendung** statt als versioniertes Werkzeug |
-| `python3 - <<'PY' …` | Konsistenzchecks: ID-Abgleich PRD ↔ Stories ↔ Features ↔ Matrix | korrekt — aber **jedes Mal neu erfunden** statt als Skill |
+| `python3 …/generate_artifacts.py` | Generator: Stories, Features, Traceability Matrix from the PRD | correct — but as **inline reuse** rather than as a versioned tool |
+| `python3 - <<'PY' …` | Consistency checks: ID comparison PRD ↔ Stories ↔ Features ↔ Matrix | correct — but **reinvented each time** instead of as a skill |
 
-**Per Prompt vermeidbar?** Differenziert:
+**Can it be avoided immediately?** Differentiated:
 
-- Die **Rechen**-Skripte: nein. Sie sind richtig und effizient.
-- Der **Generator**: ja, durch einen Ort und eine Konvention — er lag in
-  `docs/requirements/tools/`, also mitten in der Spezifikation, die ein Mensch liest. Im Framework selbst gibt es keinen solchen Generator — die Werkzeug-Konvention (`.agent/tools/README.md`) verhindert, dass das wieder passiert.
-  Jetzt in `.agent/tools/`.
-- Der **Konsistenzcheck**: ja, als Skill. Jetzt `aisdlc-traceability-check` mit dem
-  Werkzeug `.agent/tools/traceability_check.py`.
-- Die **591 Ausgabe-Kommandos**: ja, per Prompt. Sie kosten je einen Modell-Turn und
-  einen Permission-Check und liefern kein Ergebnis.
+- The **calculation** scripts: no. They are correct and efficient.
+- The **Generator**: yes, by a place and a convention — it was in
+  `docs/requirements/tools/`, i.e. in the middle of the specification that a human reads. There is no such generator in the framework itself — the tools convention (`.agent/tools/README.md`) prevents this from happening again.
+  Now in `.agent/tools/`.
+- The **consistency check**: yes, as a skill. Now `aisdlc-traceability-check` with that
+  Tool `.agent/tools/traceability_check.py`.
+- The **591 output commands**: yes, via prompt. They each cost one model turn and
+  a permission check and do not provide any results.
 
-**Nebenbefund, der erst der Check sichtbar machte:** die Traceability-Matrix führt
-**0 von 89 Anforderungen** mit einem Test (`requirements_with_test: 0`), obwohl 41
-Testdateien und 35 Gherkin-Features existieren. Die Kette Anforderung → Test → Code
-war nie belegt — nur behauptet. 178 Lücken, jetzt maschinell prüfbar.
+**Side finding that only became visible during the check:** the traceability matrix leads
+**0 of 89 requirements** with a test (`requirements_with_test: 0`), although 41
+Test files and 35 Gherkin features exist. The chain requirement → test → code
+was never proven - just claimed. 178 gaps, now machine checkable.
 
-## Warum hängt der Subagent immer noch?
+## Why is the subagent still hanging?
 
-**Der Befund: drei unabhängige Sessions stehen gleichzeitig ~6 h still.**
+**The finding: three independent sessions stand still for ~6 hours at the same time.**
 
-| Lücke | Session | Fenster | Danach |
+| gap | session | window | After that |
 |---|---|---|---|
-| 436 min | architecture | 21.10 00:42 → 07:59 | `shell(completed)` |
-| 345 min | execution | 21.10 00:34 → 06:19 | `shell(completed)` |
-| 333 min | orchestrator | 21.10 00:44 → 06:17 | `question(error)` |
+| 436 mins | architecture | 10/21 00:42 → 07:59 | `shell(completed)` |
+| 345 mins | execution | 10/21 00:34 → 06:19 | `shell(completed)` |
+| 333 mins | Orchestrator | 10/21 00:44 → 06:17 | `question(error)` |
 
-Das kann kein Modellproblem sein — drei Sessions können nicht gleichzeitig am selben
-Modell hängen. Es ist die Nacht, und die Nacht gehört dem Menschen.
+This can't be a model problem — three sessions can't be on the same thing at the same time
+Hang model. It is the night, and the night belongs to man.
 
-**Die Ursache stand in der Permission-Tabelle:** 29 gespeicherte Einzel-Freigaben, eine
-je Kommando-Präfix (`awk *`, `cat *`, `cp *`, `echo *`, `find *`, `git status *`,
-`python3 *`, `rtk *`, `sed *`, `sort *`, …). Jedes Kommando außerhalb dieser Präfixe
-öffnete eine Permission-Abfrage — und **eine offene Abfrage friert die Session ein**,
-bis der Mensch antwortet. Der erste Commit des Tages war 07:54.
+**The cause was in the permission table:** 29 saved individual permissions, one
+each command prefix (`awk *`, `cat *`, `cp *`, `echo *`, `find *`, `git status *`,
+`python3 *`, `rtk *`, `sed *`, `sort *`, …). Any command outside of these prefixes
+opened a permission query — and **an open query freezes the session**,
+until the person answers. The first commit of the day was 07:54.
 
-**Die Aufteilung:** 45 % der Laufzeit sind Leerlauf-Lücken > 60 s. Die absolute Zahl
-überzählt, weil die Sessions parallel liefen — die Ratio stimmt.
+**The breakdown:** 45% of the runtime are idle gaps > 60 s. The absolute number
+overcounted because the sessions ran in parallel - the ratio is correct.
 
-**Der Hebel:** `shell: *` → `ask` als Grundregel ist für einen unbeaufsichtigten Lauf
-der Killer. Der Schutz der Pipeline liegt ohnehin nicht in der Shell, sondern in den
-**Pfadrechten** (`edit` deny/allow je Agent) — die bleiben unangetastet.
+**The lever:** `shell: *` → `ask` as a basic rule is for an unattended run
+the killer. The protection of the pipeline is not in the shell anyway, but in the
+**Path rights** (`edit` deny/allow per agent) — they remain untouched.
 
-## Warum so viele Runden?
+## Why so many rounds?
 
-Drei Ebenen, die man trennen muss.
+Three levels that have to be separated.
 
-**(a) Modellqualität — ja, aber begrenzt.** Die gesamte Pipeline lief auf
-`minimax-m3.1-flash-free`, einem **kostenlosen** Flash-Modell. Belege: 3 Rücksprünge,
-44 offene Punkte, 25 Stress-Befunde, 11 Tool-Fehler in der Architecture-Session. Das
-Ergebnis ist aber objektiv substantiell — 5.523-Zeilen-Vertrag, 1.414-Zeilen-Schema,
-20 ADRs, 168 Java-Dateien. „Billiges Modell produziert Müll" trifft nicht zu; „billiges
-Modell produziert mehr Nacharbeit" schon.
+**(a) Model quality — yes, but limited.** The entire pipeline ran up
+`minimax-m3.1-flash-free`, a **free** flash model. Evidence: 3 jumps,
+44 open points, 25 stress findings, 11 tool errors in the architecture session. This
+But the result is objectively substantial — 5,523-line contract, 1,414-line schema,
+20 ADRs, 168 Java files. “Cheap model produces waste” is not true; “cheap
+Model already produces more rework.
 
-**(b) Der Vertrag wurde zu spät eingefroren — strukturell.** Der Stresstest (Schritt 4)
-fand 25 Befunde, davon **13 am Vertrag** (S-5, S-6, S-7, S-12, S-13, S-17, S-18 …) —
-und der Vertrag war nach Schritt 2 eingefroren. Jede Revision invalidiert Schema, Code
-und Tests. Das ist nicht modellbedingt, das ist die Reihenfolge.
+**(b) The contract was frozen too late — structurally.** The stress test (Step 4)
+found 25 findings, of which **13 were on the contract** (S-5, S-6, S-7, S-12, S-13, S-17, S-18 ...) —
+and the contract was frozen after step 2. Each revision invalidates schema, code
+and tests. That's not model-related, that's the order.
 
-**(c) Das Gate ist eine Menschenrunde.** Am Gate liegen 25 Befunde, 44 offene Punkte
-und 3 Vertragsrevisionen. Das sind menschliche Runden, keine Modell-Runden.
+**(c) The gate is a human circle.** There are 25 findings and 44 open points at the gate
+and 3 contract revisions. These are human rounds, not model rounds.
 
-**Die Rundenzahl:** ein Rücksprung = 1 Modellrunde (Vertrag fixen) + 1 Menschenrunde
-(Gate) + 1 Modellrunde (Code nachziehen). Drei Rücksprünge → 9 Extra-Runden. Dazu die
-Leerlaufrunden aus der Permission-Matrix.
+**The number of rounds:** one jump back = 1 model round (fix contract) + 1 human round
+(Gate) + 1 model round (tighten code). Three jumps → 9 extra laps. Plus the
+Idle rounds from the permission matrix.
 
 ---
 
-# Teil 3 — Die sieben Verbesserungen
+# Part 3 — The Seven Improvements
 
-| P | Maßnahme | Befund | Nutzen | Status |
+| P | Measure | Finding | Benefit | Status |
 |---|---|---|---|---|
-| **P1** | `shell: *` → `allow`, Ausnahmen `ask`/`deny` | 45 % Leerlauf durch eingefrorene Sessions | beendet das Hängen | **umgesetzt** |
-| **P2** | Modell je Schritt wählbar | alles lief auf einem kostenlosen Flash-Modell | weniger Rücksprünge | **dokumentiert** (Präzedenz: Aufruf > Agent > Session) |
-| **P3** | Konsistenzcheck als Skill | 426 Inline-Skripte, 178 unentdeckte Lücken | versioniert, wiederverwendbar | **umgesetzt** |
-| **P4** | Werkzeug-Konvention | Generator lag in `docs/requirements/tools/` | gehört nicht in die Spezifikation | **umgesetzt** |
-| **P5** | Keine Ausgabe-Kommandos | 591 von 1.094 Shell-Aufrufen (54 %) | ~590 Turns über 9 Schritte | **umgesetzt** |
-| **P6** | Vertrag einfrieren nach Schritt 4 | 13 Vertragsdefekte nach der Einfrierung | nimmt die Rücksprung-Schleife die Ursache | **umgesetzt** |
-| **P7** | Steckbrief zwischen den Schritten | Input wuchs 80× über vier Schritte | macht den Einstiegspunkt explizit | **umgesetzt** |
+| **P1** | `shell: *` → `allow`, exceptions `ask`/`deny` | 45% idle time due to frozen sessions | ends hanging | **implemented** |
+| **P2** | Model selectable per step | everything ran on a free Flash model | fewer bounces | **documented** (precedence: call > agent > session) |
+| **P3** | Consistency check as a skill | 426 inline scripts, 178 undetected holes | versioned, reusable | **implemented** |
+| **P4** | Tool Convention | Generator was located in `docs/requirements/tools/` | does not belong in the specification | **implemented** |
+| **P5** | No output commands | 591 of 1,094 shell views (54%) | ~590 turnss over 9 steps | **implemented** |
+| **P6** | Freeze contract after step 4 | 13 contract defects after the freeze | the return loop takes the cause | **implemented** |
+| **P7** | Profile between the steps | Input grew 80× over four steps | makes the entry point explicit | **implemented** |
 
-## Was P1 bis P7 konkret geändert haben
+## What P1 to P7 specifically changed
 
-| Datei | Änderung |
+| File | Change |
 |---|---|
-| `.opencode/opencode.jsonc` | `shell: *` → `allow`; Ausnahmen: `git push`, `git reset --hard`, `git clean`, `rm -rf` → `ask`; `sudo`, `chmod 777` → `deny` |
-| `AGENTS.md` | Regeln 11 (keine Ausgabe-Kommandos) und 12 (Briefing zuerst); Einfrierpunkt nach Schritt 4; Abschnitt „Briefing" |
-| `.agent/PHASES.md` | Gate-Definition mit Einfrierpunkt; Schritt 5 mit `aisdlc-traceability-check`; Abschnitte „Steckbrief" und „Werkzeuge" |
-| 9 Workflows | `## Regeln` mit Ausgabe-Verbot und Vertrags-Einfrierung (ab Schritt 5); Briefing in den Prerequisites |
-| 10 Prompts | Steckbrief in den Eingaben; `## REGELN FUER DIESEN SCHRITT` |
-| `.opencode/agents/aisdlc-orchestrator.md` | Abschnitt „3b — Steckbrief schreiben"; Ausgabe-Verbot |
-| 4 Rollen-Agenten | „Read first" beginnt mit dem Steckbrief |
-| `.opencode/skills/aisdlc-openapi-first/SKILL.md` | Einfrierpunkt nach Schritt 4; Abschnitt „Abgleich mit der Traceability" |
-| `.opencode/skills/aisdlc-traceability-check/SKILL.md` | **neu** — der Konsistenzcheck als Verfahrens-Schritt |
-| `.agent/tools/traceability_check.py` | **neu** — prüft Anforderung → Story → Feature → Test → Code |
-| *(projektspezifisch)* | ein projektspezifischer Generator gehört nach `src/<modul>/tools/`, nicht ins Framework |
-| `.agent/tools/README.md` | **neu** — die Werkzeug-Konvention |
-| `.agent/artifacts/briefing.md` | **neu** — der Steckbrief als lebendes Beispiel |
-| `how-to.md` | Abschnitt „Modell wählen" (P2) |
+| `.opencode/opencode.jsonc` | `shell: *` → `allow`; Exceptions: `git push`, `git reset --hard`, `git clean`, `rm -rf` → `ask`; `sudo`, `chmod 777` → `deny` |
+| `AGENTS.md` | Rules 11 (no output commands) and 12 (briefing first); freezing point after step 4; Briefing section |
+| `.agent/PHASES.md` | Gate definition with freezing point; Step 5 with `aisdlc-traceability-check`; Sections “Profile” and “Tools” |
+| 9 Workflows | `## Rules` with issuance ban and contract freezing (from step 5); Briefing in the prerequisites |
+| 10 prompts | Profile in the entries; `## RULES FOR THIS STEP` |
+| `.opencode/agents/aisdlc-orchestrator.md` | Section “3b — Write a profile”; Issue ban |
+| 4 role agents | “Read first” begins with the profile |
+| `.opencode/skills/aisdlc-openapi-first/SKILL.md` | freezing point after step 4; Section “Comparison with Traceability” |
+| `.opencode/skills/aisdlc-traceability-check/SKILL.md` | **new** — the consistency check as a procedural step |
+| `.agent/tools/traceability_check.py` | **new** — checks Requirement → Story → Feature → Test → Code |
+| *(project specific)* | a project-specific generator belongs in `src/<modul>/tools/`, not in the framework |
+| `.agent/tools/README.md` | **new** — the tool convention |
+| `.agent/artifacts/briefing.md` | **new** — the profile as a living example |
+| `how-to.md` | “Select model” section (P2) |
 
-## Was P1–P7 nicht lösen
+## What P1-P7 do not solve
 
-- **Die Input-Token pro Schritt** bleiben hoch. Der Steckbrief (P7) setzt den
-  Einstiegspunkt, aber ein Agent, der 70 Dateien braucht, liest sie weiterhin.
-- **Die 44 offenen Punkte** aus Schritt 6 sind unverändert und werden in Schritt 7
-  entweder geschlossen oder zu Rücksprüngen.
-- **Die Qualität des Modells** bleibt, solange P2 nicht umgesetzt wird — der
-  dokumentierte Weg dorthin ist jetzt klar.
+- **The input tokens per step** remain high. The profile (P7) sets that
+  entry point, but an agent that needs 70 files continues to read them.
+- **The 44 open points** from step 6 are unchanged and will be added to step 7
+  either closed or to recesses.
+- **The quality of the model** remains as long as P2 is not implemented — the
+  The documented path to get there is now clear.

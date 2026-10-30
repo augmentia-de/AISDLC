@@ -1,106 +1,106 @@
 ---
 name: aisdlc-security-scan
-description: Phase 8: Read-only Security- und Compliance-Audit.
+description: Phase 8: Read-only security and compliance audit.
 metadata:
-  origin: adaptiert aus ECC/security-review + wshobson/security-scanning + wshobson/backend-api-security + superpowers/requesting-code-review
+  origin: adapted from ECC/security-review + wshobson/security-scanning + wshobson/backend-api-security + superpowers/requesting-code-review
 ---
 
-## Wann
+## When
 
-Nach der Implementierung (Phase 6/7), **vor** dem Deployment (Phase 9). Dieser Audit ist
-**read-only**: keine Quelldatei aendern. Gefunde werden als Befund gemeldet, nicht fixiert.
+After implementation (Phase 6/7), **before** deployment (Phase 9). This audit is
+**read-only**: do not change the source file. Findings are reported as findings, not fixed.
 
-## Pruefungen
+## Exams
 
-### 1. Authentifizierung
-- Alle geschuetzten Routen verlangen ein gueltiges Token.
-- Test ohne Token-Header erwartet 401 (nicht 403, nicht 500).
-- Token-Ablauf, Signaturpruefung, Zielgruppe (Audience) und Algorithmus werden geprueft.
-- Keine selbstgebaute Kryptografie, kein `none`-Algorithmus.
+### 1. Authentication
+- All protected routes require a valid token.
+- Test without token header expects 401 (not 403, not 500).
+- Token expiration, signature verification, target group (audience) and algorithm are checked.
+- No home-made cryptography, no `none` algorithm.
 
-### 2. Autorisierung
-- **IDOR:** Jede Objekt-Route prueft den Besitz, nicht nur die Rolle.
-- Standard ist verweigern. Keine `permitAll` auf ganzen Praefixen ohne Begruendung.
-- Mandanten-/Organisations-Scoping auf **jeder** Query-Ebene, nicht nur im Controller.
+### 2. Authorization
+- **IDOR:** Each object route checks ownership, not just role.
+- Default is deny. No `permitAll` on entire prefixes without justification.
+- Tenant/organization scoping at **every** query level, not just in the controller.
 
 ### 3. Secrets
-```bash
+```
+bash
 grep -rInE "(api[_-]?key|secret|password|token|private[_-]?key)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{8,}" src/ tests/ infra/ 2>/dev/null
 ```
-- Keine Secrets im Code, in Config-Dateien, in Dockerfiles oder CI/CD.
-- `.env` in `.gitignore`; keine Secrets in der Git-Historie.
-- Secrets aus Umgebung oder Secret-Store, mit Fehlermeldung bei fehlender Konfiguration.
+- No secrets in the code, in config files, in Dockerfiles or CI/CD.
+- `.env` to `.gitignore`; no secrets in the Git history.
+- Secrets from environment or secret store, with error message if configuration is missing.
 
 ### 4. Injection
-- Alle Queries parametriert (ORM oder Prepared Statements). Kein String-Concatenation,
-  kein f-String mit Variablen in SQL.
-- Kein `Runtime.exec`/`os.system` mit Nutzereingabe; wenn noetig, mit Allowlist.
-- Pfad-Traversal: Dateipfade aus Eingaben normalisieren und gegen ein Wurzelverzeichnis pruefen.
+- All queries parameterized (ORM or Prepared Statements). No string concatenation,
+  no f-string with variables in SQL.
+- No `Runtime.exec`/`os.system` with user input; if necessary, with allowlist.
+- Path traversal: Normalize file paths from inputs and check against a root directory.
 
-### 5. Ausgabe / XSS
-- Benutzereingaben werden kontextabhaengig escaped.
-- Suche nach `dangerouslySetInnerHTML`, `v-html`, `| safe`, `markup` ohne Escaping.
-- Fehlermeldungen geben keine internen Details preis (Stacktrace, SQL, Pfade).
+### 5th Edition / XSS
+- User input is escaped depending on the context.
+- Search for `dangerouslySetInnerHTML`, `v-html`, `| safe`, `markup` without escaping.
+- Error messages do not reveal internal details (stack trace, SQL, paths).
 
-### 6. Session und Transport
-- Secure-, HttpOnly- und SameSite-Flags; sichere Cookies, wenn Session-basiert.
-- TLS erzwungen, HSTS gesetzt, sinnvolle Security-Header.
-- CORS-Liste explizit, kein `*` zusammen mit Credentials.
+### 6. Session and transport
+- Secure, HttpOnly and SameSite flags; secure cookies if session based.
+- TLS enforced, HSTS set, sensitive security headers.
+- CORS list explicit, no `*` along with credentials.
 
-### 7. Rate-Limiting und Ressourcen
-- Ratenbegrenzung fuer Anmeldung, Registrierung und teure Endpunkte.
-- Datei-Uploads: Groessenlimit, Typen-Allowlist, kein unbedienter Speicherpfad.
-- Unbegrenzte Paginierung und Body-Groessen verhindert.
+### 7. Rate limiting and resources
+- Rate limiting for login, registration and expensive endpoints.
+- File uploads: size limit, type allowlist, no unattended storage path.
+- Unlimited pagination and body sizes prevented.
 
-### 8. Abhaengigkeiten und Container
-- Bekannte kritische/hohe Luecken in Abhaengigkeiten (SCA-Scan).
-- Container laufen als non-root, minimale Basis-Images mit festem Tag (nicht `latest`),
-  keine unnoetigen Ports, Secrets nicht ins Image.
-- CI/CD: keine Secrets in Logs, OIDC statt statischer Keys, geschützte Branches.
+### 8. Dependencies and containers
+- Known critical/high gaps in dependencies (SCA scan).
+- Containers run as non-root, minimal base images with fixed tag (not `latest`),
+  no unnecessary ports, secrets not in the image.
+- CI/CD: no secrets in logs, OIDC instead of static keys, protected branches.
 
-### 9. Logging und Datenschutz
-- **Gegen `.agent/artifacts/logging.md` pruefen**, nicht gegen eine eigene Erwartung.
-  Die Konvention ist der Massstab; fehlt sie, ist das selbst ein Befund.
-- Je Ereignis eine Zeile: Korrelations-ID, Ereignistyp, Mandant, Ergebnis, Dauer.
-- Keine Passwoerter, Tokens, kompletten personenbezogenen Datensaetze, **keine
-  Nutzdaten** in Logs.
-- **Kein Stacktrace in der Antwort** - im Log ist er erlaubt, in der Antwort nicht.
-- Retention- und Loeschkonzept dokumentiert (z. B. 90 Tage, Right to Erasure).
-- Personenbezogene Daten werden nicht ueber unnoetige Kanale gesendet.
+### 9. Logging and data protection
+- **Check against `.agent/artifacts/logging.md`**, not against your own expectation.
+  The convention is the benchmark; if it is missing, that itself is a finding.
+- One line per event: correlation ID, event type, client, result, duration.
+- No passwords, tokens, complete personal data sets, **none
+  User data** in logs.
+- **No stacktrace in the answer** - it is allowed in the log, not in the answer.
+- Retention and deletion concept documented (e.g. 90 days, right to erasure).
+- Personal data will not be sent via unnecessary channels.
 
-### 10. OWASP Top 10 (Querpruefung)
-Die obigen Pruefungen gegen die Top-10-Kategorien gegenpruefen: A01 Broken Access Control,
+### 10. OWASP Top 10 (cross-check)
+Cross-check the above tests against the top 10 categories: A01 Broken Access Control,
 A02 Cryptographic Failures, A03 Injection, A04 Insecure Design, A05 Security Misconfiguration,
 A06 Vulnerable Components, A07 Identification/Auth Failures, A08 Data Integrity Failures,
 A09 Logging/Monitoring Failures, A10 SSRF.
 
-## Befundformat
+## Report format
 
-| Schwere | Datei:Zeile | Befund | Ausnutzbarkeit | Empfehlung |
+| Heavy | File:Line | Finding | Exploitability | Recommendation |
 |---|---|---|---|---|
 
-- **Critical:** Datenverlust, Mandanten-Durchbruch, Secrets im Repo, RCE
-- **High:** Auth-Bypass, Injection mit realem Pfad, fehlende Autorisierung
-- **Medium:** Defense-in-depth fehlt, Header/CORS falsch, Logging unvollstaendig
-- **Low:** Härtung, Dokumentation
+- **Critical:** Data loss, tenant breach, secrets in repo, RCE
+- **High:** Auth bypass, real path injection, missing authorization
+- **Medium:** Defense-in-depth missing, header/CORS incorrect, logging incomplete
+- **Low:** Hardening, documentation
 
-Jeder Befund nennt **Nachweis** (Datei:Zeile oder ausgefuehrter Check) und **Ausnutzbarkeit**
-(wie ein Angreifer es nutzt). Vermutungen werden als offene Frage markiert, nicht als Befund.
+Each finding states **evidence** (file:line or check carried out) and **exploitability**(how an attacker uses it). Assumptions are marked as open questions, not as findings.
 
-## Regeln
+##Rules
 
-- Read-only. Keine Datei aendern, keine Konfiguration anpassen.
-- Kein "Critical" ohne belegten Nachweis.
-- Jeder Fund mit `[SECURITY]`-Praefix im Bericht kennzeichnen.
-- Null Findings sind ein Ergebnis - aber nur, wenn geprueft wurde.
+- Read only. No file changes, no configurationononon adjustments.
+- No “Critical” without proven evidence.
+- Mark each discovery with `[SECURITY]` prefix in the report.
+- Null Findings are a result - but only if checked.
 
-## Ausgabeform
+## Output form
 
-**Jeder Bericht über ~20 KB beginnt mit einer Tabelle**: Befund, Schwere, Status, wo
-behoben. Die Herleitung steht darunter. Eine Tabelle ist der Einstieg, die Prosa ist
-der Beleg - ohne die Tabelle muss jemand 100 KB lesen, um zu zählen, was offen ist.
+**Each ~20KB report begins with a table**: Findings, Severity, Status, Where
+fixed. The derivation is below. A table is the introduction, which is prose
+the receipt - without the table someone has to read 100KB to count what's open.
 
 ## Output
 
-`docs/qa/security-audit.md` mit Befundtabelle, Gesamtrating und Freigabe-Empfehlung
-(freigeben / blockieren). Phase 9 startet nur bei 0 Critical und 0 High.
+`docs/qa/security-audit.md` with table of findings, overall rating and release recommendation
+(release/block). Phase 9 only starts at 0 Critical and 0 High.

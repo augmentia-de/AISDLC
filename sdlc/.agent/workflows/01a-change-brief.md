@@ -2,7 +2,7 @@
 description: Phase 1a — Change brief (delta flow for hotfix/patch/small feature)
 ---
 
-# Change Brief Workflow
+# Change letter workflow
 
 ## Prerequisites
 
@@ -12,36 +12,35 @@ description: Phase 1a — Change brief (delta flow for hotfix/patch/small featur
 ## Agent & Skill
 
 - **Agent:** `aisdlc-requirements` (or `aisdlc-execution` for pure technical fixes)
-- **Skill:** (optional) `aisdlc-grill-stress` bei Unsicherheit
+- **Skill:** (optional) `aisdlc-grill-stress` in case of uncertainty
 
-## Steps
+##Steps
 
-1. **Problem** — Was ist falsch/fertig? Reproduktion oder Anforderung.
-2. **Ist/Soll** — Kurz, keine volle PRD.
-3. **Akzeptanzkriterien (minimal)** — 1–5 ACs, `AC-<id>-<nr>`.
-4. **Betroffene Dateien** — `affected_paths` im Briefing.
-5. **Regressionsrisiko** — Welche bestehenden Szenarien könnten brechen.
-6. **Testplan** — Welche Tests müssen grün sein.
+1. **Problem** — What is wrong/done? Reproduction or requirement.
+2. **Actual/Target** — Short, not a full PRD.
+3. **Acceptance Criteria (Minimum)** — 1-5 ACs, `AC-<id>-<no>`.
+4. **Affected Files** — `affected_paths` in the briefing.
+5. **Regression Risk** — Which existing scenarios could break.
+6. **Test Plan** — Which tests must be green.
 
 ## Output
 
 - `docs/execution/change-brief-<id>.md`
-- Briefing mit `change`-Block aktualisiert.
+- Briefing updated with `change` block.
 
-## Regeln
+##Rules
 
-- Kein volles PRD, keine Story-JSONs, keine Traceability-Matrix-Änderung (außer neue ACs).
-- Wenn `contract_impact` `external/public` oder `openapi.yaml` betroffen → **kein Delta-Flow**, volle Phasen 1–9.
-- Bei `breaking: true` → volle Phasen 1–9.
+- No full PRD, no story JSONs, no traceability matrix change (except new ACs).
+- If `contract_impact` `external/public` or `openapi.yaml` affected → **no delta flow**, full phases 1-9.
+- If `breaking: true` → full phases 1–9.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p docs/execution/ .agent/artifacts/
 git reset -q
 git add -A -- docs/execution/ .agent/artifacts/
 git commit -m "docs(sdlc-fix): Change-Brief und betroffene Pfade" \
   -m "Schritt 1a - Change-Brief | Agent: aisdlc-requirements | Artefakte: docs/execution/, .agent/artifacts/"
 ```
-
-- Wenn sich nichts geaendert hat: kein Commit erzeugen (kein Fehler).
+- If nothing has changed: do not create a commit (no error).

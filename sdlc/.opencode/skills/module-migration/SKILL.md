@@ -1,48 +1,48 @@
 ---
-name: module-migration
-description: Legacy-Modul umsetzen (Characterization Tests).
+name: module migration
+description: Implement legacy module (characterization tests).
 metadata:
   origin: AISDLC
 ---
 
-# Module Migration (Strangler-Fig-Pattern)
+# Module Migration (Strangler Fig Pattern)
 
-## Rolle
-Du bist der Migration Engineer. Deine Aufgabe ist es, ein Modul aus `/legacy/` neu in
-`/src/` zu implementieren und über den Router umzuleiten, ohne dass bestehende
-Funktionalitäten brechen.
+## role
+You are the migration engineer. Your task is to add a module from `/legacy/`
+`/src/` and redirect through the router without existing
+Break functionalities.
 
-## Ablauf
+##Process
 
 1. **Characterization Tests (Golden Master):**
-   - Schreibe vor jeglicher Code-Änderung einen Integrationstest in
-     `/tests/legacy/<MODULE_NAME>_spec.ts`, der das genaue Ist-Verhalten des alten
-     Moduls in `/legacy/` prüft.
-   - Führe `npm test` aus und stelle sicher, dass dieser Test **GRÜN** ist.
+   - Write an integration test before any code changes
+     `/tests/legacy/<MODULE_NAME>_spec.ts`, which shows the exact actual behavior of the old
+     Checks the module in `/legacy/`.
+   - Run `npm test` and make sure this test is **GREEN**.
 
-2. **Neu-Implementierung:**
-   - Erstelle die neue Implementierung sauber, strukturiert und typensicher unter
+2. **Re-Implementation:**
+   - Create the new implementation in a clean, structured and type-safe manner
      `/src/modules/<MODULE_NAME>/`.
-   - Greife **nicht** direkt auf Alt-Code aus `/legacy/` zu, sondern nutze
-     Interfaces/DTOs gemäß OpenAPI-Spec.
+   - Do **not** directly access legacy code from `/legacy/`, but use
+     Interfaces/DTOs according to OpenAPI spec.
 
-3. **Routing-Umlenkung:**
-   - Passe den zentralen Proxy/Router an (`/src/router/gateway.ts`), sodass Anfragen
-     für `<MODULE_NAME>` ab sofort an das neue Modul in `/src/modules/<MODULE_NAME>/`
-     geleitet werden.
+3. **Routing redirection:**
+   - Adjust the central proxy/router (`/src/router/gateway.ts`) so that requests
+     for `<MODULE_NAME>` from now on to the new module in `/src/modules/<MODULE_NAME>/`
+     be directed.
 
-4. **Verifizierung & Parallellauf:**
-   - Führe erneut alle Tests aus: `npm test`.
-   - Die ursprünglichen Characterization-Tests müssen weiterhin **GRÜN** sein
-     (Regressionstest bestanden).
+4. **Verification & Parallel Run:**
+   - Run all tests again: `npm test`.
+   - The original characterization tests must still be **GREEN**
+     (Regression test passed).
 
 ## Output
-- **Ersetztes Legacy-Modul:** `/legacy/<MODULE_PATH>`
-- **Neues Modul:** `/src/modules/<MODULE_NAME>/`
-- **Aktivierte Routen:** Liste der umgeleiteten API-Endpunkte
-- **Test-Ergebnis:** Bestätigung, dass alle Legacy- & New-Tests bestanden wurden
+- **Replaced legacy module:** `/legacy/<MODULE_PATH>`
+- **New module:** `/src/modules/<MODULE_NAME>/`
+- **Enabled routes:** List of redirected API endpoints
+- **Test Result:** Confirmation that all Legacy & New tests were passed
 
-## Regeln
-- Vor jeder Code-Änderung Characterization Tests schreiben.
-- Kein direkter Zugriff auf `/legacy/`-Code im neuen Modul.
-- Alle Tests müssen grün sein, bevor die Migration als abgeschlossen gilt.
+##Rules
+- Write characterization tests before every code change.
+- No direct access to `/legacy/` code in new module.
+- All tests must be green before the migration is considered complete.

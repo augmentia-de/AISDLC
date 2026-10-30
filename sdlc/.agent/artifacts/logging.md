@@ -1,108 +1,105 @@
-# Logging-Konvention — <Projektname>
+# Logging convention — <project name>
 
-> **Template.** Wird in Schritt 6 (Implementierung) aus dem Code heraus gefüllt — die
-> Konvention folgt dem Code, nicht umgekehrt. Der Security-Scan prüft später
-> **gegen diese Datei**, nicht gegen eine eigene Erwartung.
+> **Template.** Is populated from the code in step 6 (implementation) — the
+> Convention follows code, not the other way around. The security scan will check later
+> **against this file**, not against your own expectations.
 >
-> Steht diese Datei noch auf dem Template-Stand, ist das selbst ein Befund:
-> „Logging-Konvention nicht festgeschrieben".
+> If this file is still at the template level, that is itself a finding:
+> “Logging convention not committed”.
 
-## Grundsatz
-
-```text
+##Principle
+```
+text
 EINE ZEILE JE EREIGNIS
 ```
+No multi-line stack trace in the log entry, no free text blocks, none
+Stack traces in the **response** to the caller.
 
-Kein mehrzeiliger Stacktrace im Logeintrag, keine Freitextblöcke, keine
-Stacktraces in der **Antwort** an den Aufrufer.
+## Mandatory fields per line
 
-## Pflichtfelder je Zeile
-
-| Feld | Typ | Bedeutung |
+| field | Type | Meaning |
 |---|---|---|
-| `ts` | ISO-8601 | Zeitpunkt des Ereignisses, UTC |
+| `ts` | ISO-8601 | Time of event, UTC |
 | `level` | Enum | `INFO`, `WARN`, `ERROR` |
-| `event` | String | Ereignistyp, stabil, punktgetrennt (`delivery.attempt`, `auth.token.rotated`) |
-| `correlationId` | UUID | **durchgängig** über Request → Datenbank → Zustellung |
-| `tenant` | String | Mandant, **nur** wenn der Kontext mandantenbegrenzt ist |
+| `event` | String | Event type, stable, dot separated (`delivery.attempt`, `auth.token.rotated`) |
+| `correlationId` | UUID | **continuously** via request → database → delivery |
+| `tenant` | String | Tenant, **only** if the context is client-limited |
 | `outcome` | Enum | `ok`, `rejected`, `failed` |
-| `durationMs` | Zahl | Dauer der Operation |
+| `durationMs` | number | Duration of the operation |
 
-**Optional:** `attempt` (Versuchszahl), `status` (HTTP-Status), `errorCode`
-(stabiler Fehlercode aus dem Vertrag — **kein** Exception-Text).
+**Optional:** `attempt` (attempt count), `status` (HTTP status), `errorCode`
+(stable error code from the contract — **no** exception text).
 
-## Was **nicht** hinein darf
+## What is **not** allowed in
 
-| Verboten | Warum |
+| Forbidden | Why |
 |---|---|
-| Nutzdaten, Payloads, Request-Bodies | Datenschutz, Datenminimierung |
-| Passwörter, Tokens, Secrets, API-Keys | Credential-Leak |
-| vollständige Personendatensätze | Datenschutz |
-| Exception-Stacktraces **in der Antwort** | interne Details nach außen |
-| SQL-Statements mit Werten | Datenminimierung, Datenleck |
-| Mandantenübergreifende IDs ohne Kontext | Mandantenbruch |
+| Payloads, payloads, request bodies | Data protection, data minimization |
+| Passwords, tokens, secrets, API keys | Credential leak |
+| complete personal records | Data protection |
+| Exception stack traces **in the answer** | internal details to the outside |
+| SQL statements with values ​​​​​​| Data minimization, data leak |
+| Cross-tenant IDs without context | Client breach |
 
-Ein Stacktrace **im Log** ist erlaubt und gewünscht — er ist Diagnose. Er darf nur
-nicht in der Antwort stehen.
+A stack trace **in the log** is allowed and desired - it is diagnostic. He can only
+not in the answer.
 
-## Korrelations-ID
+## Correlation ID
 
-Die ID entsteht am **Eingang** (Middleware/Filter) und wird mitgeführt durch:
-
+The ID is created at the **input** (middleware/filter) and is carried by:
 ```
 Request → Service → Datenbank → Zustellprozess → Log
 ```
+**Rules:**
+- It is unique per request/operation, not per client.
+- It **doesn't** go into the answer unless the contract says so - otherwise
+  It provides an attack vector for understanding third-party requests.
+- The delivery process creates a **own** ID for each delivery attempt and keeps it
+  original as `parentCorrelationId` with. This leaves the path from the event to
+  traceable for delivery.
 
-**Regeln:**
-- Sie ist pro Request/Operation eindeutig, nicht pro Mandant.
-- Sie wandert **nicht** in die Antwort, außer der Vertrag sieht es vor — sonst
-  liefert sie einen Angriffsvektor für das Nachvollziehen fremder Requests.
-- Der Zustellprozess erzeugt eine **eigene** ID je Zustellversuch und führt die
-  ursprüngliche als `parentCorrelationId` mit. So bleibt der Weg vom Ereignis bis
-  zur Zustellung nachvollziehbar.
+## Health and readiness
 
-## Health und Readiness
+The health check reads the same format:
 
-Der Health-Check liest dasselbe Format:
-
-| Endpoint | Antwort | Zweck |
+| Endpoint | Answer | Purpose |
 |---|---|---|
-| `GET /health` | `{"status":"up"}` | lebt der Prozess |
-| `GET /health/ready` | `{"status":"ready","checks":{…}}` | arbeitet er — Datenbank, Worker, Mandantenkontext |
+| `GET /health` | `{"status":"up"}` | the process lives |
+| `GET /health/ready` | `{"status":"ready","checks":{…}}` | it works — database, worker, client context |
 
-**Der Readiness-Check prüft den letzten Heartbeat**, nicht nur, ob der Prozess
-existiert. Ein Prozess, dessen Zustellung festgefahren ist, lebt — ist aber nicht
-bereit. Genau das findet ein reiner Prozess-Check nicht.
+**The readiness check checks the last heartbeat**, not just whether the process
+exists. A process whose delivery is deadlocked is alive - but is not
+ready. This is exactly what a pure process check cannot find.
 
 ## Retention
 
-| Ebene | Dauer | Grund |
+| level | Duration | reason |
 |---|---|---|
-| Betriebslog | <Angabe> Tage | Diagnose |
-| Audit-Log | <Angabe> Tage | Nachweis |
-| Rohtelemetrie | <Angabe> Tage | Auswertung |
+| Operating log | <specification> days | Diagnosis |
+| Audit log | <specification> days | Proof |
+| Raw telemetry | <specification> days | Evaluation |
 
-Nach Ablauf wird **gelöscht**, nicht nur aus der Auswertung genommen.
+After expiration it is **deleted**, not just removed from the evaluation.
 
-## Umsetzung je Stack
+## Implementation via stack
 
-| Feld | Java / Spring Boot | TypeScript / Node |
+| field | Java/Spring Boot | TypeScript/Node |
 |---|---|---|
-| Format | JSON pro Zeile (Logback) | JSON pro Zeile (pino) |
+| Format | JSON per line (logback) | JSON per line (pino) |
 | `correlationId` | MDC | AsyncLocalStorage |
-| `tenant` | MDC, aus dem JWT | AsyncLocalStorage |
-| Health | Actuator | eigener Endpunkt |
+| `tenant` | MDC, from the JWT | AsyncLocalStorage |
+| Health | Actuator | own endpoint |
 
-**Die konkrete Bibliothek ist Stack-Sache, die Konvention nicht.** Diese Datei
-beschreibt das Format, nicht die Technik.
+**The specific library is a stack thing, the convention is not.** This file
+describes the format, not the technology.
 
-## Prüfung durch den Security-Scan
+## Check through the security scan
 
-| # | Prüfung | Schwere |
+| # | exam | Heavy |
 |---|---|---|
-| L-1 | Diese Konvention existiert und ist gefüllt | Lücke |
-| L-2 | Kein Payload, kein Secret, keine Personendaten in Logs | Lücke |
-| L-3 | Kein Stacktrace in der Antwort | Lücke |
-| L-4 | Jede Zeile hat die Pflichtfelder | Lücke |
-| L-5 | Die Korrelations-ID ist durchgängig | Hinweis |
-| L-6 | Retention ist festgelegt und wirksam | Hinweis |
+| L-1 | This convention exists and is filled | gap |
+| L-2 | No payload, no secret, no personal data in logs | gap |
+| L-3 | No stacktrace in response | gap |
+| L-4 | Each line has the mandatory fields | gap |
+| L-5 | The correlation ID is consistent | Grade |
+| L-6 | Retention is fixed and effective | Grade |

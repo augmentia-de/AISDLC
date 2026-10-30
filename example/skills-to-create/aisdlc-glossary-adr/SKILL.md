@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 Two artifacts carry the reasoning that would otherwise be lost:
 
@@ -18,7 +18,7 @@ Two artifacts carry the reasoning that would otherwise be lost:
 - Any time a term is introduced, narrowed or renamed.
 - After a grill-me session that settled a decision.
 
-## Inputs
+##Inputs
 
 - `docs/requirements/PRD.md` and `docs/requirements/stories/*.json` (the terms in use)
 - `docs/architecture/domain_model.md` (entities and invariants)
@@ -28,15 +28,15 @@ Two artifacts carry the reasoning that would otherwise be lost:
 
 ## Procedure
 
-1. Collect the terms the requirement and the code actually use.
+1. Collect the terms of the requirement and the code actually use.
 2. Write the glossary entries (definition + what it is not + source).
 3. Write one ADR per decision that has consequences.
 
 ## Glossary
 
 Keep it small and precise. One term per entry:
-
-```markdown
+```
+markdown
 ## Task
 
 A unit of work owned by one organisation.
@@ -45,13 +45,12 @@ A unit of work owned by one organisation.
 - **Not**: a subtask, a reminder or a recurring job.
 - **Source**: `docs/requirements/features/task-crud.feature`
 ```
-
 Rules: define what a term is **and** what it is not; link the requirement it comes from;
 delete terms that no longer appear in the code or the requirements.
 
 ## ADR format
-
-```markdown
+```
+markdown
 # ADR-002: Keep task history instead of deleting it
 
 ## Context
@@ -64,7 +63,6 @@ Audit trail is lost on erasure. Simpler compliance story, no separate erasure fl
 - Keep history, anonymise on erasure: more complex, keeps the audit trail.
 - Soft delete: violates the right to erasure.
 ```
-
 Rules: record the decision, not the discussion; always name the rejected alternatives;
 never rewrite an accepted ADR — supersede it with a new one.
 
@@ -74,7 +72,7 @@ never rewrite an accepted ADR — supersede it with a new one.
 - `docs/adr/ADR-<ID>-<title>.md`
 - `.agent/artifacts/adr-index.md` — one-line summary per ADR for the gate review
 
-## Rules
+##Rules
 
 - One decision per ADR.
 - If an agent cannot find the rationale for a decision, the ADR is missing.

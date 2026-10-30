@@ -1,68 +1,67 @@
 ---
 name: aisdlc-ci-pipeline
-description: Phase 9: CI-Pipeline mit Test-, Coverage-, Security- und Deploy-Gates erzeugen.
+description: Phase 9: Create CI pipeline with test, coverage, security and deploy gates.
 metadata:
-  origin: eigenes Framework-Verfahren; Handwerk aus ECC/deployment-patterns + ECC/github-actions-templates
+  origin: own framework procedure; Craft from ECC/deployment-patterns + ECC/github-actions-templates
 ---
 
-## Wann
+## When
 
-**Phase 9**, vor dem ersten Deployment — und immer, wenn sich der Stack aendert.
+**Phase 9**, before the first deployment — and whenever the stack changes.
 
-## Das eiserne Gesetz
-
-```text
+## The iron law
+```
+text
 DIE QUALITAETSGATES GEHOEREN IN DIE PIPELINE, NICHT IN DIE KONVENTION
 ```
-
-Eine Konvention, die unter Zeitdruck vergessen wird, ist keine Sicherung. Das
-Coverage-Gate, der Security-Scan und die Freigabe vor dem Deployment gehoeren in
-den Build, nicht in eine Datei, die man liest.
+A convention that is forgotten under time pressure is not a security. This
+Coverage gate, security scan and release before deployment are included
+the build, not into a file that you read.
 
 ## Jobs
 
-1. **Test-Job** — Abhaengigkeiten installieren, Tests laufen lassen, Coverage
-   veroeffentlichen.
-2. **Coverage-Gate** — der Job schlaegt unter dem Projektschwellwert fehl. Der Wert
-   kommt aus dem Test-Report, nicht geraten.
-3. **Statische Analyse** — Linter und, falls konfiguriert, ein Security-Scan
-   (Schwachstellen in Abhaengigkeiten, Secret-Erkennung).
-4. **Build-Job** — Container-Image, getaggt mit Commit-SHA **und** einem beweglichen
-   Tag.
-5. **Deploy-Job** — nur auf `main`, erst nach allen Gates. Staging vor Produktion,
-   mit Smoke-Test dazwischen.
-6. **Freigabe-Gate** — eine geschuetzte Umgebung, die menschliche Freigabe vor dem
-   Produktions-Deploy verlangt. Das Gate in `AGENTS.md` und das Gate in der
-   Pipeline sind **dasselbe** Gate; die Pipeline ist, wo es erzwungen wird.
-7. **Secrets** — ausschliesslich aus dem Secret-Store, nie in ein Log oder eine
-   Datei im Repo.
+1. **Test Job** — Install dependencies, run tests, coverage
+   publish.
+2. **Coverage Gate** — the job fails below the project threshold. The value
+   comes from the test report, not recommended.
+3. **Static Analysis** — Linter and, if configured, a security scan
+   (vulnerabilities in dependencies, secret detection).
+4. **Build job** — Container image tagged with commit SHA **and** a movable
+   day.
+5. **Deploy job** — only on `main`, only after all gates. staging before production,
+   with smoke test in between.
+6. **Release Gate** — a protected environment that human release from
+   Production deployment required. The gate in `AGENTS.md` and the gate in the
+   pipeline are **the same** gate; the pipeline is where it is enforced.
+7. **Secrets** — exclusively from the secret store, never in a log or a
+   File in the repo.
 
 ## Output
 
 - `.github/workflows/<pipeline>.yml`
-- `.agent/artifacts/ci-pipeline.md` — Jobs, Gates, Schwellwerte, Secret-Namen,
-  Rollback-Ausloeser
-- `docs/execution/CHANGELOG.md` bei einem Release
+- `.agent/artifacts/ci-pipeline.md` — jobs, gates, thresholds, secret names,
+  Rollback trigger
+- `docs/execution/CHANGELOG.md` on a release
 
-## Regeln
+##Rules
 
-- Jeder Job hat ein explizites Bestehen- oder Scheitern-Kriterium. Kein
-  "continue on error" in einem Gate-Job.
-- Der Coverage-Schwellwert kommt aus dem Test-Report.
-- Der Deploy-Job ist ohne Freigabe-Gate nicht erreichbar.
-- Die Pipeline schlaegt fehl, wenn der Security-Scan einen kritischen Befund meldet.
-- Kein Secret in einem Kommando, das im Log landet.
-- Ein Image-Tag ohne SHA ist kein Release.
+- Every job has an explicit pass or fail criteria. None
+  "continue on error" in a gate job.
+- The coverage threshold comes from the test report.
+- The deploy job cannot be reached without a release gate.
+- The pipeline fails if the security scan reports a critical finding.
+- No secret in a command that ends up in the log.
+- An image tag without SHA is not a release.
 
-## Stack-Skills
+## Stack skills
 
-> Die Namen sind die der **Stack-Schicht** des Projekts (`opencode.jsonc`,
-> `skills/`). Der Workflow dieses Skills gilt auch ohne sie — sie liefern nur
-> das Handwerk, nicht das Verfahren.
-| Wofuer | Skill |
+> The names are those of the project's **stack layer** (`opencode.jsonc`,
+> `skills/`). The workflow of this skill applies without them — they just deliver
+> the craft, not the process.
+| For what | Skill |
 |---|---|
-| Pipeline-Muster, Deploy-Strategien, Rollback | `deployment-patterns` |
-| GitHub-Actions-Workflows | `github-actions-templates` |
-| Staging-/Produktions-Trennung | `deployment-pipeline-design` |
+| Pipeline patterns, deployment strategies, rollback | `deployment-patterns` |
+| GitHub Actions Workflows | `github-actions-templates` |
+| Staging/production separation | `deployment-pipeline-design` |
 | Secrets in CI | `secrets-management` |
-| SAST-Konfiguration | `sast-configuration` |
+| SAST configuration | `sast-configuration` |

@@ -1,85 +1,82 @@
-# AI SDLC – KI-agentengestützter Softwareentwicklungszyklus
+# AI SDLC – AI agent-assisted software development cycle
 
-Ein SDLC-Template, in dem ein **Orchestrator-Agent** den Prozess steuert und **OpenCode** die Entwicklung ausführt. Der Orchestrator wechselt je nach SDLC-Phase den Systemprompt (`.agent/prompts/`) und regelt, wer in welchem Verzeichnis schreiben bzw. nur lesen darf.
+An SDLC template in which an **Orchestrator Agent** controls the process and **OpenCode** executes the development. Depending on the SDLC phase, the orchestrator changes the system prompt (`.agent/prompts/`) and regulates who is allowed to write or only read in which directory.
 
-## Ablauf (Iterationsschleifen)
+## Process (iteration loops)
 
-Der Orchestrator durchläuft pro Feature vier Feedback-Loops und eskalieren sich gegenseitig:
-
+The orchestrator goes through four feedback loops per feature and escalates each other:
 ```
 [1. Requirements] ──> [2. Architecture] ──> [3. Implementation] ──> [4. Testing/QA] ──> PR & Merge
        ^                    ^                       |                       |
        └── REQUIREMENT_GAP ─┘                       └── Blocker/Fehler ────┘
                               [ARCHITECTURAL_BLOCKER ──> Redesign, Git-Reset, Re-Entry]
 ```
+1. **Planning/Architecture Iteration** – Check feasibility, analyze affected files (`impact_analysis.json`).
+2. **Build & Lint Iteration** – Code compiled & style requirements met; Errors are returned to OpenCode as a log (`lint_build_results.json`).
+3. **Test Self-Correction Loop** – Test Runner is running; Failures are parsed and passed to OpenCode for correction (`test_results.json`).
+4. **Quality Gate Loop** – Overall acceptance (syntax, tests, security, coverage) before the merge (`gate_evaluation.json`).
 
-1. **Planungs-/Architektur-Iteration** – Machbarkeit prüfen, betroffene Dateien analysieren (`impact_analysis.json`).
-2. **Build- & Lint-Iteration** – Code kompiliert & Stilvorgaben erfüllt; Fehler werden als Log an OpenCode zurückgegeben (`lint_build_results.json`).
-3. **Test-Self-Correction-Loop** – Test-Runner läuft; Fehlschläge werden geparst und an OpenCode zur Korrektur übergeben (`test_results.json`).
-4. **Quality-Gate-Loop** – Gesamtabnahme (Syntax, Tests, Security, Coverage) vor dem Merge (`gate_evaluation.json`).
+**Escalation:** If OpenCode detects an incomplete requirement (`REQUIREMENT_GAP`) or an infeasible design (`ARCHITECTURAL_BLOCKER`) during implementation, it stops immediately and reports to the orchestrator with structured JSON. This supplements the requirements (seamless further construction) or revises the architecture/API, resets affected files via Git and restarts the implementation.
 
-**Eskalation:** Erkennt OpenCode während der Implementierung eine unvollständige Anforderung (`REQUIREMENT_GAP`) oder ein undurchführbares Design (`ARCHITECTURAL_BLOCKER`), stoppt es sofort und meldet sich mit strukturiertem JSON an den Orchestrator. Dieser ergänzt die Anforderungen (nahtloser Weiterbau) bzw. überarbeitet Architektur/API, setzt betroffene Dateien per Git zurück und startet die Implementierung neu.
+## Flows (execution modes)
 
-## Flows (Ausführungsmodi)
+The orchestrator chooses the path based on `.agent/config.json` (`mode`, `change_flow`, `profile`) and the `change` block in the brief. Three modes are provided:
 
-Der Orchestrator wählt den Pfad anhand von `.agent/config.json` (`mode`, `change_flow`, `profile`) und dem `change`-Block im Briefing. Drei Modi sind vorgesehen:
+### A) Greenfield flow (full run, steps 1–9)
 
-### A) Greenfield-Flow (Volllauf, Schritte 1–9)
+For new projects or larger features. Complete phases, both gates.
 
-Für neue Projekte oder größere Features. Vollständige Phasen, beide Gates.
-
-| # | Schritt | Workflow | Agent | Gate |
+| # | step | Workflow | agent | Gate |
 |---|---|---|---|---|
-| 1 | Anforderungserhebung | `01-requirements.md` | `aisdlc-requirements` | — |
-| 1a | Anforderungs-Grill-Me | (in 01) | `aisdlc-requirements` | — |
-| 2 | Konzept & Architektur | `02-architecture.md` | `aisdlc-architecture` | **GATE 1** |
-| 3 | Simplify & Reduktion | `03-simplify.md` | `aisdlc-architecture` | — |
-| 4 | Grill-Me-Stresstest | `04-grill-me-stress.md` | `aisdlc-architecture` | Contract-Freeze |
-| 5 | Test-Driven Setup | `05-tdd.md` | `aisdlc-execution` | — |
-| 6 | KI-Code-Generation | `06-implementation.md` | `aisdlc-execution` | — |
-| 7 | Refactoring & Clean-up | `07-refactoring.md` | `aisdlc-execution` | — |
-| 8 | Sicherheit & Compliance | `08-security.md` | `aisdlc-qa` | **GATE 2** (Traceability 0 Lücken) |
-| 9 | Deployment & Betrieb | `09-deploy.md` | `aisdlc-qa` | — |
+| 1 | Requirements gathering | `01-requirements.md` | `aisdlc-requirements` | — |
+| 1a | Request Grill Me | (in 01) | `aisdlc-requirements` | — |
+| 2 | Concept & Architecture | `02-architecture.md` | `aisdlc-architecture` | **GATE 1** |
+| 3 | Simplify & Reduction | `03-simplify.md` | `aisdlc-architecture` | — |
+| 4 | Grill-Me stress test | `04-grill-me-stress.md` | `aisdlc-architecture` | Contract freeze |
+| 5 | Test Driven Setup | `05-tdd.md` | `aisdlc-execution` | — |
+| 6 | AI code generation | `06-implementation.md` | `aisdlc-execution` | — |
+| 7 | Refactoring & Cleanup | `07-refactoring.md` | `aisdlc-execution` | — |
+| 8 | Security & Compliance | `08-security.md` | `aisdlc-qa` | **GATE 2** (Traceability 0 gaps) |
+| 9 | Deployment & Operations | `09-deploy.md` | `aisdlc-qa` | — |
 
-### B) Migration-Flow (`mode: migration` / `brownfield`)
+### B) Migration flow (`mode: migration` / `brownfield`)
 
-Für bestehende Systeme. Strangler-Fig / Module-Migration, paralleler Betrieb, Cutover-Gate.
+For existing systems. Strangler fig/module migration, parallel operation, cutover gate.
 
-| # | Schritt | Workflow | Agent | Gate |
+| # | step | Workflow | agent | Gate |
 |---|---|---|---|---|
-| 0a | Migration-Assessment | `00-migration-assessment.md` | `aisdlc-requirements` | Scope-Freigabe |
-| 1 | Anforderungserhebung | `01-requirements.md` | `aisdlc-requirements` | — |
-| 2 | Konzept & Architektur | `02-architecture.md` | `aisdlc-architecture` | GATE 1 |
-| 2b | Migration-Plan | `02b-migration-plan.md` | `aisdlc-architecture` | **GATE 1 (Migration)** |
-| 3–4 | Simplify / Stresstest | `03/04-*.md` | `aisdlc-architecture` | Contract-Freeze (nur neue externe/public) |
-| 5–7 | TDD / Impl / Refactor | `05/06/07-*.md` | `aisdlc-execution` | — |
+| 0a | Migration assessment | `00-migration-assessment.md` | `aisdlc-requirements` | Scope release |
+| 1 | Requirements gathering | `01-requirements.md` | `aisdlc-requirements` | — |
+| 2 | Concept & Architecture | `02-architecture.md` | `aisdlc-architecture` | GATE 1 |
+| 2b | Migration plan | `02b-migration-plan.md` | `aisdlc-architecture` | **GATE 1 (Migration)** |
+| 3-4 | Simplify / stress test | `03/04-*.md` | `aisdlc-architecture` | Contract freeze (new external/public only) |
+| 5-7 | TDD/Impl/Refactor | `05/06/07-*.md` | `aisdlc-execution` | — |
 | 8 | Security & Compliance | `08-security.md` | `aisdlc-qa` | GATE 2 |
-| 9 | Deployment / Cutover | `09-deploy.md` | `aisdlc-qa` | **CUTOVER-GATE** |
+| 9 | Deployment/Cutover| `09-deploy.md` | `aisdlc-qa` | **CUTOVER GATE** |
 
-Besonderheiten: Adapter/ACL zwischen Alt und Neu sind vom Contract-Freeze ausgenommen. Migrationsskripte müssen idempotent sein; Backout-Plan Pflicht.
+Special features: Adapters/ACL between old and new are excluded from the contract freeze. Migration scripts must be idempotent; Backout plan mandatory.
 
-### C) Delta-Flow (Hotfix/Patch/Small Feature)
+### C) Delta Flow (Hotfix/Patch/Small Feature)
 
-Für kleine Änderungen ohne vollständige PRD/Architektur. Voraussetzung: `change.type in {hotfix, patch}`, `contract_impact in {none, internal}`, `breaking == false`.
+For small changes without full PRD/architecture. Requirement: `change.type in {hotfix, patch}`, `contract_impact in {none, internal}`, `breaking == false`.
 
-| # | Schritt | Workflow | Agent |
+| # | step | Workflow | agent |
 |---|---|---|---|
-| 1a | Change-Brief | `01a-change-brief.md` | `aisdlc-requirements` |
+| 1a | Change letter | `01a-change-brief.md` | `aisdlc-requirements` |
 | 5a | Delta TDD | `05a-delta-tdd.md` | `aisdlc-execution` |
-| 6a | Delta-Implementierung | `06a-delta-impl.md` | `aisdlc-execution` |
+| 6a | Delta implementation | `06a-delta-impl.md` | `aisdlc-execution` |
 | 8a | Delta QA | `08a-delta-qa.md` | `aisdlc-qa` |
 
-GATE 1 wird übersprungen; GATE 2 als **light** (nur betroffene ACs). Bei `contract_impact in {external, public}` oder Änderung an `openapi.yaml` → **niemals** Delta-Flow.
+GATE 1 is skipped; GATE 2 as **light** (affected ACs only). For `contract_impact in {external, public}` or change to `openapi.yaml` → **never** delta flow.
 
-### Routing-Regeln (Kurzfassung)
+### Routing rules (short version)
 
-- `mode == migration/brownfield` → Assessment (0a) + Migration-Plan (2b) + Cutover-Gate.
-- `change.type in {hotfix, patch}` + intern + nicht-breaking → Delta-Flow.
-- Sonst → Greenfield-Volllauf.
-- Fast-Track (MVP) nur bei `allow_fast_track: true` und obiger Delta-Bedingung.
+- `mode == migration/brownfield` → assessment (0a) + migration plan (2b) + cutover gate.
+- `change.type in {hotfix, patch}` + internal + non-breaking → delta flow.
+- Otherwise → Greenfield full run.
+- Fast-Track (MVP) only with `allow_fast_track: true` and the above delta condition.
 
-## Verzeichnisstruktur
-
+## Directory structure
 ```
 AISDLC/
 ├── README.md                                # Dieses Dokument: Struktur, Ablauf, Rollen
@@ -141,129 +138,124 @@ AISDLC/
 ├── lessons-learned.md               # Beobachtungen aus dem Referenzlauf
 └── nohitl.md                        # Betriebsmodus ohne Human-in-the-Loop
 ```
+**Two layers.** The framework (`.opencode/`, `.agent/`, `AGENTS.md`) is
+stack-agnostic — it knows no library paths and no stack. The
+**Stack layer** is located in `opencode.jsonc` in the project root and is used by everyone
+Stack change replaced; the framework remains untouched. Merge rule: root config
+first, `.opencode/`-Config after, Agent-Frontmatter last — last hit
+wins. Consequence: **Catch-all denies belong in the stack layer**, which
+positive rules in the framework layer.
 
-**Zwei Schichten.** Das Framework (`.opencode/`, `.agent/`, `AGENTS.md`) ist
-stackagnostisch — es kennt keine Bibliothekspfade und keinen Stack. Die
-**Stack-Schicht** liegt in `opencode.jsonc` im Projekt-Root und wird bei jedem
-Stack-Wechsel ersetzt; das Framework bleibt unberührt. Merge-Regel: Root-Config
-zuerst, `.opencode/`-Config danach, Agent-Frontmatter zuletzt — letzter Treffer
-gewinnt. Konsequenz: **Catch-all-Denys gehören in die Stack-Schicht**, die
-positiven Regeln in die Framework-Schicht.
+## Rights matrix (own writer, others only read)
 
-## Rechte-Matrix (eigener Schreiber, andere lesen nur)
-
-| Verzeichnis | Schreibender Agent (exklusiv) | Lesende Agenten (Read-Only) |
+| Directory | Writing Agent (Exclusive) | Reading Agents (Read-Only) |
 | :--- | :--- | :--- |
 | `docs/requirements/` | Requirements Orchestrator | Architecture, Execution, QA, OpenCode |
 | `docs/architecture/`, `docs/api/`, `docs/adr/` | Architecture Orchestrator | Execution, QA, OpenCode |
-| `docs/execution/` | Execution Orchestrator (Tech Lead) | QA, OpenCode, menschl. Reviewer |
+| `docs/execution/` | Execution Orchestrator (Tech Lead) | QA, OpenCode, human. Reviewer |
 | `docs/qa/` | QA Orchestrator | Execution, OpenCode (Self-Correction) |
-| `src/` | OpenCode (Build-Phase) | Requirements, Architecture, QA |
-| `tests/` | OpenCode (Test-Phase) | QA, Execution |
-| `coverage/` | CI/Test-Runner | QA, Execution |
+| `src/` | OpenCode (build phase) | Requirements, Architecture, QA |
+| `tests/` | OpenCode (test phase) | QA, Execution |
+| `coverage/` | CI/Test Runner | QA, Execution |
 
-## Nutzung
+## Usage
 
-1. Orchestrator startet mit `.agent/prompts/orchestrator/01_orchestrator_requirements.md`, liest die Anforderung und legt PRD, Stories, `.feature`-Dateien und die Traceability Matrix an.
-2. Phase 2 (`02_orchestrator_architecture.md`, Plan-Modus): Architekturdiagramme, `openapi.yaml`, ADRs entstehen.
-3. Phase 3 (`03_orchestrator_implementation.md`, Build-Modus): OpenCode bekommt atomare Tasks, der Orchestrator validiert Linter/Build und bereitet Commits & PRs vor.
-4. Phase 4 (`04_orchestrator_testing.md`): Test-Suiten schreiben und ausführen; bei Fehlern übergibt der Orchestrator `{{TEST_RESULTS_JSON}}` an `opencode_task_self_correction.md` (Self-Correction-Loop).
-5. Eskalation bei `REQUIREMENT_GAP`/`ARCHITECTURAL_BLOCKER` über strukturiertes JSON – danach Re-Entry in die jeweilige Phase; bei Blocker Git-Reset der betroffenen `src/`-Dateien.
+1. Orchestrator starts with `.agent/prompts/orchestrator/01_orchestrator_requirements.md`, reads the requirement and creates PRD, stories, `.feature` files and the traceability matrix.
+2. Phase 2 (`02_orchestrator_architecture.md`, plan mode): Architecture diagrams, `openapi.yaml`, ADRs are created.
+3. Phase 3 (`03_orchestrator_implementation.md`, build mode): OpenCode gets atomic tasks, the orchestrator validates linter/build and prepares commits & PRs.
+4. Phase 4 (`04_orchestrator_testing.md`): Write and execute test suites; in case of errors, the orchestrator passes `{{TEST_RESULTS_JSON}}` to `opencode_task_self_correction.md` (self-correction loop).
+5. Escalation for `REQUIREMENT_GAP`/`ARCHITECTURAL_BLOCKER` via structured JSON - then re-entry into the respective phase; with Blocker Git reset of the affected `src/` files.
 
-### Multi-Instanz-Betrieb (0–4 parallele Phase-Services)
+### Multi-instance operation (0-4 parallel phase services)
 
-Neben dem Ein-Orchestrator-Modus kann jede Phase als eigener `ai-agent-service`-Instanz laufen (siehe discord-channel `start-sdlc.sh`, Observer als Supervisor):
-
+In addition to the one-orchestrator mode, each phase can run as its own `ai-agent-service` instance (see discord-channel `start-sdlc.sh`, Observer as supervisor):
 ```
 observer-service (18100, Supervisor) ── start/cancel/active ──► phase1..phase4
 phase0 (18082) → phase1 (18083) → phase2 (18084) → phase3 (18085) → phase4 (18086)
      ↑ REST-Handoff pro Phase (send_message → nächste Instanz /api/messages)
 ```
-
-- Jede Instanz trägt ihren eigenen System-Prompt (`.agent/prompts/sdlc_phaseN_*.md`) per `agent.prompt.path`.
-- Ein Wechsel bleibt ohne `docs/00_legacy_analysis/` (Phase 0 optional, Einstieg in Phase 1 direkt möglich).
-- Die gemeinsame SQLite-`trace.db` macht den Phasen-Wechsel im Observer als "aktive Phase" sichtbar.
+- Each instance carries its own system prompt (`.agent/prompts/sdlc_phaseN_*.md`) via `agent.prompt.path`.
+- A change remains without `docs/00_legacy_analysis/` (Phase 0 optional, entry into Phase 1 possible directly).
+- The common SQLite `trace.db` makes the phase change visible in the observer as an "active phase".
 ---
 
-## Upgrade: ASDF-Stil (Immune System, Hard Gates, Knowledge Base)
+## Upgrade: ASDF style (Immune System, Hard Gates, Knowledge Base)
 
-Dieses Projekt wurde um Konzepte aus dem [Agentic Software Delivery Framework](https://github.com/kasampra/Agentic-Software-Delivery-Framework) erweitert:
+This project has been expanded to include concepts from the [Agentic Software Delivery Framework](https://github.com/kasampra/Agentic-Software-Delivery-Framework):
 
-### Neue Dateien und Verzeichnisse
+### New files and directories
 
-| Datei/Verzeichnis | Beschreibung |
+| File/Directory | Description |
 |---|---|
-| `AGENTS.md` | Immune System — Behaviour Rules, Hard Gates, Folder Ownership, Secrets. Jeder Agent liest diese Datei zuerst. |
-| `.agent/knowledge/` | Zentrale Knowledge Base: `openapi.yaml`, `schema.sql`, `stack.md` |
-| `.agent/artifacts/` | Zentraler Artefaktspeicher für alle Phasen-Ergebnisse |
-| `.agent/workflows/` | 15 Workflow-Dateien (00–09 + 0a/1a/2b/5a/6a/8a) mit Gates und Output-Definitionen |
-| `.agent/PHASES.md` | **Single Source of Truth**: Schritt → Instanz → Agent → Skill → Gate |
+| `AGENTS.md` | Immune System — Behavior Rules, Hard Gates, Folder Ownership, Secrets. Every agent reads this file first. |
+| `.agent/knowledge/` | Central knowledge base: `openapi.yaml`, `schema.sql`, `stack.md` |
+| `.agent/artifacts/` | Central artifact storage for all phase results |
+| `.agent/workflows/` | 15 workflow files (00-09 + 0a/1a/2b/5a/6a/8a) with gates and output definitions |
+| `.agent/PHASES.md` | **Single Source of Truth**: Step → Instance → Agent → Skill → Gate |
 
-### Hard Gates
+### Hard gates
 
-- **GATE 1** (nach Schritt 2 — Architektur): Human Approval vor Code-Generierung
-- **GATE 2** (nach Schritt 8 — Security): Human Approval vor Deployment
+- **GATE 1** (after Step 2 — Architecture): Human approval before code generation
+- **GATE 2** (after step 8 — Security): Human approval before deployment
 
-### Parallele Build-Phasen (Phase 6)
+### Parallel Build Phases (Phase 6)
 
-Backend, Frontend und Infra werden gleichzeitig gebaut (3 parallele Streams), synchronisiert über den `openapi.yaml`-Contract aus Phase 2.
+Backend, frontend and infrastructure are built simultaneously (3 parallel streams), synchronized via the `openapi.yaml` contract from phase 2.
 
-### Referenz-App: TaskFlow
+### Reference app: TaskFlow
 
-Das Projekt dient als Vorlage für eine Task-App mit folgenden Komponenten:
-- Backend: FastAPI oder Spring Boot (JWT-Auth, CRUD, Status-Workflow)
-- Frontend: Next.js oder React (Task-Liste, Filter, Sortierung)
+The project serves as a template for a task app with the following components:
+- Backend: FastAPI or Spring Boot (JWT-Auth, CRUD, status workflow)
+- Frontend: Next.js or React (task list, filter, sorting)
 - Infra: Docker Compose, GitHub Actions CI/CD
 - Tests: Unit, Integration, E2E, Coverage ≥ 80%
 - Security: OWASP Top 10 Audit
 
-### Nutzung der neuen Struktur
+### Use of the new structure
 
-1. `AGENTS.md` lesen — enthält alle Regeln und Gates.
-2. `.agent/knowledge/` — Tech-Stack-Entscheidungen und API-Spec.
-3. `.agent/workflows/` — Workflow-Anweisungen pro Phase.
-4. `.agent/artifacts/` — Ergebnisse jeder Phase landen hier.
+1. Read `AGENTS.md` — contains all rules and gates.
+2. `.agent/knowledge/` — Tech stack decisions and API spec.
+3. `.agent/workflows/` — Workflow instructions per phase.
+4. `.agent/artifacts/` — Results of each phase end up here.
 
-### OpenCode-Agents
+### OpenCode Agents
 
-Sechs Primary-Agents sind in `.opencode/agents/` definiert:
+Six primary agents are defined in `.opencode/agents/`:
 
-**Phasen-Agents (stack-agnostisch)**
+**Phase agents (stack agnostic)**
 
-| Agent | Schritte | Schreibt in |
+| agent | Steps | Writes in |
 |---|---|---|
 | `aisdlc-requirements` | 1 + 1a | `docs/requirements/` |
 | `aisdlc-architecture` | 2–4, 2b | `docs/architecture/`, `docs/api/`, `docs/adr/`, `docs/migration/` |
 | `aisdlc-execution` | 5–7, 5a, 6a | `src/`, `tests/`, `docs/execution/` |
 | `aisdlc-qa` | 8–9, 8a | `tests/`, `docs/qa/` |
 
-**Stack-Agents (austauschbar)**
+**Stack agents (interchangeable)**
 
-| Agent | Stack | Schreibt in |
+| agent | stack | Writes in |
 |---|---|---|
-| `stack/<tech>/<rolle>` | Stack-spezifisch (Java / Spring Boot, React / TypeScript, …) | `src/`, `tests/`, `docs/execution/` |
+| `stack/<tech>/<role>` | Stack specific (Java / Spring Boot, React / TypeScript, …) | `src/`, `tests/`, `docs/execution/` |
 
-> Die Stack-Agenten gehören **nicht** zum Framework. Das Template liefert
-> `.opencode/agents/stack/` leer; das Projekt befüllt es und gibt die Agenten in
-> seiner Stack-Schicht frei.
+> The stack agents are **not** part of the framework. The template delivers
+> `.opencode/agents/stack/` empty; the project populates it and enters the agents
+> free of its stack layer.
 
-**Skills (Verfahrens-Schritte)**
-
-| Skill | Schritte |
+**Skills (procedural steps)**| Skill | Steps |
 |---|---|
 | `aisdlc-grill-stress` | 1a + 4 |
 | `aisdlc-simplify` | 3 + 7 |
 | `aisdlc-tdd` | 5 |
 | `aisdlc-security-scan` | 8 |
 | `aisdlc-deploy` | 9 |
-| `strangler-fig`, `module-migration` | 0a, 2b (Migration) |
-| `test-self-correction` | nach Bedarf |
+| `strangler-fig`, `module-migration` | 0a, 2b (migration) |
+| `test-self-correction` | as required |
 
-Jeder Agent hat folder-scoped Schreibrechte und einen eigenen System-Prompt.
-Details: `how-to/how-to.md`, Zuordnung: `.agent/PHASES.md`.
+Each agent has folder-scoped write permissions and its own system prompt.
+Details: `how-to/how-to.md`, mapping: `.agent/PHASES.md`.
 
-### Stack-Wissen aus den Bibliotheken (ohne Kopien)
+### Stack knowledge from the libraries (without copies)
 
-Stack-Skills kommen per `skills.paths` direkt aus den geklonten Bibliotheken — kein Kopieren,
-keine Drift. Die `skill`-Permission in `opencode.jsonc` filtert auf Stack-Präfixe, damit nicht
-alle 496 Bibliotheks-Skills in den Kontext geladen werden (Java+Spring: 342 Token, React/TS: 1.029).
+Stack skills come directly from the cloned libraries via `skills.paths` - no copying,
+no drift. The `skill` permission in `opencode.jsonc` filters for stack prefixes, so not
+all 496 library skills are loaded into the context (Java+Spring: 342 tokens, React/TS: 1,029).

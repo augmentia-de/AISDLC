@@ -2,7 +2,7 @@
 description: Phase 9 — Deployment and operations
 ---
 
-# Deploy Workflow
+# Deploy workflow
 
 ## Prerequisites
 
@@ -11,10 +11,10 @@ description: Phase 9 — Deployment and operations
 
 ## Agent & Skill
 
-- **Agent:** `aisdlc-qa`  ·  **Skill:** `aisdlc-ci-pipeline`, `aisdlc-containerize`, `aisdlc-deploy`
+- **Agent:** `aisdlc-qa` · **Skill:** `aisdlc-ci-pipeline`, `aisdlc-containerize`, `aisdlc-deploy`
 
 
-## Steps
+##Steps
 
 1. **Validate reports**: Confirm no Critical issues in QA and Security reports.
 2. **Deploy to staging**: Use CI/CD pipeline.
@@ -27,34 +27,32 @@ description: Phase 9 — Deployment and operations
 Project README at root (`README.md`) updated with quickstart/deployment reference.
 `.agent/artifacts/deploy-report.md`
 
-## Regeln
+##Rules
 
-Siehe `AGENTS.md`: keine Ausgabe-Kommandos, Vertrag nach Schritt 4 eingefroren.
+See `AGENTS.md`: no output commands, contract frozen after step 4.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p docs/execution/ infra/ .github/ .agent/artifacts/
 git reset -q
 git add -A -- docs/execution/ infra/ .github/ .agent/artifacts/
 git commit -m "build(sdlc-9): Deployment-Pipeline und Deploy-Report" \
   -m "Schritt 9 - Deployment & Betrieb | Agent: aisdlc-qa | Artefakte: docs/execution/, infra/, .github/, .agent/artifacts/"
 ```
+- Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
+- If nothing has changed: do not create a commit (no error).
 
-- Formel, Scope und Begruendung: `AGENTS.md` -> Commit Convention. Hier nur die Pfade.
-- Wenn sich nichts geaendert hat: kein Commit erzeugen (kein Fehler).
+## Traceability as a gate requirement
 
-## Traceability als Gate-Voraussetzung
-
-Vor dem Gate laeuft der Check — **0 Luecken** sind Bedingung:
-
-```bash
+The check runs in front of the gate - **0 gaps** are a condition:
+```
+bash
 python3 .agent/tools/traceability_check.py
 ```
+A gap means: a requirement with a story does not have a documented test. The check
+compares the artifacts with the file system - a filled matrix is not evidence,
+the existing file is it.
 
-Eine Luecke heisst: eine Anforderung mit Story hat keinen belegten Test. Der Check
-vergleicht die Artefakte mit dem Dateisystem — eine gefuellte Matrix ist kein Beleg,
-die existierende Datei ist es.
-
-## Gate
-Bei Produktions-Incidents → Rücksprung zu Phase 2.
+##Gate
+For production incidents → return to phase 2.

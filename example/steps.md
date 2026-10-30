@@ -1,9 +1,9 @@
 # TaskFlow step by step — inputs, artifacts, skills
 
-Every step lists: what it consumes, what it produces, which skills exist already, and which
+Every step lists: what it consumes, what it produces, which skills already exist, and which
 skills are still missing. Missing skills have a ready-to-copy draft in `skills-to-create/`.
 
-Legend: **[vorhanden]** = exists in AISDLC · **[fehlt]** = draft in `skills-to-create/`
+Legend: **[present]** = exists in AISDLC · **[missing]** = draft in `skills-to-create/`
 
 ---
 
@@ -14,7 +14,7 @@ this step is skipped — that is exactly what the optional step is for.
 
 **Consumes:** legacy source tree
 **Produces:** `.agent/artifacts/folder-structure.md`, architecture inventory
-**Skills:** **[fehlt]** `aisdlc-legacy-inventory` (only for brownfield projects)
+**Skills:** **[missing]** `aisdlc-legacy-inventory` (only for brownfield projects)
 
 ---
 
@@ -36,12 +36,12 @@ agents can execute without guessing.
 | Requirements summary | `.agent/artifacts/requirements.md` | condensed view for the review gate |
 | User stories (readable) | `.agent/artifacts/user-stories.md` | epic → story → criteria |
 
-**Skills:** **[vorhanden]** `aisdlc-grill-stress` (step 1a) · **[fehlt]** `aisdlc-prd-to-stories`
+**Skills:** **[available]** `aisdlc-grill-stress` (step 1a) · **[missing]** `aisdlc-prd-to-stories`
 
 **Gate:** human reviews PRD, stories, acceptance criteria before step 2.
 
 **TaskFlow specifics:** the ambiguous point is the status workflow — "Done" without "In
-Progress"? — exactly what the grill must settle.
+"Progress"? — exactly what the grill must settle.
 
 ---
 
@@ -54,7 +54,7 @@ Progress"? — exactly what the grill must settle.
 
 | Artifact | Path | Content |
 |---|---|---|
-| API contract | `docs/api/openapi.yaml` | OAS 3.0+, all endpoints, schemas, status codes, error format |
+| API contracts | `docs/api/openapi.yaml` | OAS 3.0+, all endpoints, schemas, status codes, error format |
 | Domain model | `docs/architecture/domain_model.md` | entities, relationships, invariants, lifecycle |
 | Diagrams | `docs/architecture/diagrams/*.mmd` | C4 context/container/component as Mermaid |
 | ADRs | `docs/adr/ADR-<ID>-<title>.md` | context, decision, consequences, alternatives |
@@ -62,8 +62,8 @@ Progress"? — exactly what the grill must settle.
 | Folder plan | `.agent/artifacts/folder-structure.md` | exact target layout of the app |
 | DB schema | `.agent/knowledge/schema.sql` | tables, indexes, retention policy |
 
-**Skills:** **[vorhanden]** `aisdlc-simplify`, `aisdlc-grill-stress` ·
-**[fehlt]** `aisdlc-openapi-first`, `aisdlc-glossary-adr`
+**Skills:** **[available]** `aisdlc-simplify`, `aisdlc-grill-stress` ·
+**[missing]** `aisdlc-openapi-first`, `aisdlc-glossary-adr`
 
 **🚧 Gate 1** — human approves the contract and the schema before any application code.
 
@@ -72,7 +72,7 @@ tension, ADR-003 the forward-only status workflow.
 
 ---
 
-## Step 3 — Simplify & reduction
+## Step 3 — Simplify & reduce
 
 **Purpose:** Cut over-engineering before the stress test — otherwise the test reviews
 complexity that should not exist.
@@ -80,7 +80,7 @@ complexity that should not exist.
 **Consumes:** `docs/architecture/*`, `.agent/artifacts/architecture.md`
 **Produces:** simplified design (edited in place), `.agent/artifacts/architecture.md` (updated)
 
-**Skills:** **[vorhanden]** `aisdlc-simplify` · **[fehlt]** — (covered)
+**Skills:** **[available]** `aisdlc-simplify` · **[missing]** — (covered)
 
 **TaskFlow specifics:** the generic `Task` with tags, comments and attachments is cut — the PRD
 puts them out of scope.
@@ -89,12 +89,12 @@ puts them out of scope.
 
 ## Step 4 — Grill-me stress test
 
-**Purpose:** Find the architecture errors that are still cheap to fix.
+**Purpose:** Find the architectural errors that are still cheap to fix.
 
 **Consumes:** `docs/api/openapi.yaml`, `docs/adr/`, `docs/architecture/`
 **Produces:** findings per axis (standards / spec), open decisions, `.agent/artifacts/architecture.md`
 
-**Skills:** **[vorhanden]** `aisdlc-grill-stress` · **[fehlt]** — (covered)
+**Skills:** **[available]** `aisdlc-grill-stress` · **[missing]** — (covered)
 
 **TaskFlow specifics:** catches that "erase task" and "90-day retention" contradict each other
 for the history table — resolved by an ADR before coding.
@@ -114,7 +114,7 @@ for the history table — resolved by an ADR before coding.
 | Test matrix | `.agent/artifacts/` + `docs/requirements/` | acceptance criterion → test level → test file |
 | Failures first | `tests/unit/`, `tests/integration/`, `tests/e2e/` | failing tests that drive the implementation |
 
-**Skills:** **[vorhanden]** `aisdlc-tdd` · **[fehlt]** `aisdlc-test-matrix`
+**Skills:** **[available]** `aisdlc-tdd` · **[missing]** `aisdlc-test-matrix`
 
 **TaskFlow specifics:** the tenant-isolation test is an integration test with a real database,
 not a unit test — the matrix must say so explicitly.
@@ -137,10 +137,10 @@ not a unit test — the matrix must say so explicitly.
 | PR descriptions | `docs/execution/pull_requests/PR_*.md` | per task |
 | Changelog | `docs/execution/CHANGELOG.md` | under `[Unreleased]` |
 
-**Skills:** **[vorhanden]** `aisdlc-tdd` · **[fehlt]** `aisdlc-feature-scaffold`,
+**Skills:** **[available]** `aisdlc-tdd` · **[missing]** `aisdlc-feature scaffold`,
 `aisdlc-containerize`
 
-**Streams run in parallel** (backend / frontend / infra), synchronised only through
+**Streams run in parallel** (backend / frontend / infra), synchronized only through
 `openapi.yaml` — no stream may change the contract.
 
 **TaskFlow specifics:** three streams, one contract, the erasure endpoint implemented in the
@@ -155,7 +155,7 @@ backend stream and surfaced in the frontend stream.
 **Consumes:** `src/`, `tests/`
 **Produces:** cleaned `src/`, updated `tests/`, `.agent/artifacts/architecture.md` (updated)
 
-**Skills:** **[vorhanden]** `aisdlc-simplify` · **[fehlt]** — (covered)
+**Skills:** **[available]** `aisdlc-simplify` · **[missing]** — (covered)
 
 **TaskFlow specifics:** the first pass of the PDF service is more general than needed
 (supports arbitrary templates) — the second pass narrows it to one report.
@@ -174,7 +174,7 @@ backend stream and surfaced in the frontend stream.
 | Security audit | `docs/qa/security-audit.md` | findings Critical/High/Medium/Low, evidence, rating |
 | Test report | `.agent/artifacts/test-report.md` | pass/fail summary, coverage |
 
-**Skills:** **[vorhanden]** `aisdlc-security-scan` · **[fehlt]** — (covered)
+**Skills:** **[available]** `aisdlc-security-scan` · **[missing]** — (covered)
 
 **TaskFlow specifics:** the mandatory checks are tenant isolation on every route, the erasure
 endpoint actually deleting, no secrets in the image, and the retention job being idempotent.
@@ -198,7 +198,7 @@ endpoint actually deleting, no secrets in the image, and the retention job being
 | CI/CD | `.github/workflows/deploy.yml` | test + coverage gate + SAST + build + deploy |
 | Infrastructure | `infra/` | Dockerfiles (non-root, pinned tags), compose, CI |
 
-**Skills:** **[vorhanden]** `aisdlc-deploy` · **[fehlt]** `aisdlc-ci-pipeline`
+**Skills:** **[existing]** `aisdlc-deploy` · **[missing]** `aisdlc-ci-pipeline`
 
 **TaskFlow specifics:** smoke tests hit the health endpoint, create a task, change its status
 and download the PDF — the four steps that would have broken in production.
@@ -210,10 +210,10 @@ and download the PDF — the four steps that would have broken in production.
 | Missing skill | Step | Why it is missing |
 |---|---|---|
 | `aisdlc-prd-to-stories` | 1 | The framework has no skill that turns a PRD into stories, Gherkin features and acceptance criteria |
-| `aisdlc-traceability` | 1, 5 | The matrix is required by the SDLC but nothing builds or checks it |
+| `aisdlc-traceability` | 1, 5 | The matrix is ​​required by the SDLC but nothing builds or checks it |
 | `aisdlc-openapi-first` | 2 | No skill drives contract-first work (spec → stubs → DTOs → routes) |
 | `aisdlc-glossary-adr` | 2 | ADRs and the glossary are required artifacts; no skill writes them |
-| `aisdlc-migration-plan` | 2, 6 | Schema changes need expand/contract planning with a rollback path |
+| `aisdlc-migration plan` | 2, 6 | Schema changes need expand/contract planning with a rollback path |
 | `aisdlc-test-matrix` | 5 | No skill maps acceptance criteria to test levels and files |
 | `aisdlc-feature-scaffold` | 6 | No skill creates a feature slice end to end consistently |
 | `aisdlc-containerize` | 6, 9 | No skill produces a non-root multi-stage image plus compose |

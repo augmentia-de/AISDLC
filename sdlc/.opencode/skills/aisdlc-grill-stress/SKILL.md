@@ -1,25 +1,25 @@
 ---
 name: aisdlc-grill-stress
-description: Phase 1a/4: Designbaum abfragen, Deepening finden, Standards- und Spec-Achse pruefen.
+description: Phase 1a/4: Query design tree, find deepening, check standards and spec axis.
 metadata:
-  origin: adaptiert aus mattpocock/grilling + mattpocock/improve-codebase-architecture + mattpocock/codebase-design + wshobson/architecture-patterns
+  origin: adapted from mattpocock/grilling + mattpocock/improve-codebase-architecture + mattpocock/codebase-design + wshobson/architecture-patterns
 ---
 
-## Wann
+## When
 
-Nach Phase 2 (Architektur), **vor** der Implementierung. Ziel: Architekturfehler finden,
-solange sie noch billig zu korrigieren sind.
+After phase 2 (architecture), **before** implementation. Goal: Find architectural errors,
+as long as they are still cheap to correct.
 
-## 1. Designbaum abfragen
+## 1. Query design tree
 
-Die Absicht ist die Wurzel. Jede Entscheidung haengt an den Entscheidungen darunter.
+Intention is the root. Every decision depends on the decisions below.
 
-**Frontier** = alle Entscheidungen, deren Voraussetzungen bereits geklaert sind - die Fragen,
-die du **jetzt** stellen kannst, ohne Antworten zu erfinden. Frage die ganze Frontier in
-einer Runde, nummeriere die Fragen und gib jeweils deine Empfehlung. Warte dann auf die
-Antworten, bevor die naechste Runde beginnt.
-
-```text
+**Frontier** = all decisions whose requirements have already been clarified - the questions
+which you can **now** ask without inventing answers. Question the whole frontier
+a round, number the questions and give your recommendation for each. Then wait for them
+Answer before the next round begins.
+```
+text
 ❓ **F1** - <Fragetitel>: <Frage, ggf. mit Antwortoptionen>
 
 ➡️ <deine Empfehlung>
@@ -30,56 +30,55 @@ Antworten, bevor die naechste Runde beginnt.
 
 ➡️ <deine Empfehlung>
 ```
+Phrase each question so that “yes” accepts your recommendation. A question whose answer is from
+depends on a question that is still open in this round, belongs in a **later** round.
 
-Jede Frage so formulieren, dass "ja" deine Empfehlung annimmt. Eine Frage, deren Antwort von
-einer noch offenen Frage dieser Runde abhaengt, gehoert in eine **spaetere** Runde.
+**Facts are your job, not the user's.** Does a Frontier question need one
+Environmental fact (file system, tooling, existing code), then determine it yourself or
+delegate it to a subagent - don't ask the user about it.
 
-**Fakten sind deine Aufgabe, nicht die des Nutzers.** Braucht eine Frontier-Frage eine
-Umgebungs-Faktum (Dateisystem, Tooling, bestehender Code), dann ermittle es selbst oder
-delegiere es an einen Subagenten - frage den Nutzer nicht danach.
+The session is finished when the frontier is empty: every branch attended, nothing silent
+accepted. Only act when the user confirms the shared understanding.
 
-Die Sitzung ist fertig, wenn die Frontier leer ist: jeder Ast besucht, nichts stillschweigend
-angenommen. Handle erst, wenn der Nutzer das gemeinsame Verstaendnis bestaetigt.
+## 2. Find deepening opportunities
 
-## 2. Deepening-Opportunitaeten finden
+Goal: convert flat modules into deep ones - more testable and AI-navigable.
 
-Ziel: flache Module in tiefe ueberfuehren - testbarer und KI-navigierbarer.
+**Deletion test:** Would deleting the module bundle the complexity or just shift it?
+"Yes, it's bundling" is the signal you're looking for.
 
-**Deletion-Test:** Wuerde das Loeschen des Moduls die Komplexitaet buendeln oder nur verschieben?
-"Ja, es buendelt" ist das gesuchte Signal.
+**Vocabulary** (from `codebase-design`): *Module*, *Interface*, *Depth*, *Seam*, *Adapter*,
+*Leverage*, *Locality*. Use these terms exactly, not in "component",
+"Service", "API" or "Boundary" drift.
 
-**Vokabular** (aus `codebase-design`): *Modul*, *Interface*, *Tiefe*, *Seam*, *Adapter*,
-*Leverage*, *Lokalitaet*. Diese Begriffe exakt verwenden, nicht in "Komponente",
-"Service", "API" oder "Boundary" abdriften.
+**Check two axes separately** (Standards and specification must not mask each other):
 
-**Zwei Achsen getrennt pruefen** (Standards und Spezifikation duerfen sich nicht gegenseitig maskieren):
-
-| Achse | Quelle | Befund |
+| axis | Source | Finding |
 |---|---|---|
-| Standards | Repo-Konventionen, Linter, Struktur, Naming, Testabdeckung | |
-| Spezifikation | `docs/api/openapi.yaml`, `docs/requirements/features/*.feature`, ADRs | |
+| Standards | Repo conventions, linter, structure, naming, test coverage | |
+| Specification | `docs/api/openapi.yaml`, `docs/requirements/features/*.feature`, ADRs | |
 
-**Quellen zuerst lesen:** `GLOSSARY.md` (Domänenbegriffe), `docs/adr/` (Entscheidungen, die
-nicht neu diskutiert werden), `docs/architecture/` (aktuelles Design).
+**Read sources first:** `GLOSSARY.md` (domain terms), `docs/adr/` (decisions that
+not to be discussed again), `docs/architecture/` (current design).
 
-**Friction-Signale, auf die du achtest:**
-- Ein Konzept zu verstehen erfordert Sprünge zwischen vielen kleinen Modulen
-- Module sind **flach**: das Interface ist fast so komplex wie die Implementierung
-- Reine Funktionen wurden nur fuer Testbarkeit extrahiert, die Bugs liegen aber im Zusammenspiel
-- Enge Kopplung ueberlebt die Seam
-- Ungetestete oder schwer testbare Teile
+**Friction signals to watch out for:**
+- Understanding a concept requires jumping between many small modules
+- Modules are **flat**: the interface is almost as complex as the implementation
+- Pure functions were only extracted for testability, but the bugs lie in the interaction
+- Tight coupling survives the seam
+- Untested or difficult to test parts
 
-**ADR-Konflikte:** Widerspricht ein Vorschlag einem bestehenden ADR, nur dann vorschlagen,
-wenn die Friction real ist. Im Befund deutlich markieren.
+**ADR conflicts:** If a proposal contradicts an existing ADR, only propose it
+when the friction is real. Mark clearly in the report.
 
-## 3. Ergebnis
+## 3. Result
 
-**Der Bericht beginnt mit einer Tabelle**: Befund, Schwere, Status, wo behoben. Die
-Herleitung steht darunter. Der Referenzlauf erzeugte 67 KB Prosa über den
-Stresstest — auffindbar, aber nicht auswertbar. Die Tabelle ist der Einstieg, die
-Prosa ist der Beleg.
+**Report begins with a table**: Findings, Severity, Status, Where Resolved. The
+The derivation is below. The reference run produced 67 KB of prose about the
+Stress test – can be found, but cannot be evaluated. The table is the introduction
+Prose is the evidence.
 
-- Befunde getrennt nach Standards-Achse und Spezifikation-Achse
-- Je Befund: Datei:Zeile, Problem, Auswirkung, Loesung, Empfehlungsstaerke
-- Offene Entscheidungen, die der Mensch treffen muss
-- Keine Implementierung, solange das gemeinsame Verstaendnis nicht bestaetigt ist
+- Findings separated according to standards axis and specification axis
+- Per finding: file: line, problem, impact, solution, recommendation strength
+- Open decisions that people have to make
+- No implementation until the common understanding is confirmed

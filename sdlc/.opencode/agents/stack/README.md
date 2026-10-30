@@ -1,37 +1,34 @@
-# Stack-Agenten — hier landen die stack-spezifischen Rollen
+# Stack agents — this is where the stack-specific roles end up
 
-Dieser Ordner ist im **Framework** leer. Die stack-spezifischen Agenten kommen mit
-der **Stack-Schicht** des Projekts (siehe `opencode.jsonc` im Projekt-Root) und
-gehören **nicht** zum Framework.
+This folder is empty in the **Framework**. The stack-specific agents come with it
+the **stack layer** of the project (see `opencode.jsonc` in the project root) and
+belong **not** to the framework.
 
-## Konvention
-
+## Convention
 ```
 .opencode/agents/stack/<tech>/<rolle>.md
 ```
+The path determines the **ID** of the agent: `stack/java/backend` → ID
+`stack/java/backend`. The folder name is part of the ID — unlike Skills, where
+Grouping folders are no longer required.
 
-Der Pfad bestimmt die **ID** des Agenten: `stack/java/backend` → ID
-`stack/java/backend`. Der Ordnername ist Teil der ID — anders als bei Skills, wo
-Gruppierungsordner entfallen.
+## Requirements for a stack agent
 
-## Anforderungen an einen Stack-Agenten
-
-| Feld | Wert |
+| field | Value |
 |---|---|
-| `mode` | `all` — als Primary vom Menschen wählbar **und** als Subagent vom Orchestrator startbar. Mit `mode: primary` scheitert der Start als Subagent. |
-| `description` | sagt, **wann** der Agent zu wählen ist |
-| `permissions` | `edit` auf die Schreibrechte des Stacks; **kein** eigener `shell`-Catch-all (der stuert die globale Allowlist aus — `last match wins`) |
-| `steps` | Sicherheitsnetz, nicht Fertig-Kriterium (150 ist der Wert für Rollen-Agenten) |
+| `fashion` | `all` — selectable as primary by humans **and** startable as subagent by orchestrator. With `mode: primary` the start as a subagent fails. |
+| `description` | says **when** to choose the agent |
+| `permissions` | `edit` to write permissions of the stack; **no** own `shell` catch-all (that controls the global allowlist - `last match wins`) |
+| `steps` | Safety net, not done criterion (150 is the value for role agents) |
 
-## Freigabe
+## Release
 
-Der Agent muss in der **Stack-Schicht** freigegeben werden, sonst ist er für das
-Modell unsichtbar:
-
-```jsonc
+The agent must be released in the **stack layer** otherwise it is for that
+Model invisible:
+```
+jsonc
 { "action": "subagent", "resource": "stack/java/backend", "effect": "allow" }
 ```
-
-Die Stack-Schicht sperrt zuerst (`"resource": "*"` → deny) und erlaubt danach
-gezielt — die Allow-Regeln der Rollen-Agenten stehen weiter hinten in der
-Framework-Schicht und gewinnen.
+The stack layer first blocks ("resource": "*"` → deny) and then allows
+targeted — the allow rules of the role agents are further back in the
+Framework layer and win.

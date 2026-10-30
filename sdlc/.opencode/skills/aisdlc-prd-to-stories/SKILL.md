@@ -1,36 +1,35 @@
 ---
 name: aisdlc-prd-to-stories
-description: Phase 1: aus einem Auftrag PRD, Stories, Features und Traceability-Matrix erzeugen.
+description: Phase 1: Generate PRD, stories, features and traceability matrix from an order.
 metadata:
-  origin: eigenes Framework-Verfahren; Entwurf aus example/skills-to-create/aisdlc-prd-to-stories
+  origin: own framework procedure; Draft from example/skills-to-create/aisdlc-prd-to-stories
 ---
 
-## Wann
+## When
 
-Phase 1, **nach** dem Grill-Me. Ist die Anforderung noch mehrdeutig, erst
-`aisdlc-grill-stress` — dieser Skill setzt eine *klare* Anforderung voraus.
+Phase 1, **after** the grill meal. If the requirement is still ambiguous, first
+`aisdlc-grill-stress` — this skill has a *clear* requirement.
 
-## Das eiserne Gesetz
-
-```text
+## The iron law
+```
+text
 KEINE STORY OHNE AKZEPTANZKITERIUM
 ```
+An acceptance criterion must be **observable**. “The system is fast” is not one
+criterion. "The list renders in under 2 s (p95)" is one.
 
-Ein Akzeptanzkriterium muss **beobachtbar** sein. "Das System ist schnell" ist kein
-Kriterium. "Die Liste rendert in unter 2 s (p95)" ist eins.
+## Procedure
 
-## Vorgehen
-
-1. **Faehigkeiten extrahieren** — den Auftrag in Epics gruppieren. Ein Epic = ein
-   zusammenhaengendes Ziel.
-2. **Stories schreiben** — *Als <Rolle> moechte ich <Faehigkeit>, damit <Nutzen>.*
-   Eine Story so klein, dass sie in einem Durchgang gebaut und getestet werden kann.
-3. **Akzeptanzkriterien** — je Story mindestens eins, beobachtbar und messbar.
-4. **BDD-Features** — eine `.feature` je Story mit `Given/When/Then`:
-   der Normalfall, der Verweigerungsfall, der Grenzfall.
-   **Jedes Szenario trägt die Kennung seines Akzeptanzkriteriums** als Kommentar:
-
-   ```gherkin
+1. **Extract Skills** — group the job into epics. An epic = one
+   coherent goal.
+2. **Write stories** — *As a <role> I want <skill> so that <benefit>.*
+   A story so small that it can be built and tested in one go.
+3. **Acceptance criteria** — at least one per story, observable and measurable.
+4. **BDD Features** — one `.feature` per story with `Given/When/Then`:
+   the normal case, the refusal case, the borderline case.
+   **Each scenario has the identifier of its acceptance criterion** as a comment:
+```
+gherkin
    # Story: US-003 — Secret rotieren
    # Anforderungen: FR-003
 
@@ -40,21 +39,20 @@ Kriterium. "Die Liste rendert in unter 2 s (p95)" ist eins.
        Given ein Endpunkt mit Secret S1
        When der Empfänger-Admin rotiert auf Secret S2
        Then verwendet der Dienst ab dem nächsten Zustellversuch ausschließlich S2
-   ```
-
-   Die Kennung `AC-<story>-<nr>` steht damit an **drei** Orten: in der Story-JSON
-   (`"id"`), im Feature-Szenario (Kommentar) und später im Testfall. Nur so ist die
-   Zuordnung Test → Anforderung **mechanisch** — der Traceability-Check liest die
-   Kennung aus dem Test und findet die Anforderung über die Story. Ohne sie muss
-   zugeordnet werden, und das wird geraten.
-5. **Nicht-funktionale Anforderungen** — Performance, Sicherheit, Datenschutz,
-   Barrierefreiheit, Verfuegbarkeit. Je eine **messbare** Zielgroesse.
-6. **Risiken** — nur Risiken, die eine **Entscheidung** aendern. Je ein Gegenmass, das
-   in einer Anforderung verankert ist.
-7. **Traceability-Seed** — jede Story nennt die Anforderungs-IDs, die sie abdeckt.
+   
+```
+The identifier `AC-<story>-<no>` is therefore in **three** places: in the story JSON
+   ("id"`), in the feature scenario (comment) and later in the test case. That's just how it is
+   Assignment test → requirement **mechanical** — the traceability check reads the
+   Identifier from the test and finds the requirement via the story. Without them you have to
+   assigned, and that is advised.
+5. **Non-Functional Requirements** — Performance, Security, Privacy,
+   Accessibility, availability. One **measurable** target size for each.
+6. **Risks** — only risks that change a **decision**. A counterweight each, that
+   is anchored in a requirement.
+7. **Traceability Seed** — each story names the requirement IDs it covers.
 
 ## Output
-
 ```
 docs/requirements/PRD.md                    # Vision, Personas, Ziele, KPIs, MoSCoW
 docs/requirements/stories/<story_id>.json    # eine Datei je Story
@@ -64,10 +62,9 @@ docs/requirements/traceability_matrix.json   # Anforderung -> Story -> Test
 .agent/artifacts/user-stories.md             # lesbare Fassung
 .agent/artifacts/risk-register.md            # Top-Risiken
 ```
-
-Story-Schema:
-
-```json
+Story scheme:
+```
+json
 {
   "id": "US-003",
   "epic": "E1",
@@ -81,24 +78,23 @@ Story-Schema:
   "status": "todo"
 }
 ```
+##Rules
 
-## Regeln
+- **Each** acceptance criteria has an identifier `AC-<story>-<nr>`, and **each**
+  Feature scenario carries them. In the end, a scenario without an identifier cannot be verified.
+- Every story has at least one acceptance criterion; every criterion is observable.
+- A story doesn't hang on to another unfinished story without saying so.
+- Anything that doesn't belong in the scope ends up in an explicit **"won't have"** —
+  not in the backlog.
+- If a decision is missing, it is **escalated**, not invented.
+- After writing, `aisdlc-traceability-check` applies.
 
-- **Jedes** Akzeptanzkriterium hat eine Kennung `AC-<story>-<nr>`, und **jedes**
-  Feature-Szenario trägt sie. Ein Szenario ohne Kennung ist am Ende nicht belegbar.
-- Jede Story hat mindestens ein Akzeptanzkriterium; jedes Kriterium ist beobachtbar.
-- Eine Story haengt nicht an einer anderen unfertigen Story, ohne das zu sagen.
-- Was nicht in den Scope gehoert, landet in einem ausdruecklichen **"won't have"** —
-  nicht im Backlog.
-- Fehlt eine Entscheidung, wird **eskaliert**, nicht erfunden.
-- Nach dem Schreiben gilt `aisdlc-traceability-check`.
+## Stack skills
 
-## Stack-Skills
-
-> Die Namen sind die der **Stack-Schicht** des Projekts (`opencode.jsonc`,
-> `skills/`). Der Workflow dieses Skills gilt auch ohne sie — sie liefern nur
-> das Handwerk, nicht das Verfahren.
-| Wofuer | Skill |
+> The names are those of the project's **stack layer** (`opencode.jsonc`,
+> `skills/`). The workflow of this skill applies without them — they just deliver
+> the craft, not the process.
+| For what | Skill |
 |---|---|
-| Mehrdeutige Anforderung aufklaeren | `intent-driven-development` |
-| Story-Lifecycle, Epic-zu-Sprint | `story-lifecycle` |
+| Clarify ambiguous requirement | `intent-driven-development` |
+| Story Lifecycle, Epic to Sprint | `story-lifecycle` |

@@ -1,46 +1,46 @@
-# Steckbrief — <Schritt N> (<Schrittname>)
+# Profiles - <Step N> (<Step Name>)
 
-> **Template.** Der Orchestrator schreibt diese Datei am Ende jedes Schritts neu
-> und committet sie mit dem Schritt. Der Rollen-Agent des nächsten Schritts liest
-> sie **zuerst** und danach nur die Dateien, die hier genannt sind.
+> **Template.** Orchestrator rewrites this file at the end of each step
+> and commits it with the step. The next step role agent reads
+> them **first** and then only the files mentioned here.
 
-| Feld | Wert |
+| field | Value |
 |---|---|
-| Stand | Schritt <N> abgeschlossen, Commit <hash> |
-| Nächster Schritt | <N+1> (<Schrittname>), Agent <agent-id> |
-| Vertrag | `docs/api/openapi.yaml`, Revision <x> — **eingefroren seit Schritt 4** |
-| Schema | `.agent/knowledge/schema.sql` (kanonisch) |
-| Stack | `.agent/knowledge/stack.md` |
+| Stand | Step <N> completed, commit <hash> |
+| Next step | <N+1> (<step name>), agent <agent-id> |
+| contract | `docs/api/openapi.yaml`, revision <x> — **frozen since step 4** |
+| Scheme | `.agent/knowledge/schema.sql` (canonical) |
+| stack | `.agent/knowledge/stack.md` |
 
-## Was du lesen musst — und sonst nichts
+## What you have to read - and nothing else
 
-| # | Datei | Warum |
+| # | File | Why |
 |---|---|---|
-| 1 | `AGENTS.md` | Regeln, Gates, Folder Ownership |
-| 2 | `.agent/PHASES.md` | Schritt → Instanz → Agent → Skill → Gate |
-| 3 | `<workflow-datei>` | dieser Schritt |
-| 4 | <weitere Datei> | <warum> |
+| 1 | `AGENTS.md` | Rules, Gates, Folder Ownership |
+| 2 | `.agent/PHASES.md` | Step → Instance → Agent → Skill → Gate |
+| 3 | `<workflow file>` | this step |
+| 4 | <additional file> | <why> |
 
-## Entscheidungen, die gelten
+## Decisions that apply
 
-| ID | Entscheidung | Bindet |
+| ID | decision | Binds |
 |---|---|---|
-| <F-x / ADR-x> | <Kurzfassung> | <was> |
+| <F-x / ADR-x> | <short version> | <what> |
 
-## Offene Punkte
+## Open points
 
-| ID | Thema | Owner |
+| ID | Topic | Owner |
 |---|---|---|
-| <O-xx> | <kurz> | <wer> |
+| <O-xx> | <short> | <who> |
 
-## Was du in diesem Schritt **nicht** tust
+## What you **don't** do in this step
 
-- <z. B. „der Vertrag ist eingefroren" — ein Vertragsdefekt ist ein Befund für
-  einen Rücksprung zu Schritt 2, keine Änderung im Vorbeigehen.>
+- <e.g. E.g. "the contract is frozen" - a contract defect is a finding for
+  a jump back to step 2, no change in passing.>
 
-## Werkzeuge
+##Tools
 
-| Zweck | Kommando |
+| Purpose | Command |
 |---|---|
-| Konsistenz der Traceability-Kette | `python3 .agent/tools/traceability_check.py` |
-| <weitere> | <Kommando> |
+| Consistency of the traceability chain | `python3 .agent/tools/traceability_check.py` |
+| <more> | <command> |

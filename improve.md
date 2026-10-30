@@ -1,39 +1,39 @@
-# AI-SDLC3: Gemeinsame Best-Practice-Verbesserungsversion
+# AI-SDLC3: Common best practice improvement version
 
-Dieses Dokument vereint Kritik, Analyse und konkrete Umsetzungsschritte, um AISDLC3 sowohl für kleine Projekte/MVPs als auch für Enterprise-Projekte nutzbar zu machen. Ziel ist ein **profilbasierter, modularer Ansatz** (statt zweier separater Codebasen), der Governance bewahrt, aber Overhead, Fragilität und Sicherheitsrisiken reduziert.
+This document combines criticism, analysis and concrete implementation steps to make AISDLC3 usable for both small projects/MVPs and enterprise projects. The goal is a **profile-based, modular approach** (instead of two separate codebases) that preserves governance but reduces overhead, fragility and security risks.
 
-## 1) Kritische Punkte & Bewertung
+## 1) Critical Points & Rating
 
-| Kritikpunkt | Schwere | Status | Bewertung |
+| Criticism | Heavy | Status | Rating |
 | :-- | :-- | :-- | :-- |
-| **Hohe Token-Kosten & Overhead** | Hoch | Teilweise gemildert | Steckbrief (`briefing.md`), kurze Antworten, Skill-Laden on-demand helfen, reichen aber für MVPs nicht aus. |
-| **Prozess-Starrheit (Bürokratie)** | Hoch | Zu streng | 9-Phasen-Zyklus, Vertrags-Einfrierung, verpflichtende Gates bremsen explorative Entwicklung. `Nachzug` zeigt Bruch der Regeln. |
-| **Fragile Subagenten-Antworten (3-Zeilen-Regel)** | Sehr hoch | Kritisch | Parser des Orchestrators ist abhängig von exaktem Format. Freitext bricht Ablauf leicht. |
-| **Abhängigkeit von initialer Spezifikation** | Hoch | Gut adressiert | `aisdlc-grill-stress`, `REQUIREMENT_GAP` vorhanden, aber nicht foolproof. |
-| **Shell-Permissions (global `allow`)** | Kritisch | Unzureichend | Größtes echtes Sicherheitsrisiko. Pfadschutz allein reicht nicht. |
-| **Git-Commit-Trick (`git reset -q && git add -A -- <paths>`)** | Hoch | Fragil | Bricht leicht (z.B. durch Tools wie `rtk`), pathspec-Probleme bei leeren Ordnern. |
-| **Traceability als harter Gate-Blocker** | Hoch | Zu streng | Regex/Naming-Unterschiede können Deployment unnötig blockieren. |
+| **High token costs & overhead** | High | Partially mitigated | Profile (`briefing.md`), short answers, skill loading on demand help, but are not enough for MVPs. |
+| **Process rigidity (bureaucracy)** | High | Too strict | 9-phase cycle, contract freezing, mandatory gates slow down exploratory development. “Nachzug” shows breaking the rules. |
+| **Fragile Subagent Responses (3 Line Rule)** | Very high | Critical | Orchestrator's parser depends on exact format. Free text breaks the process easily. |
+| **Dependence on initial specification** | High | Well addressed | `aisdlc-grill-stress`, `REQUIREMENT_GAP` present, but not foolproof. |
+| **Shell permissions (global `allow`)** | Critical | Inadequate | Biggest real security risk. Path protection alone is not enough. |
+| **Git commit trick (`git reset -q && git add -A -- <paths>`)** | High | Fragile | Breaks easily (e.g. by tools like `rtk`), pathspec problems with empty folders. |
+| **Traceability as a hard gate blocker** | High | Too strict | Regex/naming differences can block deployment unnecessarily. |
 
-## 2) Best-Practice-Lösung: Profilbasierter Ansatz
+## 2) Best practice solution: Profile-based approach
 
-Ein einheitliches Framework mit konfigurierbarem Profil ist dem Forken eindeutig vorzuziehen. Konfiguration zentralisieren und konsequent vom **Orchestrator** durchsetzen.
+A unified framework with a configurable profile is clearly preferable to forking. Centralize configuration and consistently enforce it from the **orchestrator**.
 
-### 2.1 Modusdefinition
+### 2.1 Mode definition
 
-| Dimension | `profile: mvp` (Kleines Projekt/MVP) | `profile: enterprise` (Enterprise/Compliance) |
+| Dimension | `profile: mvp` (Small Project/MVP) | `profile: enterprise` (Enterprise/Compliance) |
 | :-- | :-- | :-- |
-| **Phasen-Umfang** | Reduziert auf Kernphasen: `Requirements → (minimal Architecture) → Code → Test → Deploy` (3–5 Schritte effektiv) | Voller 9-Phasen-Zyklus inkl. Simplify, Grill-Me, Security, CI-Pipeline |
-| **Dokumentation** | Minimal: `docs/requirements/PRD.md` + nötige Code-Artefakte. ADRs/Glossar nur bei Bedarf. | Vollständig: ADRs, C4, OpenAPI, Glossar, Traceability, Security-Audit, Deploy-Report |
-| **Qualitätsgates** | Locker/Manuell, Fokus auf Funktionstüchtigkeit. Security-Minimum (Secrets-Scan). Folder-Ownership & Commits bleiben verpflichtend. | Streng: GATE 1 & 2, `traceability_check` hart bei kritischen Pfaden, Security 0 Critical/High, Coverage-Ziele |
-| **Traceability** | `light` (Story→Code) - Warnung bei Lücken | `full` (Req→Story→Feature→Test→Code) - Hard-Fail bei Vertrags-/kritischen Pfaden |
-| **Vertrags-Einfrierung** | Nur bei als `extern`/`public` klassifizierten Verträgen erzwingen | Streng nach Schritt 4, Rücksprung zu Schritt 2 bei Vertragsänderung |
-| **Fast-Track/Patch** | Erlaubt (mit Vertragsprüfung) | Stark eingeschränkt, nur mit Begründung & Review |
+| **Phase Scope** | Reduced to core phases: `Requirements → (minimal architecture) → Code → Test → Deploy` (3-5 steps effective) | Full 9-phase cycle including Simplify, Grill-Me, Security, CI pipeline |
+| **Documentation** | Minimal: `docs/requirements/PRD.md` + necessary code artifacts. ADRs/Glossary only if required. | Complete: ADRs, C4, OpenAPI, glossary, traceability, security audit, deploy report |
+| **Quality Gates** | Loose/Manual, focus on functionality. Security minimum (secrets scan). Folder ownership & commits remain mandatory. | Strict: GATE 1 & 2, `traceability_check` hard on critical paths, Security 0 Critical/High, coverage targets |
+| **Traceability** | `light` (Story→Code) - warning about gaps | `full` (Req→Story→Feature→Test→Code) - Hard fail on contract/critical paths |
+| **Contract Freeze** | Only enforce contracts classified as `external`/`public` | Strictly according to step 4, return to step 2 when changing the contract |
+| **Fast Track/Patch** | Allowed (with contract review) | Strongly restricted, only with reasons & review |
 
-### 2.2 Neue zentrale Konfiguration
+### 2.2 New central configuration
 
-**Neu anlegen:** `.agent/config.json`
-
-```json
+**Create new:** `.agent/config.json
+```
+`json
 {
   "$schema": "./schemas/config.schema.json",
   "profile": "mvp",
@@ -54,116 +54,116 @@ Ein einheitliches Framework mit konfigurierbarem Profil ist dem Forken eindeutig
   }
 }
 ```
+**Customize:** `.opencode/opencode.jsonc` - add `profile` as default reference (backwards compatible). Primary source remains `.agent/config.json` as subagents can access it more reliably.
 
-**Anpassen:** `.opencode/opencode.jsonc` - `profile` als Default-Referenz ergänzen (Backwards-kompatibel). Primäre Quelle bleibt `.agent/config.json`, da Subagenten zuverlässiger darauf zugreifen können.
+## 3) Specific changes per point of criticism
 
-## 3) Konkrete Änderungen pro Kritikpunkt
-
-### 3.1 Token-Kosten & Overhead
-| Ort | Änderung | Begründung |
+### 3.1 Token Costs & Overhead
+| Location | Change | Justification |
 | :-- | :-- | :-- |
-| `.agent/config.json` | Profil steuern | Zentrale Kontrolle |
-| `.agent/PHASES.md` | Neue Spalten `mvp` (`yes\|no\|optional`), `required_artifacts` pro Schritt | Orchestrator überspringt nur wirklich optionale Artefakte/Schritte |
-| `.agent/prompts/orchestrator/*` | Profilabhängige Checklisten | Nur nötige Dateien im Briefing aufführen |
-| `.opencode/agents/aisdlc-orchestrator.md` | "Wenn `profile: mvp` -> überspringe optionale Artefakte (Glossar, umfangreiche ADR-Sets) sofern nicht benötigt" | Weniger Kontext, weniger Tokens |
+| `.agent/config.json` | Control profile | Central control |
+| `.agent/PHASES.md` | New columns `mvp` (`yes\|no\|optional`), `required_artifacts` per step | Orchestrator only skips truly optional artifacts/steps |
+| `.agent/prompts/orchestrator/*` | Profile-dependent checklists | Only list necessary files in the briefing |
+| `.opencode/agents/aisdlc-orchestrator.md` | "If `profile: mvp` -> skip optional artifacts (glossary, extensive ADR sets) unless needed" | Less context, fewer tokens |
 
-### 3.2 Prozess-Starrheit & Rücksprünge
-| Ort | Änderung | Begründung |
+### 3.2 Process rigidity & bounces
+| Location | Change | Justification |
 | :-- | :-- | :-- |
-| `.opencode/agents/aisdlc-orchestrator.md` | **Fast-Track/Patch-Modus** ergänzen | Direkte Korrekturschleife für Bugfixes ohne vollen Phasenbaum |
-| `AGENTS.md` | Eskalation um "Patch" erweitern | Klare Regeln |
-| `docs/architecture/contract-matrix.md` (neu) | Vertragspartner/Klassifikation (`internal\|external\|public`) erfassen | Nur bei `external/public` strenger Freeze/Rücksprung erzwingen |
+| `.opencode/agents/aisdlc-orchestrator.md` | Add **Fast Track/Patch Mode** | Direct correction loop for bug fixes without a full phase tree |
+| `AGENTS.md` | Add “patch” to escalation | Clear rules |
+| `docs/architecture/contract-matrix.md` (new) | Enter contractual partner/classification (`internal\|external\|public`) | Force strict freeze/return only for `external/public` |
 
-**Regel:** Fast-Track nur erlaubt, wenn **keine** Vertragsdateien betroffen (`docs/api/**`, `docs/architecture/contract*`, `openapi.yaml`). Sonst Light-Gate oder voller Rücksprung.
+**Rule:** Fast track only allowed if **no** contract files are affected (`docs/api/**`, `docs/architecture/contract*`, `openapi.yaml`). Otherwise light gate or full rebound.
 
-### 3.3 Fragile 3-Zeilen-Antworten
-| Ort | Änderung | Begründung |
+### 3.3 Fragile 3-line answers
+| Location | Change | Justification |
 | :-- | :-- | :-- |
-| `.opencode/agents/aisdlc-orchestrator.md` §3a | Parsing auf **Regex-Extraktion** umstellen | Toleranter gegenüber Freitext/Markdown |
-| `.opencode/agents/aisdlc-orchestrator.md` | Fallback-Mechanismus | Bei Parsing-Fehlschlag einmalig Korrektur anfordern, nicht direkt abbrechen |
+| `.opencode/agents/aisdlc-orchestrator.md` §3a | Switch parsing to **regex extraction** | More tolerant of free text/Markdown |
+| `.opencode/agents/aisdlc-orchestrator.md` | Fallback mechanism | If parsing fails, request correction once, do not cancel immediately |
 
-**Regex-Vorschlag:**
-```regex
+**Regex suggestion:**
+```
+regex
 /(?m)^STATUS:\s*(done|done_with_open_points|blocked)\b.*$/
 /(?m)^COMMIT:\s*(.+)$/
 /(?m)^OFFENE PUNKTE:\s*(.+)$/
 ```
-Extrahiere überall im Output (nicht nur "erste drei Zeilen"), ignoriere Einleitungen/Überschriften.
+Extract everywhere in the output (not just "first three lines"), ignore introductions/headings.
 
-### 3.4 Shell-Permissions (Least Privilege)
-| Ort | Änderung | Begründung |
+### 3.4 Shell Permissions (Least Privilege)
+| Location | Change | Justification |
 | :-- | :-- | :-- |
-| `.opencode/opencode.jsonc` | **Default `deny`** für Shell, nur gezielte `ask`/`allow` für destruktive Befehle behalten | Behebt größtes Sicherheitsrisiko |
-| `.opencode/agents/*.md` | Pro Agent explizite `permissions.shell` (Allowlist) | Least Privilege erzwingen |
-| `AGENTS.md` | Kommentar zu Shell-Schutz korrigieren ("Schutz über Pfad-Rechte allein reicht nicht") | Ehrlichere Dokumentation |
+| `.opencode/opencode.jsonc` | **Default `deny`** for shell, only keep targeted `ask`/`allow` for destructive commands | Fixes biggest security risk |
+| `.opencode/agents/*.md` | Per agent explicit `permissions.shell` (Allowlist) | Enforce Least Privilege |
+| `AGENTS.md` | Correct comment on shell protection ("Protection via path rights alone is not enough") | More honest documentation |
 
-**Vorschlag für Allowlists (orientiert am EchoBox-Volllauf):**
-| Agent | Shell | Bemerkung |
+**Suggestion for allowlists (based on the EchoBox full run):**
+| agent | Shell | Remark |
 | :-- | :-- | :-- |
-| `aisdlc-requirements` | `deny` (oder minimal `read-only` Tools) | Soll primär lesen/dokumentieren |
-| `aisdlc-architecture` | Sehr eingeschränkt (`git log/status/diff`, read-only) | Überwiegend Dokumentation |
-| `aisdlc-execution` | `allow` für `git`, `mvn`/`npm`/`pnpm`/`yarn`, `node`, `python`, `java`, `bash` (nur projektbezogen) | Build/Test/Run nötig |
-| `aisdlc-qa` | `allow` für `git`, Test-Runner, Linter/Scanner | QA/Scan |
-| `aisdlc-orchestrator` | `deny` für Ausführung, nur minimal für Git-Status/Log zum Prüfen | Darf nie selbst editieren, Shell nur zum Verifizieren |
+| `aisdlc-requirements` | `deny` (or minimal `read-only` tools) | Should primarily read/document |
+| `aisdlc-architecture` | Very limited (`git log/status/diff`, read-only) | Mostly documentation |
+| `aisdlc-execution` | `allow` for `git`, `mvn`/`npm`/`pnpm`/`yarn`, `node`, `python`, `java`, `bash` (project only) | Build/Test/Run required |
+| `aisdlc-qa` | `allow` for `git`, test runner, linter/scanner | QA/Scan |
+| `aisdlc-orchestrator` | `deny` for execution, only minimal for Git status/log to check | May never edit yourself, shell only for verification |
 
-**Hinweis:** Vor Umstellung auf Default-Deny **vollständige Liste** tatsächlich genutzter Kommandos aus `run-log.jsonl` extrahieren.
+**Note:** Before switching to default deny, extract **full list** of actually used commands from `run-log.jsonl`.
 
-### 3.5 Traceability robuster & modusspezifisch
-| Ort | Änderung | Begründung |
+### 3.5 Traceability more robust & mode specific
+| Location | Change | Justification |
 | :-- | :-- | :-- |
-| `.agent/tools/traceability_check.py` | Modi `off\|light\|full`, `--mode`, Fuzzy-Matching, Ignore-List | Weniger fragil |
-| `AGENTS.md` / Orchestrator | Soft-Fail/Hard-Fail je Profil & Vertragsklasse | Verhindert Blockade durch Regex-Fehler |
-| GATE 2 Logik | Nur bei `external/public` + `full` Hard-Fail mit 0 Lücken erzwingen | Pragmatisch aber sicher |
+| `.agent/tools/traceability_check.py` | Modes `off\|light\|full`, `--mode`, fuzzy-matching, ignore-list | Less fragile |
+| `AGENTS.md` / Orchestrator | Soft-Fail/Hard-Fail per profile & contract class | Prevents blocking due to regex errors |
+| GATE 2 Logic | Force hard fail with 0 gaps only for `external/public` + `full` | Pragmatic but safe |
 
-### 3.6 Git-Commits robuster
-| Ort | Änderung | Begründung |
+### 3.6 Git commits more robust
+| Location | Change | Justification |
 | :-- | :-- | :-- |
-| `AGENTS.md` Commit-Convention | Robuster Ansatz ergänzen | Weniger fragil gegenüber `rtk` |
-| Orchestrator/Workflows | Validierung vor Commit (`git diff --cached --name-only`), Existenzprüfung | Frühes Erkennen von Fehlern |
-| Vorschlag | `git add -A -- <paths>` beibehalten, aber `git commit -m ... -m ... -- <paths>` als Fallback oder `git commit --only -- <paths>` testen/validieren | Kompatibler mit Tools |
+| `AGENTS.md` commit convention | Complement robust approach | Less fragile compared to `rtk` |
+| Orchestrator/Workflows | Validation before commit (`git diff --cached --name-only`), existence check | Early detection of errors |
+| Suggestion | Keep `git add -A -- <paths>`, but test/validate `git commit -m ... -m ... -- <paths>` as a fallback or `git commit --only -- <paths>` | More compatible with tools |
 
-## 4) Sofort umsetzbare Schritte (Reihenfolge)
+## 4) Steps that can be implemented immediately (order)
 
-Um Risiken zu minimieren, **inkrementell** vorgehen:
+To minimize risks, proceed **incrementally**:
 
-| # | Aktion | Ziel | Status |
+| # | Action | Target | Status |
 | :-- | :-- | :-- | :-- |
-| **1** | `.agent/config.json` anlegen | Profil zentralisieren | **TODO** |
-| **2** | `.agent/schemas/config.schema.json` anlegen | Validierung | **TODO** |
-| **3** | `.agent/PHASES.md` um `mvp`-Spalten erweitern | Orchestrator kann überspringen | **TODO** |
-| **4** | `docs/architecture/contract-matrix.md` anlegen | Vertragsklassifikation für Freeze/ Fast-Track | **TODO** |
-| **5** | `.opencode/agents/aisdlc-orchestrator.md` anpassen | Profil-lesen, Regex-Parsing, Fast-Track, modusspezifische Gates | **TODO** |
-| **6** | `.agent/tools/traceability_check.py` erweitern | `off/light/full`, Soft/Hard-Fail | **TODO** |
-| **7** | `AGENTS.md` anpassen | Regeln zu Profil, Shell, Parsing, Fast-Track ergänzen/korrigieren | **TODO** |
-| **8** | **Shell umstellen:** `.opencode/opocolio.jsonc` auf Default-Deny + Agent-Allowlists | Sicherheitsrisiko beheben | **TODO** (sehr sorgfältig) |
-| **9** Commit-Convention robuster gestalten | Index-Trick evaluieren/absichern | Weniger fragil | **TODO** |
+| **1** | Create `.agent/config.json` | Centralize profile | **TODO** |
+| **2** | Create `.agent/schemas/config.schema.json` | Validation | **TODO** |
+| **3** | Extend `.agent/PHASES.md` with `mvp` columns | Orchestrator can skip | **TODO** |
+| **4** | Create `docs/architecture/contract-matrix.md` | Contract classification for Freeze/Fast-Track | **TODO** |
+| **5** | Customize `.opencode/agents/aisdlc-orchestrator.md` | Read Profile, Regex-parsing, fast-track, mode-specific gates | **TODO** |
+| **6** | Expand `.agent/tools/traceability_check.py` | `off/light/full`, soft/hard fail | **TODO** |
+| **7** | Customize `AGENTS.md` | Add/correct rules for profile, shell, parsing, fast track | **TODO** |
+| **8** | **Change shell:** `.opencode/opocolio.jsonc` to default-deny + agent-allowlists | Fix security risk | **TODO** (very carefully) |
+| **9** Make the commit convention more robust | Evaluate/secure index trick | Less fragile | **TODO** |
 
-> Hinweis: Tippfehler `opocolio.jsonc` korrigieren zu `opencode.jsonc` bei Umsetzung.
+> Note: Correct typo `opocolio.jsonc` to `opencode.jsonc` when implementing.
 
-## 5) Fazit
+## 5) Conclusion
 
-Der vorgeschlagene profilbasierte Ansatz ist die **richtige strategische Lösung**. Er balanciert perfekt zwischen:
+The proposed profile-based approach is the **right strategic solution**. It balances perfectly between:
 
-- **Enterprise:** Volle Governance, Auditierbarkeit, strenge Gates, vollständige Traceability
-- **MVP/Agil:** Weniger Overhead, schnellere Iterationen, pragmatische Gates, direkteres Arbeiten
+- **Enterprise:** Full governance, auditability, strict gates, full traceability
+- **MVP/Agile:** Less overhead, faster iterations, pragmatic gates, more direct work
 
-**Wichtigste Sofortfixes:** Tolerantes Parsing + Default-Deny für Shell + zentraler Profil-Schalter. Mit der oben genannten Reihenfolge kann man riskante Änderungen (Shell) erst nach vollständiger Erfassung der benötigten Befehle umsetzen und so Brüche vermeiden.
+**Most important immediate fixes:** Tolerant parsing + default deny for shell + central profile switch. With the above-mentioned sequence, risky changes (shell) can only be implemented after the required commands have been completely recorded, thus avoiding breaks.
 
-**Kernprinzipien bleiben unverhandelbar:** Delegation statt Ausführung, Folder-Ownership, atomare Commits pro Schritt (modusspezifisch reduziert, nicht abgeschafft), Briefing als Einstiegspunkt.
+**Core principles remain non-negotiable:** Delegation instead of execution, folder ownership, atomic commits per step (mode-specifically reduced, not abolished), briefing as an entry point.
 
 
-## 6) Durchgeführte Umsetzung (Status)
+## 6) Implementation carried out (status)
 
-Umgesetzt in dieser Iteration:
+Implemented in this iteration:
 
-| Änderung | Ort | Bemerkung |
+| Change | Location | Remark |
 | :-- | :-- | :-- |
-| **Zentrale Konfiguration** | `.agent/config.json`, `.agent/schemas/config.schema.json` | Profil `mvp`/`enterprise`, Gates/Traceability/Security konfigurierbar |
-| **Vertragsklassifikation** | `docs/architecture/contract-matrix.md` | Grundlage für Freeze/ Fast-Track |
-| **Phasen-Mapping** | `.agent/PHASES.md` | MVP/Enterprise-Markierung pro Schritt |
-| **Orchestrator** | `.opencode/agents/aisdlc-orchestrator.md` | Profil-Lesen, Regex-basiertes Parsing, Fast-Track mit Vertragsprüfung, profilabhängige Gates |
-| **Shell Least Privilege** | `.opencode/opencode.jsonc`, Agent-Frontmatter (requirements/architecture/execution/qa/orchestrator) | Default-Deny, gezielte Allowlists |
-| **Traceability** | `.agent/tools/traceability_check.py` | `--mode off/light/full`, Soft-Fail im MVP/light |
-| **AGENTS.md** | Regeln ergänzt | Profil, Fast-Track, Soft/Hard-Fail, Shell-Hinweis |
+| **Central configuration** | `.agent/config.json`, `.agent/schemas/config.schema.json` | Profile `mvp`/`enterprise`, Gates/Traceability/Security configurable |
+| **Contract Classification** | `docs/architecture/contract-matrix.md` | Basis for Freeze/Fast-Track |
+| **Phase Mapping** | `.agent/PHASES.md` | MVP/Enterprise marking per step |
+| **Orchestrator** | `.opencode/agents/aisdlc-orchestrator.md` | Profile reading, regex-based parsing, fast track with contract checking, profile-dependent gates |
+| **Shell Least Privilege** | `.opencode/opencode.jsonc`, Agent-Frontmatter (requirements/architecture/execution/qa/orchestrator) | Default deny, targeted allowlists |
+| **Traceability** | `.agent/tools/traceability_check.py` | `--mode off/light/full`, soft fail in MVP/light |
+| **AGENTS.md** | Rules added | Profile, Fast Track, Soft/Hard Fail, Shell Notice |
 
-**Test-Verzeichnis:** `test/mvp/` und `test/enterprise/` angelegt für künftige Profil-Tests.
+**Test directory:** `test/mvp/` and `test/enterprise/` created for future profile tests.

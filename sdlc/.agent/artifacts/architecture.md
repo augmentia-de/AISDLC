@@ -1,3 +1,3 @@
 # architecture.md
 
-Platzhalter - wird von Schritt X befüllt.
+Placeholder - is filled by step X.

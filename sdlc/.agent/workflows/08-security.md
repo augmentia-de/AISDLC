@@ -20,42 +20,40 @@ description: Phase 8 — Security and compliance scan
 
 ## Agent & Skill
 
-- **Agent:** `aisdlc-qa`  ·  **Skill:** `aisdlc-security-scan`
+- **Agent:** `aisdlc-qa` · **Skill:** `aisdlc-security-scan`
 
 
 ## Output
 `.agent/artifacts/security-audit.md` with findings rated: Critical / High / Medium / Low.
 
-## Regeln
+##Rules
 
-Siehe `AGENTS.md`: keine Ausgabe-Kommandos, Vertrag nach Schritt 4 eingefroren.
+See `AGENTS.md`: no output commands, contract frozen after step 4.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p tests/ docs/qa/ .agent/artifacts/
 git reset -q
 git add -A -- tests/ docs/qa/ .agent/artifacts/
 git commit -m "docs(sdlc-8): Security-Audit und QA-Bericht" \
   -m "Schritt 8 - Sicherheit & Compliance | Agent: aisdlc-qa | Artefakte: tests/, docs/qa/, .agent/artifacts/"
 ```
+- Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
+- If nothing has changed: do not create a commit (no error).
 
-- Formel, Scope und Begruendung: `AGENTS.md` -> Commit Convention. Hier nur die Pfade.
-- Wenn sich nichts geaendert hat: kein Commit erzeugen (kein Fehler).
+## Traceability as a gate requirement
 
-## Traceability als Gate-Voraussetzung
-
-Vor dem Gate laeuft der Check — **0 Luecken** sind Bedingung:
-
-```bash
+The check runs in front of the gate - **0 gaps** are a condition:
+```
+bash
 python3 .agent/tools/traceability_check.py
 ```
-
-Eine Luecke heisst: eine Anforderung mit Story hat keinen belegten Test. Der Check
-vergleicht die Artefakte mit dem Dateisystem — eine gefuellte Matrix ist kein Beleg,
-die existierende Datei ist es.
+A gap means: a requirement with a story does not have a documented test. The check
+compares the artifacts with the file system - a filled matrix is not evidence,
+the existing file is it.
 
 ## HARD GATE
 **After Security is complete, stop and await human approval before Deploy Agent runs.**
 
-Prüfen: 0 Critical, 0 High. Bei Vulnerabilities → Rücksprung zu Phase 6.
+Check: 0 Critical, 0 High. For vulnerabilities → return to phase 6.

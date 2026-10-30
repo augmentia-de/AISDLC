@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 Make the pipeline the place where the quality gates are actually enforced, not a convention
 that is forgotten under time pressure.
@@ -14,7 +14,7 @@ that is forgotten under time pressure.
 
 Step 9, before the first deployment, and whenever the stack changes.
 
-## Inputs
+##Inputs
 
 - `.agent/knowledge/stack.md` (runtime, test command, lint command, build command)
 - `.agent/artifacts/test-report.md` (coverage target, test layout)
@@ -41,7 +41,7 @@ Step 9, before the first deployment, and whenever the stack changes.
 - `.agent/artifacts/ci-pipeline.md` — jobs, gates, thresholds, secret names, rollback trigger
 - Updated `docs/execution/CHANGELOG.md` when a release is produced
 
-## Rules
+##Rules
 
 - Every job has an explicit pass/fail criterion. No "continue on error" on a gate job.
 - The coverage gate value comes from the test report.

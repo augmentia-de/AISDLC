@@ -15,14 +15,14 @@ description: Phase 0 — Migration assessment & legacy inventory (brownfield/mig
 - **Agent:** `aisdlc-requirements` (or `aisdlc-architecture` for tech-heavy systems)
 - **Skill:** `module-migration`, `strangler-fig`
 
-## Steps
+##Steps
 
-1. **Inventory** — Module, Routen, Jobs, Integrationen, Datenbanken, Queues, Cron, Config-Dateien.
-2. **Contract discovery** — Bestehende API-Contracts (OpenAPI/GraphQL/WSDL), implizite DTOs, Fehlerformate.
-3. **Data model extraction** — Tabellen, Relationen, Migrationsskripte, Seed-Daten.
-4. **Dependency map** — Interne/externe Abhängigkeiten, verdeckte Kopplungen.
-5. **Risk & debt register** — Technische Schulden, fehlende Tests, unbekannte Owner.
-6. **Scope proposal** — Was wird migriert, was bleibt legacy, was wird deprecated.
+1. **Inventory** — Modules, Routes, Jobs, Integrations, Databases, Queues, Cron, Config files.
+2. **Contract discovery** — Existing API contracts (OpenAPI/GraphQL/WSDL), implicit DTOs, error formats.
+3. **Data model extraction** — tables, relations, migration scripts, seed data.
+4. **Dependency map** — Internal/external dependencies, hidden couplings.
+5. **Risk & debt register** — Technical debt, missing tests, unknown owners.
+6. **Scope proposal** — What will be migrated, what will remain legacy, what will be deprecated.
 
 ## Output
 
@@ -32,23 +32,22 @@ description: Phase 0 — Migration assessment & legacy inventory (brownfield/mig
 - `docs/migration/scope.md`
 - `.agent/artifacts/migration-assessment.md`
 
-## Regeln
+##Rules
 
-Siehe `AGENTS.md`: keine Ausgabe-Kommandos, Vertrag nach Schritt 4 eingefroren (nur für **neue** externe/public Verträge).
-Für Adapter zwischen Alt/Neu gilt **kein** Contract-Freeze.
+See `AGENTS.md`: no output commands, contract frozen after step 4 (only for **new** external/public contracts).
+**No** contract freeze applies to adapters between old/new.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p docs/migration/ .agent/artifacts/
 git reset -q
 git add -A -- docs/migration/ .agent/artifacts/
 git commit -m "docs(sdlc-0): Migration-Assessment und Legacy-Inventar" \
   -m "Schritt 0 - Migration-Assessment | Agent: aisdlc-requirements | Artefakte: docs/migration/, .agent/artifacts/"
 ```
+- If nothing has changed: do not create a commit (no error).
 
-- Wenn sich nichts geaendert hat: kein Commit erzeugen (kein Fehler).
+##Gate
 
-## Gate
-
-Optional (MVP) / Pflicht (Enterprise): Menschliche Freigabe des Scope, bevor Migration-Plan erstellt wird.
+Optional (MVP) / Mandatory (Enterprise): Human release of scope before migration plan is created.

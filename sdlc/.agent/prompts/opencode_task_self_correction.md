@@ -1,10 +1,11 @@
-TASK: Behebe die fehlgeschlagenen Unit-/Integrationstests (Self-Correction Loop)
+TASK: Fix the failed unit/integration tests (Self-Correction Loop)
 
-Hallo OpenCode,
-bei der automatischen Testausführung sind Fehler aufgetreten. Deine Aufgabe ist es, die Ursachen zu analysieren, den Quellcode zu reparieren und sicherzustellen, dass alle Tests grün werden.
+Hello OpenCode,
+Errors occurred during automatic test execution. Your job is to analyze the causes, fix the source code and ensure that all tests turn green.
 
-### 1. TEST-ERGEBNISSE (INPUT DATA)
-Hier sind die aggregierten Testdaten und Stacktraces:
+### 1. TEST RESULTS (INPUT DATA)
+Here is the aggregated test data and stack traces:
 
-```json
+```
+json
 {{TEST_RESULTS_JSON}}

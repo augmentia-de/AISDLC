@@ -1,120 +1,120 @@
 ---
 name: aisdlc-traceability-check
-description: Phase 1/5: Traceability-Kette Anforderung->Story->Feature->Test->Code pruefen.
+description: Phase 1/5: Traceability chain Requirement->Story->Feature->Test->Check code.
 metadata:
-  origin: Werkzeug .agent/tools/traceability_check.py; abgeleitet aus den Inline-Konsistenzpruefungen des Requirements-Laufs
+  origin: tool .agent/tools/traceability_check.py; derived from the inline consistency checks of the requirements run
 ---
 
-## Wann
+## When
 
-- **Phase 5**, nach dem Aufsetzen der Tests — dort, wo die Kette erstmals prüfbar ist
-- **Phase 6**, nach der Implementierung — der Code existiert jetzt
-- **Vor GATE 2** — verbindlich, nicht als Hinweis
+- **Phase 5**, after setting up the tests — where the chain can be tested for the first time
+- **Phase 6**, post-implementation — the code now exists
+- **Before GATE 2** — mandatory, not as an indication
 
-## Zwei Haelften — nicht verwechseln
+## Two halves - don't mix them up
 
-| Haelfte | Inhalt | Entsteht in | Wo |
+| helped | Content | Originates in | Where |
 |---|---|---|---|
-| **statisch** | Anforderung → Story → Feature | Schritt 1 | `docs/requirements/traceability_matrix.json` |
-| **dynamisch** | Anforderung → Test → Code | Schritt 5/6 | `.agent/artifacts/traceability.md` |
+| **static** | Requirement → Story → Feature | Step 1 | `docs/requirements/traceability_matrix.json` |
+| **dynamic** | Requirement → Test → Code | Step 5/6 | `.agent/artifacts/traceability.md` |
 
-Die **Matrix** trägt nur die statische Hälfte. Sie wird **einmal** in Schritt 1
-geschrieben und danach **nicht** mehr angefasst. Das ist der Punkt: `tests` und
-`code` sind Werte, die erst Schritt 5/6 kennt — ein Feld, das ein früherer Schritt
-nicht füllen kann, erzeugt entweder eine Lücke oder einen erfundenen Pfad.
+The **Matrix** only supports the static half. It will happen **once** in step 1
+written and then **not** touched again. That's the point: `tests` and
+`code` are values that only step 5/6 knows about — a field that is an earlier step
+cannot fill, creates either a gap or an invented path.
 
-**Warum das so ist:** Im Referenzlauf war die Matrix über den gesamten Lauf ein
-Gerüst — 0 von 89 Anforderungen mit Test-Referenz. Gefüllt wurde sie erst nach
-Schritt 7, mit zwei zusätzlichen Commits in Schritt 1. Der Check, der das
-aufgedeckt hätte, lief nie, weil er erst nach dem Lauf existierte.
+**Why this is so:** In the reference run, the matrix was on for the entire run
+Scaffolding — 0 of 89 requirements with test reference. It was only filled afterwards
+Step 7, with two additional commits in step 1. The check that
+would have revealed, never ran because it only existed after the run.
 
-## Der Beleg
-
-```bash
+## The receipt
+```
+bash
 python3 .agent/tools/traceability_check.py            # pruefen, nur melden
 python3 .agent/tools/traceability_check.py --fill     # pruefen und Beleg schreiben
+`
 ```
+--fill` writes `.agent/artifacts/traceability.md` (the receipt) and
+`.agent/artifacts/traceability-fill.md` (what was documented, what was not and why).
 
-`--fill` schreibt `.agent/artifacts/traceability.md` (der Beleg) und
-`.agent/artifacts/traceability-fill.md` (was belegt wurde, was nicht und warum).
+**The basic rule of the tool:** It **never** writes a path that it doesn't occupy
+can. A made-up path is worse than a gap — it looks occupied and
+it is not.
 
-**Die Grundregel des Werkzeugs:** Es schreibt **nie** einen Pfad, den es nicht belegen
-kann. Ein erfundener Pfad ist schlimmer als eine Lücke — er sieht belegt aus und
-ist es nicht.
+## How the assignment is proven
 
-## Wie die Zuordnung belegt wird
+**Test → Requirement** via the acceptance criteria identifier `AC-<story>-<nr>`:
 
-**Test → Anforderung** über die Akzeptanzkriterien-Kennung `AC-<story>-<nr>`:
-
-| Wo | Form |
+| Where | shape |
 |---|---|
-| Story-JSON | `"id": "AC-003-1"` |
-| Feature-Szenario | `Scenario: Rotation  # AC-003-1` |
-| Testfall | Methodenname `ac003_1_rotationVerwendetNurS2` oder ein Kommentar `// AC-003-1` |
+| Story JSON | `"id": "AC-003-1"` |
+| Feature scenario | `Scenario: Rotation # AC-003-1` |
+| Test case | Method name `ac003_1_rotationUsesOnlyS2` or a comment `// AC-003-1` |
 
-Die Kennung steht in **allen drei** Orten. Deshalb ist die Zuordnung mechanisch: das
-Werkzeug liest die Kennung aus dem Test, findet die Story über die Story-JSON und
-deren Anforderungs-IDs. Nichts wird geraten.
+The identifier is in **all three** locations. Therefore the assignment is mechanical: that
+Tool reads the identifier from the test, finds the story via the story JSON and
+their request IDs. Nothing is advised.
 
-**Code → Anforderung**: Ein Test, der eine Produktionsklasse **nennt**, belegt diese
-Klasse — sofern sie im Projekt existiert. Mehr ist nicht belegbar und wird nicht
-eingetragen.
+**Code → Requirement**: A test that **names** a production class substantiates it
+Class — if it exists in the project. More than that cannot be proven and will not happen
+registered.
 
-## Was geprüft wird
+## What is being checked
 
-| # | Prüfung | Schwere | Bedeutung |
+| # | exam | Heavy | Meaning |
 |---|---|---|---|
-| 1 | Anforderung in der PRD ohne Story | Lücke | außer bewusst ohne Story geführt (post-MVP) |
-| 2 | Story verweist auf unbekannte Anforderung | Lücke | die Story hängt an nichts |
-| 3 | Story ohne Feature-Datei | Lücke | |
-| 4 | Story ohne Anforderungs-Bezug | Lücke | |
-| 5 | Akzeptanzkriterium ohne Matrix-Eintrag | Lücke | Kriterien ohne Matrix sind unsichtbar |
-| 6 | Test mit unbekannter AC-Kennung | Lücke | der Test hängt an keiner Anforderung |
-| 7 | Anforderung mit Story ohne belegten Test | Lücke | **die Kernbedingung** |
-| 8 | Anforderung mit Story ohne belegte Code-Referenz | Lücke | |
-| 9 | Produktionsklasse ohne Testreferenz | Hinweis | bei Dependency-Injection normal |
-| 10 | Testdatei ohne AC-Kennung | Hinweis | |
+| 1 | Requirement in the PRD without story | gap | except deliberately led without a story (post-MVP) |
+| 2 | Story references unknown requirement | gap | the story doesn't depend on anything |
+| 3 | Story without feature file | gap | |
+| 4 | Story without reference to requirements | gap | |
+| 5 | Acceptance criterion without matrix entry | gap | Criteria without a matrix are invisible |
+| 6 | Test with unknown AC identifier | gap | the test does not depend on any requirement |
+| 7 | Requirement with story without documented test | gap | **the core condition** |
+| 8 | Requirement with story without documented code reference | gap | |
+| 9 | Production class without test reference | Grade | with dependency injection normal |
+| 10 | Test file without AC identifier | Grade | |
 
-**Lücke** blockiert das Gate. **Hinweis** meldet, blockiert nicht. Der Exit-Code
-ist 1 bei Lücken, 0 bei reinen Hinweisen.
+**Gap** blocks the gate. **Note** reports, not blocks. The exit code
+is 1 for gaps, 0 for pure clues.
 
-## Ergebnis protokollieren
+## Log result
 
-Die Lückenliste wandert nach `.agent/artifacts/traceability.md` (menschlich lesbar)
-und als `gaps` in die Traceability-Matrix. **Kein Prozentwert.** Eine Matrix, die zu
-87 % vollständig ist, ist weniger nützlich als die Liste der 13 fehlenden Kriterien.
+The gap list moves to `.agent/artifacts/traceability.md` (human readable)
+and as `gaps` in the traceability matrix. **Not a percentage.** A matrix that corresponds to
+87% complete is less useful than the list of 13 missing criteria.
 
-Jede Lücke bekommt eine Entscheidung, nicht nur einen Befund:
+Every gap gets a decision, not just a finding:
 
-| Art der Lücke | Entscheidung |
+| Type of gap | decision |
 |---|---|
-| Anforderung ohne Story | Story ergänzen **oder** Anforderung als post-MVP markieren |
-| Anforderung ohne belegten Test | Test ergänzen **oder** Coverage als `manual` begründen |
-| Akzeptanzkriterium ohne Eintrag | Eintrag nachtragen — Kriterien ohne Matrix sind unsichtbar |
-| Test ohne AC-Kennung | AC-Kennung ergänzen (Methode oder Kommentar) — sonst ist der Test unbelegt |
+| Request without story | Add story **or** Mark requirement as post MVP |
+| Requirement without a documented test | Add test **or** justify coverage as `manual` |
+| Acceptance criterion without entry | Add entry — criteria without a matrix are invisible |
+| Test without AC identifier | Add AC identifier (method or comment) — otherwise the test is blank |
 
-## Wer füllt
+## Who fills
 
-- **Schritt 1** schreibt die statische Matrix — der Requirements-Agent, einmalig.
-- **Schritt 5/6** erzeugen Tests und Code. Danach lässt der **Requirements-Agent**
-  das Werkzeug laufen (`--fill`) und committet den Beleg. Das ist ein **eigener
-  Auftrag**, kein Rücksprung: der Agent, der `docs/requirements/` besitzt, ist derselbe
-  wie in Schritt 1.
+- **Step 1** writes the static matrix — the requirements agent, once.
+- **Step 5/6** generate tests and code. The **Requirements Agent** then lets
+  Run the tool (`--fill`) and commit the document. This is a **own one
+  Order**, no return: the agent that owns `docs/requirements/` is the same
+  as in Scsstep 1.
 
-**Warum so und nicht anders:** Der Execution-Agent darf `docs/requirements/` nicht
-schreiben. Ihm das Recht für genau eine Datei zu geben, würde die Folder-Ownership
-aufweichen. Der Auftrag an den Requirements-Agenten kostet einen Agentenwechsel und
-hält die Trennung sauber.
+**Why this way and not the other way:** The execution agent is not allowed to use `docs/requirements/`
+write. Giving him the right to exactly one file would mean folder ownership
+soften. The order to the requirements agent costs a change of agent and
+keeps the separation clean.
 
-**Grundsatz:** Ein Nachzug ist **ein** Commit mit dem Subject des korrigierten
-Schritts plus `(Nachzug)`. Höchstens einer pro Schritt — ein zweiter bedeutet, dass
-die Ursache im Ablauf liegt.
+**Principle:** A follow-up is **a** commit with the subject of the corrected one
+Steps plus `(follow-up)`. At most one per step — a second means that
+the cause lies in the process.
 
-## Regeln
+##Rules
 
-- **Prüfen immer nach** der Matrix-Aktualisierung, nie davor — sonst misst man den
-  alten Stand.
-- Der Check ist stack-unabhängig: er liest JSON, Markdown, Gherkin und Quelltext.
-- **Nie** Lücken löschen, indem man Matrix-Einträge entfernt. Das verschwindet nur.
-- Der Beleg ist der **Ende**-Stand, nicht der Wunschstand. Was nicht existiert,
-  steht als Lücke drin.
+- **Always check after** the matrix update, never before - otherwise you will measure it
+  old status.
+- The check is stack-independent: it reads JSON, Markdown, Gherkin and source code.
+- **Never** delete gaps by removing matrix entries. That just disappears.
+- The receipt is the **end** status, not the desired status. What doesn't exist
+  is there as a gap.

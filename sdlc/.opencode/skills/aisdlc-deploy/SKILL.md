@@ -1,111 +1,110 @@
 ---
 name: aisdlc-deploy
-description: Phase 9: Deployment-Pipeline, Rollout, Smoke-Tests, Runbook, Rollback.
+description: Phase 9: Deployment pipeline, rollout, smoke tests, runbook, rollback.
 metadata:
-  origin: adaptiert aus wshobson/deployment-pipeline-design + wshobson/deployment-strategies + wshobson/deployment-validation + wshobson/slo-implementation + wshobson/incident-runbook-templates + ECC/deployment-patterns + ECC/docker-patterns
+  origin: adapted from wshobson/deployment-pipeline-design + wshobson/deployment-strategies + wshobson/deployment-validation + wshobson/slo-implementation + wshobson/incident-runbook-templates + ECC/deployment-patterns + ECC/docker-patterns
 ---
 
-## Voraussetzungen (Gate)
+## Requirements (Gate)
 
-Vor dem Deploy pruefen und **nur bei erfuellten Bedingungen** starten:
+Check before deploying and start **only if the conditions are met**:
 
-| Bedingung | Nachweis |
+| Condition | Proof |
 |---|---|
-| QA-Report: 0 Critical | `docs/qa/` Test-Report |
-| Security-Report: 0 Critical, 0 High | `docs/qa/security-audit.md` |
-| Coverage >= Projektschwelle | Coverage-Report |
-| Human Approval nach Phase 8 | bestaetigt |
-| Migrationsplan ruecklaeufig | dokumentiert (falls Schema-Aenderung) |
+| QA Report: 0 Critical | `docs/qa/` test report |
+| Security Report: 0 Critical, 0 High | `docs/qa/security-audit.md` |
+| Coverage >= project threshold | Coverage report |
+| Human approval after phase 8 | confirmed |
+| Migration plan declining | documented (if schema change) |
 
-## 1. Pipeline-Stufen
-
-```text
+## 1. Pipeline stages
+```
+text
 Build -> Test -> Security-Scan -> Package -> Staging -> Smoke -> Approval -> Prod
 ```
+Each stage has: **Entry criterion, an executable check, a result, a
+Termination criterion.** No step without a clear result - "green" or "red", not "looks good".
 
-Jede Stufe hat: **Eingangskriterium, einen ausfuehrbaren Check, ein Ergebnis, ein
-Abbruchkriterium.** Kein Schritt ohne klares Ergebnis - "gruen" oder "rot", nicht "sieht gut aus".
+**Approval gates** where a mistake would be expensive: before staging (after security scan) and before
+Production (after smoke tests).
 
-**Approval-Gates** dort, wo ein Fehler teuer waere: vor Staging (nach Security-Scan) und vor
-Produktion (nach Smoke-Tests).
+## 2. Rollout strategies
 
-## 2. Rollout-Strategien
-
-| Strategie | Ausfallwirkung | Einsatz |
+| Strategy | Failure effect | Use |
 |---|---|---|
-| **Recreate** | Downtime | nur Maintenance-Fenster, migrationsfrei |
-| **Rolling** | kurz inkonsistent | Default bei kompatiblen Aenderungen |
-| **Blue/Green** | instant, doppelte Kosten | Datenbank-kompatible Releases |
-| **Canary** | exponentiell klein zuerst | hohes Risiko, feinste Kontrolle |
+| **Recreate** | Downtime | only maintenance window, migration-free |
+| **Rolling** | short inconsistent | Default for compatible changes |
+| **Blue/Green** | instant, double costs | Database Compatible Releases |
+| **Canary** | exponentially small first | high risk, finest control |
 
-**Migrationskompatibilitaet** (Expand/Contract) muss zu der Strategie passen: expandierendes
-Schema zulaesst Rolling, Contract erst nach vollstaendigem Rollout.
+**Migration compatibility** (Expand/Contract) must match the strategy: expanding
+Scheme allows rolling, contract only after complete rollout.
 
-## 3. Validierung vor dem Deploy (Pre-Flight)
+## 3. Validation before deployment (pre-flight)
 
-- Konfiguration vollstaendig und gueltig - **fail closed**, nicht auf Default zurueckfallen.
-- Secrets/Variablen in der Zielumgebung vorhanden.
-- Health- und Readiness-Probes bestehen **vor** Traffic-Umschaltung.
-- Ressourcen (CPU, Memory, Replicas) passen zum Lastprofil.
-- Rollback-Pfad konkret: welches Image, welcher Befehl, wie lange.
-- Versioniertes Artefakt (Digest/Tag), kein `latest`.
+- Configuration complete and valid - **fail closed**, does not fall back to default.
+- Secrets/variables exist in the target environment.
+- Health and Readiness checks pass **before** traffic switching.
+- Resources (CPU, memory, replicas) match the load profile.
+- Rollback path specifically: which image, which command, how long.
+- Versioned artifact (digest/tag), no `latest`.
 
-## 4. Smoke-Tests auf Staging
+## 4. Smoke testing for staging
 
-1. Health-Endpoint antwortet.
-2. Ein repräsentatives End-to-End-Flavor laeuft durch (Anlegen, Lesen, Aendern, Loeschen).
-3. Authentifizierung und Autorisierung greifen (401/403 wie erwartet).
-4. Abhaengigkeiten erreichbar (DB, Queue, externes API).
-5. Logs zeigen keine unerwarteten Fehler.
+1. Health endpoint responds.
+2. A representative end-to-end flavor runs through (create, read, change, delete).
+3. Authentication and authorization take effect (401/403 as expected).
+4. Dependencies accessible (DB, queue, external API).
+5. Logs do not show unexpected errors.
 
-## 5. Promotion und Rollback
+## 5. Promotion and rollback
 
-- **Promotion** erst nach gruenen Smoke-Tests und Approval.
-- **Rollback** ist Teil des Deploys, nicht der Notfallplan danach: Befehl, Reihenfolge,
-  Datenzustand-Handhabung und Autorisierung muessen vorab feststehen.
-- Bei Canary: Abbruchkriterien (Fehlerrate, Latenz, SLO-Burn-Rate) **vor** dem Deploy setzen.
+- **Promotion** only after green smoke tests and approval.
+- **Rollback** is part of the deployment, not the emergency plan afterwards: command, order,
+  Data status handling and authorization must be determined in advance.
+- For Canary: Set abort criteria (error rate, latency, SLO burn rate) **before** deployment.
 
-## 6. Observability und Betrieb (SLIs/SLOs)
+## 6. Observability and Operations (SLIs/SLOs)
 
-| Ebene | Inhalt |
+| level | Content |
 |---|---|
-| **SLI** | messbare Nutzer-Signale (Erfolgsrate, Latenz, Verfuegbarkeit) |
-| **SLO** | Zielwert je SLI (z. B. 99,9 % Erfolg in 30 Tagen) |
-| **Error Budget** | verbleibende Toleranz; bei Verbrauch: Feature-Freeze |
-| **Alerting** | symptombasiert (Nutzer-Effekt), nicht ursachenbasiert |
-| **Dashboards** | je SLI, mit den relevanten Dimensionen |
+| **SLI** | measurable user signals (success rate, latency, availability) |
+| **SLO** | Target value via SLI (e.g. 99.9% success in 30 days) |
+| **Error Budget** | remaining tolerance; when consumed: Feature Freeze |
+| **Alerting** | Symptom-based (user effect), not cause-based |
+| **Dashboards** | via SLI, with the relevant dimensions |
 
-Alerts brauchen eine **Runbook**-Referenz: Erkennung, Diagnose, Mitigation, Recovery,
-Eskalation, Verantwortlicher.
+Alerts need a **Runbook** reference: detection, diagnosis, mitigation, recovery,
+Escalation, responsible person.
 
-## 7. Runbook-Struktur (Incident)
+## 7. Runbook structure (incident)
 
-1. **Erkennung** - Alert, Schweregrad, erste 5 Minuten
-2. **Triage** - was ist kaputt, Blast Radius, Nutzer-Auswirkung
-3. **Mitigation** - konkrete Massnahme mit Befehl
-4. **Recovery** - Verifikation, Monitoring, Rueckbau
-5. **Kommunikation** - wer meldet was an wen
-6. **Postmortem** - Ursache, Beitragende, Prevention, mit Datum
+1. **Detection** - Alert, severity, first 5 minutes
+2. **Triage** - what's broken, blast radius, user impact
+3. **Mitigation** - concrete action with an order
+4. **Recovery** - verification, monitoring, dismantling
+5. **Communication** - who reports what to whom
+6. **Postmortem** - Cause, Contributors, Prevention, with date
 
-Ein Runbook ist fuer einen Menschen um 3 Uhr nachts geschrieben: keine Anamnese, sondern
-Befehle.
+A runbook is written for a person at 3 a.m.: not an anamnesis, but
+Commands.
 
-## 8. Rollback-Plan
+## 8. Rollback plan
 
-| Schritt | Angabe |
+| step |Statement |
 |---|---|
-| Ausloeser | exakter Alarm- oder Fehlerwert |
-| Befehl | exakter Deploy-/Rollback-Befehl |
-| Reihenfolge | Migration zurueck? Daten zuerst oder Code? |
-| Dauer | realistische geschaetzte Dauer |
-| Kommunikation | wer informiert wen |
-| Nachkontrolle | welche Pruefung bestaetigt die Erholung |
+| Triggers | exact alarm or error value |
+| command | exact deploy/rollback command |
+| Order | Migration back? Data first or code? |
+| Duration | realistic estimated duration |
+| Communication | who informs whom |
+| Follow-up inspection | which test confirms the recovery?
 
 ## Output
 
 `docs/execution/deploy-report.md`:
-- Umgebungen und Versionen (Digest/Tag)
-- Staging- und Produktions-URL
-- Smoke-Test-Ergebnisse (pass/fail je Check)
-- Rollback-Plan und Ausloeser
-- SLO-/Alerting-Status
+- Environments and versions (digest/tag)
+- Staging and production URL
+- Smoke test results (pass/fail per check)
+- Rollback plan and triggers
+- SLO/Alerting status

@@ -1,125 +1,121 @@
 ---
 name: aisdlc-tdd
-description: Phase 5: RED/GREEN/REFACTOR, Failure-Paths, Workflow-Invarianten.
+description: Phase 5: RED/GREEN/REFACTOR, failure paths, workflow invariants.
 metadata:
-  origin: adaptiert aus superpowers/test-driven-development + ECC/tdd-workflow + nnennandukwe/failure-path-testing + nnennandukwe/workflow-invariants
+  origin: adapted from superpowers/test-driven-development + ECC/tdd-workflow + nnennandukwe/failure-path-testing + nnennandukwe/workflow-invariants
 ---
 
-## Wann
+## When
 
-Vor jeder Code-Generierung (Phase 5) und bei jedem Refactoring (Phase 7).
+Before every code generation (Phase 5) and every refactoring (Phase 7).
 
-## Das eiserne Gesetz
-
-```text
+## The iron law
+```
+text
 KEIN PRODUKTIONSCODE OHNE ZUERST FAILING TEST
 ```
+Code before testing? **Delete.** Reimplementation. Exceptions (only with explicit
+Human consent): disposable prototypes, generated code, configuration files.
 
-Code vor dem Test? **Loeschen.** Neu implementieren. Ausnahmen (nur mit ausdruecklicher
-Zustimmung des Menschen): Wegwerf-Prototypen, generierter Code, Konfigurationsdateien.
+## RED - Write a failing test
 
-## RED - Failing Test schreiben
-
-Ein Test, **ein** Verhalten, klarer Name, echter Code (keine Mocks ausser unvermeidbar).
-
-```text
+One test, **one** behavior, clear name, real code (no mocks unless unavoidable).
+```
+text
 GUT:  "wiederholt fehlgeschlagene Operationen 3x"
       -> testet echtes Verhalten, eine Sache
 SCHLECHT: "Retry funktioniert"
       -> unspezifisch, testet den Mock
 ```
-
-**Verify RED - der Test muss fehlschlagen, nicht fehlerhagen:**
-
-```bash
+**Verify RED - the test must fail, not fail:**
+```
+bash
 <test-runner> <pfad/zum/test>
 ```
+- Test **fails** (not errored)? correctly.
+- Error message is the expected one? correctly.
+- Test **green**? You test existing behavior. Correct test.
+- Test **errored**? Fix the error, run again until it fails correctly.
 
-- Test **fehlschlaegt** (nicht errored)? korrekt.
-- Fehlermeldung ist die erwartete? korrekt.
-- Test **gruen**? Du testest bestehendes Verhalten. Test korrigieren.
-- Test **errored**? Fehler beheben, erneut laufen lassen bis er korrekt fehlschlaegt.
+## GREEN - Minimal code
 
-## GREEN - Minimaler Code
-
-Der einfachste Code, der den Test gruen macht. Kein Vorgriff auf Features, die noch kein
-Test beschreibt.
+The simplest code that makes the test green. No anticipation of features that are not yet available
+test describes.
 
 ## REFACTOR
 
-Tests gruen halten, dann aufraeumen: Duplikate, ueberlange Methoden, schlechte Namen -
-unter staendigem Ausfuehren der Tests.
+Keep tests green, then clean up: duplicates, overly long methods, bad names -
+while constantly executing the tests.
 
-## Testebene bewusst waehlen
+## Choose the test level consciously
 
-| Ebene | Fuer | Kontext |
+| level | For | Context |
 |---|---|---|
-| Unit | reine Logik, eine Regel | ohne Framework-Kontext |
-| Integration | Schnittstellen, Persistenz, Messaging | Testcontainer / echte Abhaengigkeit |
-| E2E | User-Journey ueber mehrere Komponenten | volle Kette |
+| Unit | pure logic, a rule | without framework context |
+| Integration | Interfaces, Persistence, Messaging | Test container / real dependency |
+| E2E | User journey across multiple components | full chain |
 
-Kontext nur laden, was gebraucht wird. Testdaten erzeugt der Test selbst - keine geteilte
-Datenbank, keine Reihenfolgeabhaengigkeit.
+Only load context what is needed. The test generates test data itself - not shared data
+Database, no order dependency.
 
-## Failure-Path-Testing (Negative Pfade)
+## Failure Path Testing (Negative Paths)
 
-Priorisiere Tests, die beweisen, dass das System unsichere Fortschritte **verweigert**.
+Prioritize tests that prove the system **refuses** unsafe progress.
 
-1. Kritische Gates bestimmen, an denen der Fortschritt stoppen muss.
-2. Blockierte Zustands-Fixtures und erwartete Recovery-Aktionen definieren.
-3. Integrationstests schreiben, die realistische Ablaeufe ausfuehren.
-4. Zustandsuebergaenge **und** den nutzerseitigen Recovery-Text pruefen.
-5. Ein Test pro historischem Regression.
-6. Deckt ein Bug Parsing, Persistenz und Ausgabe ab, alle drei Ebenen in einem Pfad.
+1. Determine critical gates where progress must stop.
+2. Define blocked state fixtures and expected recovery actions.
+3. Write integration tests that execute realistic processes.
+4. Check state transitions **and** the user recovery text.
+5. One test by historical regression.
+6. Covers a bug parsing, persistence and output, all three levels in one path.
 
-**Assertions, die immer sinnvoll sind:**
-- Kein verbotenes Artefakt geschrieben
-- Blockierter Zustand mit Diagnose-Metadaten persistiert
-- Recovery-Hinweise sind explizit und ausfuehrbar
-- Downstream-Kommandos scheitern deterministisch
-- Fehlermeldung sagt, **was** zu tun ist, nicht nur, was schiefging
+**Assertions that always make sense:**
+- No forbidden artifact written
+- Blocked state with diagnostic metadata persisted
+- Recovery instructions are explicit and executable
+- Downstream commands fail deterministically
+- Error message tells **what** to do, not just what went wrong
 
-**Coverage-Heuristik pro neue Workflow-Funktion:**
-1. mindestens ein Happy-Path-Test
-2. mindestens ein Blocked-Path-Test
-3. eine Nachrichten-Klarheits-Assertion fuer die Recovery
-4. schreibt die Funktion Dateien oder wechselt Zustand: Regression am Fehlerpunkt **vor** dem Wechsel
+**Coverage heuristics per new workflow feature:**
+1. at least one happy path test
+2. at least one blocked path test
+3. a message clarity assertion for recovery
+4. the function writes files or changes state: regression at the failure point **before** the change
 
-## Workflow-Invarianten
+## Workflow invariants
 
-Verhalten als explizite Zustaende und erlaubte Uebergaenge modellieren.
-
-```text
+Model behavior as explicit states and permitted transitions.
+```
+text
 state: awaiting_review
 allowed: approve -> awaiting_resume
 blocked: publish, deploy
 error: "Entwurf wartet auf Freigabe."
 recovery: "Run approve + resume."
 ```
+**Implementation:**
+1. Transition logic in **one** place.
+2. Structured error payloads for invalid transitions.
+3. Recovery statements in **all** blocked path errors.
+4. Remove obsolete artifacts when entering blocked states.
+5. Emit an event for every transition (traceability).
 
-**Implementierung:**
-1. Uebergangslogik an **einer** Stelle.
-2. Strukturierte Fehlerpayloads bei ungueltigen Uebergaengen.
-3. Recovery-Anweisungen in **allen** Blocked-Path-Fehlern.
-4. Veraltete Artefakte beim Wechsel in blockierte Zustaende entfernen.
-5. Bei jedem Uebergang ein Event emittieren (Nachvollziehbarkeit).
+**Invariant Checklist:**
+- A failed run never becomes an active run.
+- Downstream flows are blocked as long as releases are missing.
+- Final artifacts do not exist until release is complete.
+- Help text and guidance use the same transition names.
 
-**Invarianten-Checkliste:**
-- Ein fehlgeschlagener Lauf wird nie zum aktiven Lauf.
-- Downstream-Flows sind blockiert, solange Freigaben fehlen.
-- Finale Artefakte existieren nicht vor abgeschlossener Freigabe.
-- Hilfe-Text und Guidance verwenden dieselben Uebergangsnamen.
+## Safety rules
 
-## Sicherheitsregeln
-
-- Keine Tests loeschen oder auskommentieren, um gruen zu werden.
-- Keine Konfigurationsaenderung, um Tests bestehen zu lassen (Coverage-Gate, Linter).
-- Tests, die ohne Codeaenderung unterschiedlich ausgehen, sind ein Fehler.
-- Ein Test, der nicht ausgefuehrt wurde, gilt als nicht bestanden.
+- Don't delete or comment out tests to go green.
+- No configuration change to pass tests (coverage gate, linter).
+- Tests that produce different results without changing the code are an error.
+- A test that has not been carried out is considered failed.
 
 ## Output
 
-- Teststrategie (Ebenen, Testfälle, Pflichtfaelle)
-- Neu hinzugefuegte negative Pfade und Regressionen
-- Verifikationsnachweis: exakter Befehl und Ergebnis
-- Nicht abgedeckte Gate-Bedingungen
+- Test strategy (levels, test cases, mandatory cases)
+- Newly added negative paths and regressions
+- Verification proof: exact command and result
+- Gate conditions not covered

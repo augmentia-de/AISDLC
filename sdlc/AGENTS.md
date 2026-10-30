@@ -2,15 +2,15 @@
 
 ## Project Overview
 
-**Zwei Schichten.** Framework (`.opencode/`, `.agent/`, `AGENTS.md`) ist stackagnostisch.
-Stack-Schicht in `opencode.jsonc` (Root) wird pro Stack ersetzt; das Framework bleibt
-unberührt. Details: `how-to.md` → "Stack-Schicht".
+**Two layers.** Framework (`.opencode/`, `.agent/`, `AGENTS.md`) is stack agnostic.
+Stack layer in `opencode.jsonc` (root) is replaced per stack; the framework remains
+untouched. Details: `how-to.md` → “stack layer”.
 
-AI SDLC: KI-agentengestützter Softwareentwicklungszyklus. Der Orchestrator steuert den
-Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
-`.agent/PHASES.md` — SSoT, bei Widerspruch gilt sie.
+AI SDLC: AI agent-assisted software development cycle. The orchestrator controls it
+Process, OpenCode executes. Write rights per agent, phase assignment in
+`.agent/PHASES.md` — SSoT, in case of objection it applies.
 
-## Behaviour Rules
+## Behavior Rules
 
 1. Always read this file before starting any task. Read the briefing first (rule 12). **Read profile first:** load `.agent/config.json` (profile `mvp` or `enterprise`). The orchestrator is the gatekeeper for profile-based behavior.
 2. Write all output artifacts to the designated directories (see Folder Ownership).
@@ -21,21 +21,21 @@ Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
 7. Always re-read this file after context compaction or session reset.
 8. Load the phase skill when the step calls for it (see Phase Skills) - do not improvise.
 9. **No output commands.** `echo`, `printf`, `pwd`, `cat` for orientation produce no
-    result. Use `read`, `glob`, `grep`. In the first full run, 591 of 1.094 shell
-    calls (54 %) were of this kind.
+    result. Use `read`, `glob`, `grep`. In the first full run, 591 of 1,094 shells
+    calls (54%) were of this kind.
 10. **Read the briefing first.** `.agent/artifacts/briefing.json` (Template: `.agent/templates/briefing.json`) names the files this
     step needs. Read only those, not the repository. The briefing is the entry point -
-    never the truth (see Briefing).
+    never the truth (see briefing).
 11. **Log structured, never payload.** One event per line: correlation ID, event type,
-    tenant, outcome, duration. Never payload data, secrets, tokens, PII. Convention
+    tenant, outcome, duration. Never payload data, secrets, tokens, PII. convention
     in `.agent/artifacts/logging.md`; the security scan checks against it.
 12. **Write the run log.** Every step start/end, gate, check and jump-back as one JSON
     line in `.agent/artifacts/run-log.jsonl`. Only the orchestrator writes it.
-12a. **Skill-Invocations loggen (Debug).** Jeder Aufruf eines `aisdlc-*`-Skills wird als
-    `skill_start`/`skill_end`-Event in `run-log.jsonl` protokolliert (Helper:
-    `.agent/tools/skill_log.py <skill> <agent> <step> [start|end]`). So ist nachvollziehbar,
-    welche Skills wirklich liefen.
-13. **Big artefacts start with a table.** Artefact > ~20 KB: table on top (finding,
+12a. **Log skill invocations (debug).** Every call to an `aisdlc-*` skill is logged as
+    `skill_start`/`skill_end` event logged in `run-log.jsonl` (Helper:
+    `.agent/tools/skill_log.py <skill> <agent> <step> [start|end]`). So it is understandable
+    which skills really worked.
+13. **Big artifacts start with a table.** Artefact > ~20 KB: table on top (finding,
     severity, status, where fixed). Prose stays below. Table is entry point, prose
     is proof.
 
@@ -44,12 +44,12 @@ Prozess, OpenCode führt aus. Schreibrechte pro Agent, Phasen-Zuordnung in
 - **After Step 2** (Architecture complete) - before any application code is written.
   The agent must produce all artifacts, present a summary, and wait for human approval.
   This gate reviews the **direction**: architecture, decisions, ADR set. The contract
-  is still a draft here.
-- **After Step 8** (Security & Compliance complete) - before Deploy runs.
+  there is still a draft here.
+- **After Step 8**(Security & Compliance complete) - before Deploy runs.
   The agent must present QA and Security findings and wait for human approval.
-- **CUTOVER-GATE** (nur bei mode=migration/brownfield, vor finalem Umschalten).
-  Routing, idempotente Migrationsskripte, getesteter Backout und Monitoring müssen
-  nachweisbar sein. Kein finaler Cutover ohne menschliche Freigabe.
+- **CUTOVER-GATE** (only with mode=migration/brownfield, before final switching).
+  Routing, idempotent migration scripts, tested backout and monitoring must
+  be detectable. No final cutover without human approval.
 
 Without approval, the pipeline does not advance. No exceptions.
 
@@ -58,7 +58,7 @@ Without approval, the pipeline does not advance. No exceptions.
 **Traceability is a gate condition, not a footnote.** The check
 `python3 .agent/tools/traceability_check.py` must report **zero gaps** before
 GATE 2 in `traceability: full` with `gates.traceability_hard_fail: true`. A gap means: a requirement with a story has no provable test, or a test
-that proves nothing. The check compares the artefacts against the file system - a
+that proves nothing. The check compares the artifacts against the file system - a
 filled matrix is not a proof, the existing file is. The check runs **before** the
 gate. 
 
@@ -67,24 +67,24 @@ gate.
 **Contract freeze.** The contract `docs/api/openapi.yaml` is **frozen after step 4**
 (the stress test), not after gate 1. Consult `docs/architecture/contract-matrix.md` for classification (`internal|external|public`). Changes after freeze require a jump back to step 2 **only for `external/public`**; for `internal` use a justified change with impact analysis. 13 contract defects were found in the stress test, every one of them after the freeze.
 
-**Agent-Wechsel am Gate:** the agent of the finished step stays active until the human
+**Agent change at the gate:** the agent of the finished step remains active until the human
 approves. Only then does the human switch to the agent of the next step.
 
-## Briefing - der Steckbrief zwischen den Schritten
+## Briefing - the profile between the steps
 
-`.agent/artifacts/briefing.json` (Template: `.agent/templates/briefing.json`) schreibt der Orchestrator am Ende jedes Schritts und
-committet ihn mit. Er ist der **Einstiegspunkt** des nächsten Schritts:
+The orchestrator writes `.agent/artifacts/briefing.json` (template: `.agent/templates/briefing.json`) at the end of each step and
+commit him. It is the **entry point** of the next step:
 
-| Feld | Inhalt |
+| field | Content |
 |---|---|
-| Stand | letzter Schritt, Commit, nächster Schritt, Agent |
-| Was du lesen musst | die Dateien — und sonst nichts |
-| Entscheidungen, die gelten | F-x / ADR-x, die den Schritt binden |
-| Offene Punkte | O-xx mit Owner |
-| Was du nicht tust | z. B. „der Vertrag ist eingefroren" |
+| Stand | last step, commit, next step, agent |
+| What you need to read | the files — and nothing else |
+| Decisions that apply | F-x / ADR-x that bind the step |
+| Open points | O-xx with Owner |
+| What you don't do | e.g. E.g. “the contract is frozen” |
 
-Regeln: Rollen-Agent liest das Briefing **zuerst**, dann nur die genannten Dateien.
-Das Briefing ist **nie** die Wahrheit — die Dateien sind es. Keine Auszüge.
+Rules: Role agent reads the briefing **first**, then only the named files.
+The letter is **never** the truth — the files are. No excerpts.
 
 
 ## Commit Convention
@@ -94,32 +94,31 @@ exists. The commit is the checkpoint the human reviews at the gate.
 
 | Field | Rule |
 |---|---|
-| Subject | `<type>(sdlc-<n>): <Kurzbeschreibung>` |
-| Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
-| Scope | index-basiert: `git reset -q` → `git add -A -- <pfade>` → `git commit`. Nur der Schritt-Scope wird gestaged. |
+| Subject | `<type>(sdlc-<n>): <Short description exercise>` |
+| Bodysuit | `Step <n> - <step name> \| Agent: <agent-id> \| Artifacts: <paths>` |
+| Scope | index-based: `git reset -q` → `git add -A -- <paths>` → `git commit`. Only the step scope is staged. |
 | Order | commit **before** the gate — the gate reviews the finished commit |
-| Jump-back | a step that corrects an earlier step's artefacts produces **one** extra commit with the subject of the **corrected** step plus `(Nachzug)`. Maximal einer pro Schritt. |
+| Jump back | a step that corrects an earlier step's artifacts produces **one** extra commit with the subject of the **corrected** step plus `(Nachzug)`. Maximum one per step. |
 | Empty | if nothing changed, no commit — no empty commits |
 | Push | the pipeline never pushes — `git push` is not part of the pipeline |
-
-```bash
+```
+bash
 mkdir -p docs/requirements/ .agent/artifacts/
 git reset -q
 git add -A -- docs/requirements/ .agent/artifacts/
 git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
   -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/"
 ```
-
 Types: `docs` Requirements/Architecture/Security · `refactor` Simplify/Refactoring ·
 `test` TDD · `feat` Implementation · `build` Deploy.
 
-Subject, paths and command per step: `.agent/PHASES.md` -> "Commit pro Schritt".
+Subject, paths and command per step: `.agent/PHASES.md` -> "Commit per step".
 
 ## Phase Skills
 
-Verfahrens-Schritte werden als Skills geladen, nicht als eigene Agents:
+Procedural steps are loaded as skills, not as their own agents:
 
-| Step | Skill | Wird geladen von |
+| Step | Skill | Loading from |
 |---|---|---|
 | 1a | `aisdlc-grill-stress` | `aisdlc-requirements` |
 | 3 | `aisdlc-simplify` | `aisdlc-architecture` |
@@ -129,72 +128,72 @@ Verfahrens-Schritte werden als Skills geladen, nicht als eigene Agents:
 | 8 | `aisdlc-security-scan` | `aisdlc-qa` |
 | 9 | `aisdlc-deploy` | `aisdlc-qa` |
 
-Zusätzlich verfügbar: `strangler-fig`, `module-migration`, `test-self-correction`.
+Additionally available: `strangler-fig`, `module-migration`, `test-self-correction`.
 
 ## Folder Ownership
 
-| Folder | Owner (exclusive write) | Lesende Agenten (Read-Only) |
+| Folders | Owner (exclusive write) | Reading Agents (Read-Only) |
 |---|---|---|
 | `docs/requirements/` | Requirements Orchestrator | Architecture, Execution, QA, OpenCode |
 | `docs/architecture/`, `docs/api/`, `docs/adr/` | Architecture Orchestrator | Execution, QA, OpenCode |
-| `src/` | OpenCode (Build-Phase) | Requirements, Architecture, QA |
-| `tests/` | OpenCode (Test-Phase) | QA, Execution |
-| `docs/execution/` | Execution Orchestrator | QA, OpenCode, menschl. Reviewer |
+| `src/` | OpenCode (build phase) | Requirements, Architecture, QA |
+| `tests/` | OpenCode (test phase) | QA, Execution |
+| `docs/execution/` | Execution Orchestrator | QA, OpenCode, humane. Reviewer |
 | `docs/qa/` | QA Orchestrator | Execution, OpenCode (Self-Correction) |
-| `coverage/` | CI/Test-Runner | QA, Execution |
-| `.agent/artifacts/` | zustaendiger Rollen-Agent des Schritts | Alle (Read-Only) |
-| `.agent/artifacts/run-log.jsonl` | `aisdlc-orchestrator` | Alle (Read-Only) |
-| `.agent/knowledge/` | Architecture Orchestrator | Alle (Read-Only) |
-| `how-to/` | Menschlicher Reviewer | Alle (Read-Only) |
-| `.opencode/` | OpenCode-System | Alle (Read-Only) |
+| `coverage/` | CI/Test Runner | QA, Execution |
+| `.agent/artifacts/` | responsible role agent of the step | All (Read Only) |
+| `.agent/artifacts/run-log.jsonl` | `aisdlc-orchestrator` | All (Read Only) |
+| `.agent/knowledge/` | Architecture Orchestrator | All (Read Only) |
+| `how-to/` | Human Reviewer | All (Read Only) |
+| `.opencode/` | OpenCode system | All (Read Only) |
 
-**`.agent/artifacts/`** ist der kanonische Zielort der Schritt-Artefakte
+**`.agent/artifacts/`** is the canonical destination of the step artifacts
 (`requirements.md`, `user-stories.md`, `risk-register.md`, `architecture.md`,
 `folder-structure.md`, `test-report.md`, `security-audit.md`, `deploy-report.md`,
 `briefing.json`, `logging.md`, `traceability.md`, `traceability-fill.md`,
-`run-log.jsonl`). Jeder Schritt schreibt eigene Dateien; dort schreiben duerfen
-die vier Rollen-Agenten. Ein Rollen-Agent, dessen Workflow das als Ziel nennt,
-aber das Schreibrecht nicht besitzt, schreibt sonst an einen Ort, den niemand
-findet.
+`run-log.jsonl`). Each step writes its own files; are allowed to write there
+the four role agents. A role agent whose workflow names this as a target,
+but doesn't have the right to write, otherwise writes to a place that no one knows
+finds.
 
-**Spiegel-Regel fuer das Datenbankschema:** `.agent/knowledge/schema.sql` ist
-kanonisch, `docs/architecture/schema.sql` die versionierte Kopie — beide
-byte-identisch, durch `SchemaMirrorIT` (T-SCHEMA-MIRROR-01) erzwungen. Ein Agent,
-der das Schema aendert, aendert **beide** Dateien im selben Schritt (ADR-019 §6,
+**Mirror rule for the database schema:** `.agent/knowledge/schema.sql` is
+canonical, `docs/architecture/schema.sql` the versioned copy — both
+byte-identical, enforced by `SchemaMirrorIT` (T-SCHEMA-MIRROR-01). To agent,
+who changes the schema changes **both** files in the same step (ADR-019 §6,
 O-13/S-26).
 
-**Verweis-Regel fuer den API-Vertrag:** `docs/api/openapi.yaml` ist der einzige
-Vertrag. `.agent/knowledge/openapi.yaml` ist ein Verweis darauf, keine Kopie.
+**Reference rule for the API contract:** `docs/api/openapi.yaml` is the only one
+contract. `.agent/knowledge/openapi.yaml` is a reference to it, not a copy.
 
 ## Escalation
 
-- `REQUIREMENT_GAP`: Anforderung unvollständig → Rücksprung zu Phase 1.
-- `ARCHITECTURAL_BLOCKER`: Design undurchführbar → Rücksprung zu Phase 2.
-- Git-Reset der betroffenen `src/`-Dateien bei ARCHITECTURAL_BLOCKER.
-- **Fast-Track/Patch (Delta-Flow):** Bei `profile: mvp` und `allow_fast_track: true` sowie `change_flow.allow_delta_for_hotfix_patch: true` dürfen hotfix/patch/feature (type in {hotfix, patch, feature}, contract_impact in {none, internal}, scope in {local, module}, breaking=false) über den Delta-Pfad (1a → 5a → 6a → 8a) laufen. **Niemals** bei `contract_impact in {external, public}` oder Änderungen an `docs/api/openapi.yaml`. Contract-Impact wird zuerst gegen `docs/architecture/contract-matrix.md` geprüft. In `profile: enterprise` ist Delta-Flow nur bei expliziter Freigabe erlaubt.
+- `REQUIREMENT_GAP`: Requirement incomplete → return to phase 1.
+- `ARCHITECTURAL_BLOCKER`: design unfeasible → return to phase 2.
+- Git reset of the affected `src/` files in ARCHITECTURAL_BLOCKER.
+- **Fast Track/Patch (Delta Flow):** For `profile:mvp` and `allow_fast_track: true` as well as `change_flow.allow_delta_for_hotfix_patch: true`, hotfix/patch/feature (type in {hotfix, patch, feature}, contract_impact in {none, internal}, scope in {local, module}, breaking=false) may be used via the delta path (1a → 5a → 6a → 8a) run. **Never** for `contract_impact in {external, public}` or changes to `docs/api/openapi.yaml`. Contract-Impact is first checked against `docs/architecture/contract-matrix.md`. In `profile: enterprise`, delta flow is only allowed if explicitly enabled.
 
-**Migration (mode=migration/brownfield):** Contract-Freeze gilt nicht für Adapter/ACL zwischen Alt und Neu. Nur neue externe/public Verträge sind eingefroren. Migration erfordert CUTOVER-GATE (Routing, idempotente Migrationsskripte, getesteter Backout, Monitoring) vor finalem Umschalten.
+**Migration (mode=migration/brownfield):** Contract freeze does not apply to adapters/ACL between old and new. Only new external/public contracts are frozen. Migration requires CUTOVER-GATE (routing, idempotent migration scripts, tested backout, monitoring) before final switchover.
 
-## Secrets
+##Secrets
 
-- Alle Umgebungsvariablen in `.env` (nie hardcodiert). `.env` ist in `.gitignore`.
-- Secret-Scan in CI/CD (`gitleaks` oder `trufflehog`). Keine Credentials in
-  Quellcode, Config-Dateien, Logs, Dockerfiles oder Pipelines.
+- All environment variables in `.env` (never hardcoded). `.env` is in `.gitignore`.
+- Secret scan in CI/CD (`gitleaks` or `trufflehog`). No credentials in
+  Source code, config files, logs, Dockerfiles or pipelines.
 - In `profile: mvp` enforce at least a minimal secrets/dependency scan (diff-based). In `profile: enterprise` full security requirements apply.
 
 ## Output
 
-- Jeder Task endet mit einem Summary-Artefakt in der zugeordneten Directory.
-- Große Artefakte (> ~20 KB) beginnen mit einer Tabelle (siehe Regel 15).
+- Each task ends with a summary artifact in the associated directory.
+- Large artifacts (> ~20 KB) start with a table (see rule 15).
 
 ## Tech Stack
 
-Siehe `.agent/knowledge/stack.md` — die Entscheidung wird in Phase 2 getroffen und
-in `docs/adr/ADR-001-tech-stack.md` dokumentiert. Der Default in dieser Datei ist der
-Rahmen, nicht die Entscheidung.
+See `.agent/knowledge/stack.md` — the decision is made in phase 2 and
+documented in `docs/adr/ADR-001-tech-stack.md`. The default in this file is
+Framework, not the decision.
 
-## Rechte-Matrix
+##Rights matrix
 
-Siehe **Folder Ownership** oben — eine einzige Quelle, keine zweite Kopie.
-Die technische Durchsetzung steht in den `permissions` der Agent-Frontmatter
-(`.opencode/agents/`) und in `.opencode/opencode.jsonc`.
+See **Folder Ownership** above — a single source, not a second copy.
+The technical enforcement is in the 'permissions' of the Agent-Frontmatter
+(`.opencode/agents/`) and in `.opencode/opencode.jsonc`.

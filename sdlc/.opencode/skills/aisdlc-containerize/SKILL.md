@@ -1,77 +1,76 @@
 ---
 name: aisdlc-containerize
-description: Phase 6/9: Container-Image (Multi-Stage, non-root, gepinnt) + Compose.
+description: Phase 6/9: Container image (multi-stage, non-root, pinned) + Compose.
 metadata:
-  origin: eigenes Framework-Verfahren; Handwerk aus ECC/docker-patterns
+  origin: own framework procedure; Craft from ECC/docker patterns
 ---
 
-## Wann
+## When
 
-- **Phase 6**, im Infra-Stream.
-- **Phase 9**, vor dem ersten Deployment.
+- **Phase 6**, in the Infra stream.
+- **Phase 9**, before the first deployment.
 
-## Das eiserne Gesetz
-
-```text
+## The iron law
+```
+text
 KEIN SECRET IM IMAGE
 ```
+Not even in a development layer. Secrets come at runtime
+in, never in during the build.
 
-Auch nicht in einer Development-Schicht. Geheimnisse kommen zur Laufzeit
-herein, nie beim Build hinein.
+## Mandatory properties
 
-## Pflicht-Eigenschaften
-
-1. **Multi-Stage** — Build-Stufe mit Werkzeugkette, Runtime-Stufe nur mit Runtime.
-2. **non-root** — eigener User, `USER` gesetzt, Schreibrechte nur fuer die App.
-3. **Gepinnte Basis-Images** — konkreter Tag oder Digest, nie `latest`.
-4. **Keine Secrets in Layers** — keine Credentials als Build-Arg, kein `.env` im Image.
-5. **Keine Dev-Abhaengigkeiten in der Runtime-Stufe** — kein Test-Runner, keine
-   Source-Maps, kein Build-Cache.
-6. **Health-Check** — ein Endpunkt, den der Orchestrator aufrufen kann.
-7. **Layer-Reihenfolge** — Abhaengigkeiten zuerst, dann Anwendungscode, damit
-   Code-Aenderungen die Abhaengigkeitsschicht nicht invalidieren.
-8. **Reproduzierbar** — keine Zeitstempel, keine Zufallswerte im Image; gleiche
-   Eingabe ergibt denselben Digest.
+1. **Multi-Stage** — Build stage with tool chain, Runtime stage with runtime only.
+2. **non-root** — own user, `USER` set, write permissions only for the app.
+3. **Pinned base images** — specific tag or digest, never `latest`.
+4. **No secrets in layers** — no credentials as build arg, no `.env` in the image.
+5. **No dev dependencies in the runtime tier** — no test runner, none
+   Source maps, no build cache.
+6. **Health Check** — an endpoint that the orchestrator can call.
+7. **Layer Order** — Dependencies first, then application code, like this
+   Code changes do not invalidate the dependency layer.
+8. **Reproducible** — no timestamps, no random values ​​in the image; same
+   Input results in the same digest.
 
 ## Compose
 
-Das lokale Setup spiegelt die Produktion: gleiche Images, gleiche
-Umgebungsvariablen-Namen, gleiche Ports, Datenbank aus dem kanonischen Schema beim
-ersten Start.
+The local setup mirrors the production: same images, same
+Environment variable names, same ports, database from the canonical schema at
+first start.
 
-## Logging und Health-Check gehoeren zusammen
+## Logging and health check belong together
 
-Der Container schreibt in das Format aus `.agent/artifacts/logging.md` — eine
-Zeile je Ereignis, mit Korrelations-ID. Der Health-Check liest dasselbe Format:
-er pruft nicht nur, ob der Prozess lebt, sondern ob er **arbeitet** (letztes
-Heartbeat-Ereignis, Zeitstempel). Ein Health-Check, der nur den Prozess sieht,
-erkennt eine festgefahrene Zustellung nicht.
+The container writes to the format from `.agent/artifacts/logging.md` — one
+Row per event, with correlation ID. The health check reads the same format:
+it checks not only whether the process is alive, but whether it **works** (last
+heartbeat event, timestamp). A health check that only sees the process
+does not recognize a stuck delivery.
 
 ## Output
 
 - `infra/<service>.Dockerfile`
 - `infra/docker-compose.yml`
 - `.dockerignore`
-- `.agent/artifacts/containerization.md` — Basis-Image, Stufen, User, Ports,
-  Health-Check und die Liste der injizierten Variablen (nur Namen)
-- `.agent/artifacts/logging.md` — die Logging-Konvention des Projekts: Ereignisfeld,
-  Level, Korrelations-ID-Fluss, was **nicht** geloggt wird, Retention
+- `.agent/artifacts/containerization.md` — base image, stages, users, ports,
+  Health check and the list of injected variables (names only)
+- `.agent/artifacts/logging.md` — the project's logging convention: event field,
+  Level, correlation ID flow, what is **not** logged, retention
 
-## Regeln
+##Rules
 
-- Ein Image startet mit demselben Kommando in CI und in Produktion.
-- Braucht das Basis-Image zur Laufzeit einen Paketmanager, ist das ein **Befund** —
-  das Image wird repariert, nicht umgangen.
-- Das kanonische Schema wird **nicht** ins Image kopiert; es wird beim Start
-  eingespielt.
+- An image starts with the same command in CI and in production.
+- If the base image needs a package manager at runtime, this is a **finding** —
+  the image is repaired, not bypassed.
+- The canonical schema is **not** copied into the image; it will be at startup
+  recorded.
 
-## Stack-Skills
+## Stack skills
 
-> Die Namen sind die der **Stack-Schicht** des Projekts (`opencode.jsonc`,
-> `skills/`). Der Workflow dieses Skills gilt auch ohne sie — sie liefern nur
-> das Handwerk, nicht das Verfahren.
-| Wofuer | Skill |
+> The names are those of the project's **stack layer** (`opencode.jsonc`,
+> `skills/`). The workflow of this skill applies without them — they just deliver
+> the craft, not the process.
+| For what | Skill |
 |---|---|
-| Dockerfile-Muster, Compose-Overrides, Container-Security | `docker-patterns` |
-| Kubernetes-Deployment, Health-Checks | `kubernetes-patterns` |
-| CI-Pipeline mit Image-Build | `github-actions-templates` |
+| Dockerfile patterns, Compose overrides, container security | `docker-patterns` |
+| Kubernetes deployment, health checks | `kubernetes-patterns` |
+| CI pipeline with image build | `github-actions-templates` |

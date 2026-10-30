@@ -1,5 +1,5 @@
 ---
-description: Phase 3 — Simplify & Reduction (vor dem Stresstest)
+description: Phase 3 — Simplify & Reduction (before the stress test)
 ---
 
 # Simplify Workflow
@@ -11,34 +11,33 @@ description: Phase 3 — Simplify & Reduction (vor dem Stresstest)
 
 ## Agent & Skill
 
-- **Agent:** `aisdlc-architecture`  ·  **Skill:** `aisdlc-simplify`
+- **Agent:** `aisdlc-architecture` · **Skill:** `aisdlc-simplify`
 
 
-## Steps
+##Steps
 
-1. **Komplexität identifizieren** — welche Teile der Architektur sind überdimensioniert?
-2. **Reduzieren** — nur das Nötigste behalten, Over-Engineering eliminieren.
-3. **Vereinfachen** — Klarheit vor Vollständigkeit.
+1. **Identify complexity** — which parts of the architecture are oversized?
+2. **Reduce** — keep only what is necessary, eliminate over-engineering.
+3. **Simplify** — Clarity over completeness.
 
 ## Output
-`.agent/artifacts/` (aktualisierte Architektur, Reduktionsbericht)
+`.agent/artifacts/` (updated architecture, reduction report)
 
-## Regeln
+##Rules
 
-Siehe `AGENTS.md`: keine Ausgabe-Kommandos, Vertrag nach Schritt 4 eingefroren.
+See `AGENTS.md`: no output commands, contract frozen after step 4.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/
 git reset -q
 git add -A -- docs/architecture/ docs/api/ docs/adr/ .agent/artifacts/
 git commit -m "refactor(sdlc-3): Architektur vereinfacht" \
   -m "Schritt 3 - Simplify & Reduktion | Agent: aisdlc-architecture | Artefakte: docs/architecture/, docs/api/, docs/adr/, .agent/artifacts/"
 ```
+- Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
+- If nothing has changed: do not create a commit (no error).
 
-- Formel, Scope und Begruendung: `AGENTS.md` -> Commit Convention. Hier nur die Pfade.
-- Wenn sich nichts geaendert hat: kein Commit erzeugen (kein Fehler).
-
-## Gate
-Await human review. Bei zu viel Komplexität → Rücksprung zu Phase 2.
+##Gate
+Await human review. If there is too much complexity → return to phase 2.

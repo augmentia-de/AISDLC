@@ -2,40 +2,40 @@
 description: Phase 8a — Delta QA (affected modules + diff-based security)
 ---
 
-# Delta QA Workflow
+# Delta QA workflow
 
 ## Prerequisites
 
 - Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
-- Code-Änderungen aus 06a abgeschlossen.
+- Code changes from 06a completed.
 
 ## Agent & Skill
 
 - **Agent:** `aisdlc-qa`
 - **Skill:** `aisdlc-security-scan`
 
-## Steps
+##Steps
 
-1. **Betroffene Module scannen** — nicht Vollscan.
-2. **Secrets/Dependency-Check** auf Diff-Basis.
-3. **Traceability (light)** — nur geänderte ACs müssen Beleg haben.
-4. **Regressionstests** ausführen (aus 05a).
-5. **Kurzbericht** in `docs/qa/`.
+1. **Scan affected modules** — not full scan.
+2. **Secrets/Dependency Check** on a diff basis.
+3. **Traceability (light)** — only changed ACs must have evidence.
+4. Run **regression tests** (from 05a).
+5. **Short report** in `docs/qa/`.
 
 ## Output
 
 - `docs/qa/delta-report.md`
-- `.agent/artifacts/security-audit.md` (Delta-Scope)
+- `.agent/artifacts/security-audit.md` (Delta scope)
 
-## Regeln
+##Rules
 
-- Kein Vollscan, keine vollständige Compliance-Dokumentation (MVP).
-- Bei Critical/High → Rücksprung zu 06a.
-- Bei `contract_impact` `external/public` → voller Security-Scan Pflicht.
+- No full scan, no full compliance documentation (MVP).
+- At Critical/High → jump back to 06a.
+- For `contract_impact` `external/public` → full security scan mandatory.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p tests/ docs/qa/ .agent/artifacts/
 git reset -q
 git add -A -- tests/ docs/qa/ .agent/artifacts/

@@ -1,90 +1,92 @@
 ---
 name: aisdlc-test-matrix
-description: Phase 5: Akzeptanzkriterien auf Testebene, -datei und -fall abbilden.
+description: Phase 5: Map acceptance criteria at test level, file and case.
 metadata:
-  origin: eigenes Framework-Verfahren; Handwerk aus ECC/springboot-tdd + ECC/e2e-testing
+  origin: own framework procedure; Craft from ECC/springboot-tdd + ECC/e2e-testing
 ---
 
-## Wann
+## When
 
-**Phase 5**, nach dem Vertrag (Schritt 2–4) und **vor** der ersten
-Implementierungszeile.
+**Phase 5**, after the contract (steps 2-4) and **before** the first
+Implementation line.
 
-## Das eiserne Gesetz
-
-```text
+## The iron law
+```
+text
 KEIN KRITERIUM OHNE TESTFALL
 ```
+A criterion without a test case is a gap and blocks Gate 1.
 
-Ein Kriterium ohne Testfall ist eine Luecke und blockiert Gate 1.
+## Procedure
 
-## Vorgehen
+1. **Collect criteria** — each acceptance criterion from the stories.
+2. **Assign Layer** —
 
-1. **Kriterien sammeln** — je Akzeptanzkriterium aus den Stories.
-2. **Ebene zuweisen** —
-
-   | Ebene | Fuer | Kontext |
+   | level | For | Context |
    |---|---|---|
-   | unit | eine Regel, keine Infrastruktur, keine Datenbank | ohne Framework-Kontext |
-   | integration | Persistenz, Messaging, HTTP-Vertrag, Transaktionen | Testcontainer / echte Abhaengigkeit |
-   | e2e | eine User-Journey ueber mehrere Komponenten | volle Kette |
+   | unit | a rule, no infrastructure, no database | without framework context |
+   | integration | Persistence, Messaging, HTTP Contract, Transactions | Test container / real dependency |
+   | e2e | a user journey across several components | full chain |
 
-3. **Datei benennen** — nach dem **Verhalten**, nicht nach der Implementierung:
-   `test_task_status_transition`, nicht `test_service`.
+3. **Name file** — based on **behavior**, not implementation:
+   `test_task_status_transition`, not `test_service`.
 
-   **Der Testfall trägt die Kennung seines Akzeptanzkriteriums** — als Methodenname
-   oder als Kommentar direkt darüber:
-
-   ```java
+   **The test case carries the identifier of its acceptance criterion** — as the method name
+   or as a comment directly above:
+```
+java
    // AC-003-1
    @Test void ac003_1_rotationVerwendetNurS2() { … }
-   ```
+   
+```
 
-   ```typescript
+   
+```
+typescript
    // AC-003-1
    it('ac003_1 rotation verwendet nur S2', async () => { … })
-   ```
-
-   Die Datei selbst trägt **keine** Kennung — sie kann mehrere Kriterien abdecken.
-   Maßgeblich ist, was **im Test** steht: der Traceability-Check liest die Kennung aus
-   dem Testtext, nicht aus dem Dateinamen. Ein Test ohne Kennung ist am Ende nicht
-   belegbar und blockiert das Gate.
-4. **Negative Faelle ergaenzen** — zu jedem "das System muss verweigern" ein Test, der
-   die Verweigerung belegt. Das wird vergessen.
-5. **Invarianten** — Zustandsautomat, Mandantentrennung, Aufbewahrungsregeln bekommen
-   eigene Faelle.
-6. **Manuelle markieren** — was nicht automatisierbar ist, wird `manual` mit Grund.
+   
+```
+The file itself has **no** identifier — it can cover multiple criteria.
+   What is important is what is stated **in the test**: the traceability check reads the identifier
+   the test text, not the file name. In the end, there is no test without an identifier
+   assignable and blocks the gate.
+4. **Add negative cases** — for each “the system must refuse” a test that
+   the refusal is documented. That will be forgotten.
+5. **Invariants** — get state machine, client separation, retention rules
+   own cases.
+6. **Mark manual** — what cannot be automated becomes `manual` for a reason.
 
 ## Output
 
 `.agent/artifacts/test-matrix.md`:
 
-| Kriterium | Ebene | Testdatei | Fall | Status |
+| criterion | level | Test file | case | Status |
 |---|---|---|---|---|
-| AC-003-1 Task erscheint in der Liste | integration | `tests/integration/test_task_create` | `ac003_1_taskErscheintInDerListe` | geplant |
+| AC-003-1 Task appears in the list | integration | `tests/integration/test_task_create` | `ac003_1_taskAppearsInTheList` | planned |
 
-Ausserdem maschinenlesbar in `docs/requirements/traceability_matrix.json`.
+So machine readable in `docs/requirements/traceability_matrix.json`.
 
-## Regeln
+##Rules
 
-- Ein Kriterium, mindestens ein Fall. Ohne Fall ist es eine Luecke.
-- **Jeder Testfall trägt die Kennung seines Akzeptanzkriteriums.** Ohne sie ist der
-  Test am Ende nicht belegbar — und der Beleg ist Gate-Bedingung.
-- Pflicht-Negativfaelle fuer jede Verweigerungsanforderung.
-- Ein Test, der nichts ueber das Verhalten behauptet, ist keine Abdeckung.
-- Ein Test, der nicht ausgefuehrt wurde, gilt als nicht bestanden.
-- Danach `aisdlc-traceability-check` — der Check vergleicht die Matrix gegen die
-  Dateisysteme, nicht gegen die Absicht.
+- One criterion, at least one case. Without a case it is a gap.
+- **Each test case carries the identifier of its acceptance criterion.** Without it, the
+  The test cannot be verified at the end - and the receipt is a gate condition.
+- Mandatory negative cases for every denial request.
+- A test that does not claim anything about behavior is not covered.
+- A test that has not been carried out is considered failed.
+- Then `aisdlc-traceability-check` — the check compares the matrix against the
+  File systems, not against intention.
 
-## Stack-Skills
+## Stack skills
 
-> Die Namen sind die der **Stack-Schicht** des Projekts (`opencode.jsonc`,
-> `skills/`). Der Workflow dieses Skills gilt auch ohne sie — sie liefern nur
-> das Handwerk, nicht das Verfahren.
-| Wofuer | Skill |
+> The names are those of the project's **stack layer** (`opencode.jsonc`,
+> `skills/`). The workflow of this skill applies without them — they just deliver
+> the craft, not the process.
+| For what | Skill |
 |---|---|
-| Spring-Boot-Testaufbau, Testcontainers, Slice-Tests | `springboot-tdd` |
-| React-Komponententests | `react-testing` |
-| JavaScript-/TypeScript-Teststrategien | `javascript-testing-patterns` |
-| E2E mit Playwright | `e2e-testing` |
-| Testinventar, Governance | `test-collaboration` |
+| Spring Boot test setup, test containers, slice tests | `springboot-tdd` |
+| React unit tests | `react-testing` |
+| JavaScript/TypeScript Testing Strategies | `javascript-testing-patterns` |
+| E2E with Playwright | `e2e-testing` |
+| Test inventory, governance | `test-collaboration` |

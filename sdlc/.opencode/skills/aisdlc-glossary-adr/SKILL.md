@@ -1,29 +1,29 @@
 ---
 name: aisdlc-glossary-adr
-description: Phase 2: Fachglossar und ADRs schreiben.
+description: Phase 2: Write technical glossary and ADRs.
 metadata:
-  origin: eigenes Framework-Verfahren; Handwerk aus ECC/architecture-decision-records
+  origin: own framework procedure; Craft from ECC/architecture-decision-records
 ---
 
-## Wann
+## When
 
-- **Phase 2**, fuer jede Entscheidung, die Folgen hat.
-- Jedes Mal, wenn ein Begriff eingefuehrt, eingegrenzt oder umbenannt wird.
-- Nach einem Grill-Me, das eine Entscheidung geklaert hat.
+- **Phase 2**, for every decision that has consequences.
+- Every time a term is introduced, narrowed down or renamed.
+- After a grill-me that clarified a decision.
 
-## Zwei Artefakte
+## Two artifacts
 
-**GLOSSARY.md** — die Fachsprache, damit Code, Doku und Tests dieselben Woerter
-benutzen. Je Begriff: was er **ist**, was er **nicht** ist, woher er kommt.
+**GLOSSARY.md** — the technical language so that code, documentation and tests use the same words
+use. Each term: what it **is**, what it **isn't**, where it comes from.
 
-**ADRs** — warum entschieden wurde, damit kein spaeterer Agent die Entscheidung neu
-aufrollt.
+**ADRs** — why the decision was made so that no later agent would repeat the decision
+roll up.
 
-## Glossar
+## Glossary
 
-Je Begriff:
-
-```markdown
+By term:
+```
+markdown
 ## <Begriff>
 
 <Definition in einem Satz>
@@ -32,14 +32,13 @@ Je Begriff:
 - **Nicht**: <was ihm aehnlich ist, aber etwas anderes ist>
 - **Quelle**: <Anforderung oder ADR>
 ```
-
-Regeln: klein und praezise; ein Begriff pro Eintrag; **immer** die Negation
-mitfuehren; auf die Quelle verweisen; Begriffe loeschen, die weder im Code noch in
-den Anforderungen vorkommen.
+Rules: small and precise; one term per entry; **always** the negation
+carry along; refer to the source; Delete terms that are neither in the code nor in
+meet the requirements.
 
 ## ADR
-
-```markdown
+```
+markdown
 # ADR-<ID>: <Titel>
 
 ## Kontext
@@ -53,30 +52,29 @@ den Anforderungen vorkommen.
 ## Status
 Angenommen | Vorgeschlagen | Ersetzt durch ADR-<ID>
 ```
-
-Regeln: die **Entscheidung** festhalten, nicht die Diskussion; immer die
-verworfenen Alternativen nennen; einen angenommenen ADR **nie** ueberschreiben —
-sondern durch einen neuen ersetzen.
+Rules: record the **decision**, not the discussion; always the one
+name rejected alternatives; **never** overwrite an accepted ADR —
+but replace it with a new one.
 
 ## Output
 
 - `docs/architecture/GLOSSARY.md`
-- `docs/adr/ADR-<ID>-<titel>.md`
-- `.agent/artifacts/adr-index.md` — eine Zeile je ADR fuer die Gate-Vorlage
+- `docs/adr/ADR-<ID>-<title>.md`
+- `.agent/artifacts/adr-index.md` — one line per ADR for the gate template
 
-## Regeln
+##Rules
 
-- Eine Entscheidung je ADR.
-- Findet ein Agent die Begruendung einer Entscheidung nicht, fehlt der ADR.
-- Begriffe, die im Code vorkommen, stehen im Glossar; sonst ist das ein Review-Befund.
-- Nach dem Schreiben gilt `aisdlc-traceability-check` fuer die Zuordnung.
+- One decision per ADR.
+- If an agent cannot find the reasons for a decision, the ADR is missing.
+- Terms that appear in the code are in the glossary; otherwise this is a review finding.
+- After writing, `aisdlc-traceability-check` applies to the mapping.
 
-## Stack-Skills
+## Stack skills
 
-> Die Namen sind die der **Stack-Schicht** des Projekts (`opencode.jsonc`,
-> `skills/`). Der Workflow dieses Skills gilt auch ohne sie — sie liefern nur
-> das Handwerk, nicht das Verfahren.
-| Wofuer | Skill |
+> The names are those of the project's **stack layer** (`opencode.jsonc`,
+> `skills/`). The workflow of this skill applies without them — they just deliver
+> the craft, not the process.
+| For what | Skill |
 |---|---|
-| ADR-Format, Index, Alternativen | `architecture-decision-records` |
-| Abgrenzung Fach- vs. Technikbegriffe | `hexagonal-architecture` |
+| ADR format, index, alternatives | `architecture-decision-records` |
+| Differentiation between technical and technical terms | `hexagonal-architecture` |

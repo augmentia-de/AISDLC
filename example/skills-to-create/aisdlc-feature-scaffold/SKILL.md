@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 Make every feature look like the ones that already exist. Consistency beats cleverness when
 several agents write code in parallel.
@@ -14,12 +14,12 @@ several agents write code in parallel.
 
 Step 6, per story. One invocation = one story.
 
-## Inputs
+##Inputs
 
 - The story file `docs/requirements/stories/<story_id>.json`
 - `docs/api/openapi.yaml` (the endpoints this story needs)
 - The existing code base (read it first — this skill adds nothing new architecturally)
-- `docs/requirements/traceability_matrix.json` (the criteria this slice must satisfy)
+- `docs/requirements/traceability_matrix.json` (the criteria of this slice must satisfy)
 
 ## Procedure
 
@@ -43,7 +43,7 @@ Step 6, per story. One invocation = one story.
 - A short report: story id, criteria covered, files, test result
 - Update of `docs/requirements/traceability_matrix.json` for the covered criteria
 
-## Rules
+##Rules
 
 - One story per invocation. Do not start a second story in the same run.
 - No schema change without a migration plan (`aisdlc-migration-plan`).

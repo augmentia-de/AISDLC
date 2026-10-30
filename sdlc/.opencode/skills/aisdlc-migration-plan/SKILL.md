@@ -1,67 +1,66 @@
 ---
 name: aisdlc-migration-plan
-description: Phase 2/6: Schema-Migrationen planen (Expand/Contract, Rollback).
+description: Phase 2/6: Plan schema migrations (Expand/Contract, Rollback).
 metadata:
-  origin: eigenes Framework-Verfahren; Handwerk aus ECC/database-migrations + ECC/postgresql-table-design
+  origin: own framework procedure; Craft from ECC/database-migrations + ECC/postgresql-table-design
 ---
 
-## Wann
+## When
 
-- **Phase 2**, bei der Schema-Entscheidung — die Strategie wird dort festgelegt.
-- **Phase 6**, vor dem Schreiben einer Migrationsdatei.
+- **Phase 2**, in the schema decision — the strategy is determined there.
+- **Phase 6**, before writing a migration file.
 
-## Das eiserne Gesetz
-
-```text
+## The iron law
+```
+text
 EINE MIGRATION, DIE AUF EINER LIVE-DATENBANK FALSCH IST, IST EIN INCIDENT
 ```
+The plan must run with the **previous** application version.
 
-Der Plan muss mit der **vorherigen** Anwendungsversion laufen.
+##Expand/Contract
 
-## Expand / Contract
-
-| Phase | Aktion | Mit altem Code sicher? |
+| phase | Action | Safe with old code? |
 |---|---|---|
-| **Expand** | Spalte nullable / neue Tabelle / neuer Index | ja |
-| **Migrate** | Backfill in Batches, idempotent | ja |
-| **Switch** | Anwendung liest und schreibt die neue Form | erst nach vollstaendigem Backfill |
-| **Contract** | alte Spalte weg / Constraint rein | nein — eigenes Release |
+| **Expand** | Column nullable / new table / new index | yes |
+| **Migrate** | Backfill in batches, idempotent | yes |
+| **Switch** | Application reads and writes the new form | only after complete backfill |
+| **Contract** | old column gone / constraint in | no — own release |
 
-Regeln: keine Umbenennung in einem Schritt; keine `NOT NULL`-Spalte ohne Default
-fuer Altzeilen; `CREATE INDEX CONCURRENTLY` auf grossen Tabellen; Backfills in
-Batches mit Checkpoint, damit sie fortsetzbar sind.
+Rules: no renaming in one step; no `NOT NULL` column without default
+for old lines; `CREATE INDEX CONCURRENTLY` on large tables; Backfills in
+Checkpoint batches to make them resumable.
 
 ## Rollback
 
-Jede Migration beantwortet zwei Fragen: Was passiert, wenn sie **nicht rueckgaengig**
-zu machen ist? Und was passiert, wenn die Migration **erfolgreich** war, die
-Anwendung aber zurueckgerollt wird? Eine Migration ohne Antwort darauf ist nicht fertig.
+Every migration answers two questions: What happens if it **is not reversed**
+is to be done? And what happens if the migration was **successful**?
+But the application is rolled back? A migration without an answer to this is not complete.
 
 ## Output
 
-- Migrationsplan als ADR: `docs/adr/ADR-<ID>-migration-<thema>.md`
-- geordnete Liste der Migrationsdateien mit ihrer Phase (expand/migrate/switch/contract)
-- Rollback-Abschnitt je Migration
+- Migration plan as ADR: `docs/adr/ADR-<ID>-migration-<topic>.md`
+- ordered list of migration files with their phase (expand/migrate/switch/contract)
+- Rollback section per migration
 - `.agent/artifacts/migration-plan.md`
 
-## Regeln
+##Rules
 
-- Jede Migration ist idempotent oder traegt einen ausdruecklichen "einmal"-Marker.
-- Backfills sind batched, fortsetzbar und ratenbegrenzt.
-- Eine destruktive Aenderung geht in ein eigenes Release, **nach** dem Release des
-  Codes, der die alte Form nicht mehr braucht.
-- Datenverlust braucht ausdrueckliche menschliche Freigabe und einen
-  festgehaltenen Backup-Ort.
-- Gehoert das Schema dem Architecture Orchestrator, meldet der Execution
-  Orchestrator den Aenderungswunsch als **Befund** — er schreibt nicht selbst.
+- Every migration is idempotent or carries an explicit "once" marker.
+- Backfills are batched, resumable and rate limited.
+- A destructive change goes into its own release, **after** the release of the
+  Codes that no longer need the old form.
+- Data loss requires explicit human approval and a
+  recorded backup location.
+- If the schema belongs to the Architecture Orchestrator, reports to the Execution
+  Orchestrator considers the change request as a **finding** - he doesn't write it himself.
 
-## Stack-Skills
+## Stack skills
 
-> Die Namen sind die der **Stack-Schicht** des Projekts (`opencode.jsonc`,
-> `skills/`). Der Workflow dieses Skills gilt auch ohne sie — sie liefern nur
-> das Handwerk, nicht das Verfahren.
-| Wofuer | Skill |
+> The names are those of the project's **stack layer** (`opencode.jsonc`,
+> `skills/`). The workflow of this skill applies without them — they just deliver
+> the craft, not the process.
+| For what | Skill |
 |---|---|
-| Expand/Contract, Concurrent-Index, Batch-Backfill | `database-migrations` |
-| Tabellen-Entwurf, Spalten, Constraints | `postgresql-table-design` |
-| PostgreSQL-Muster, Indizes, JSONB | `postgres-patterns` |
+| Expand/Contract, Concurrent Index, Batch Backfill | `database-migrations` |
+| Table design, columns, constraints | `postgresql-table-design` |
+| PostgreSQL patterns, indexes, JSONB | `postgres-patterns` |

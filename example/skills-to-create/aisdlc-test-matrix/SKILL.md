@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 Turn acceptance criteria into a concrete test plan. Without the mapping, coverage is a
 number without a meaning, and the criteria nobody thought about are exactly the ones that
@@ -15,7 +15,7 @@ break in production.
 
 Step 5, after the API contract is frozen and before the first implementation task.
 
-## Inputs
+##Inputs
 
 - `docs/requirements/stories/*.json` (acceptance criteria)
 - `docs/requirements/features/*.feature`
@@ -33,7 +33,7 @@ Step 5, after the API contract is frozen and before the first implementation tas
    | integration | persistence, messaging, HTTP contract, transactions |
    | e2e | a user journey across several components |
 
-3. **Assign the file** — name it after the behaviour, not the implementation:
+3. **Assign the file** — name it after the behavior, not the implementation:
    `test_task_status_transition.py`, not `test_service.py`.
 4. **Add the negative cases** — for every "the system must refuse" criterion, a test that
    proves the refusal. This is the part that is forgotten.
@@ -54,8 +54,8 @@ Step 5, after the API contract is frozen and before the first implementation tas
 
 Plus the machine-readable version in `docs/requirements/traceability_matrix.json`.
 
-## Rules
+##Rules
 
 - One criterion, at least one case. A criterion without a case is a gap and blocks gate 1.
 - Mandatory negative cases for every refusal criterion.
-- A test that asserts nothing about the behaviour is not coverage.
+- A test that asserts nothing about the behavior is not coverage.

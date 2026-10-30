@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 A container that runs the same in CI, locally and in production, and that contains no
 secret and no unnecessary privilege.
@@ -15,7 +15,7 @@ secret and no unnecessary privilege.
 - Step 6, infrastructure stream.
 - Step 9, before the first deployment.
 
-## Inputs
+##Inputs
 
 - `.agent/knowledge/stack.md` (runtime and version)
 - The application's start command and port
@@ -33,7 +33,7 @@ secret and no unnecessary privilege.
 6. **Health check** — a health endpoint the orchestrator can call.
 7. **Layer order** — dependencies first, then application code, so that code changes do not
    invalidate the dependency layer.
-8. **Reproducible** — no timestamps or random values baked in; same input gives the same
+8. **Reproducible** — no timestamps or random values ​​baked in; same input gives the same
    image digest.
 
 ## Compose
@@ -49,9 +49,9 @@ same ports, and a database seeded from `.agent/knowledge/schema.sql` on first bo
 - `.agent/artifacts/containerization.md` — base image, stages, user, exposed ports, health
   check, and the list of injected variables (names only)
 
-## Rules
+##Rules
 
-- Never bake a secret into a layer, not even a development one.
+- Never bake a secret into a layer, not even a developing one.
 - The image must start with the same command in CI and in production.
 - If the base image needs a package manager at runtime, that is a finding: fix the image,
-  do not work around it.
+  don't work around it.

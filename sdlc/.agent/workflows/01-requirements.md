@@ -11,47 +11,46 @@ description: Phase 1 — Requirements gathering for AI SDLC
 
 ## Agent & Skill
 
-- **Agent:** `aisdlc-requirements`  ·  **Skill:** `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check`
+- **Agent:** `aisdlc-requirements` · **Skill:** `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check`
 
 
-## Steps
+##Steps
 
-1. **Analyse der Anforderung** auf Unklarheiten, Edge Cases und Zielkonflikte.
-2. **Zerlegung** in fachliche Epics, User Stories und BDD-Szenarien.
-3. **Akzeptanzkriterien** für jede User Story definieren.
-4. **Requirement-IDs** vergeben für Rückverfolgbarkeit.
+1. **Analysis of the requirement** for ambiguities, edge cases and conflicting goals.
+2. **Decomposition** into technical epics, user stories and BDD scenarios.
+3. Define **acceptance criteria** for each user story.
+4. **Requirement IDs** assigned for traceability.
 
 ## Output
 All artifacts written to `.agent/artifacts/` and `docs/requirements/`.
 
 - `requirements.md` — PRD & Feature Spec
 - `user-stories.md` — Epics → Stories → Acceptance Criteria
-- `risk-register.md` — Top 5 Risiken
+- `risk-register.md` — Top 5 risks
 - `docs/requirements/PRD.md` — Product Requirement Document
-- `docs/requirements/features/*.feature` — BDD-Szenarien (Gherkin).
-  **Jedes Szenario trägt die Kennung seines Akzeptanzkriteriums** (`# AC-003-1`) —
-  ohne sie ist der zugehörige Test am Ende nicht belegbar.
-- `docs/requirements/stories/*.json` — User Stories als Tasks
-- `docs/requirements/traceability_matrix.json` — Anforderung → Story → Feature
-  (**nur die statische Hälfte**; die Test- und Code-Referenzen kommen später aus dem
-  Dateisystem, siehe `aisdlc-traceability-check`)
+- `docs/requirements/features/*.feature` — BDD scenarios (Gherkin).
+  **Each scenario carries the identifier of its acceptance criterion** (`# AC-003-1`) —
+  Without it, the associated test ultimately cannot be verified.
+- `docs/requirements/stories/*.json` — User stories as tasks
+- `docs/requirements/traceability_matrix.json` — Requirement → Story → Feature
+  (**only the static half**; the test and code references come later from the
+  file system, see `aisdlc-traceability-check`)
 
-## Regeln
+##Rules
 
-Siehe `AGENTS.md`: keine Ausgabe-Kommandos, Vertrag nach Schritt 4 eingefroren.
+See `AGENTS.md`: no output commands, contract frozen after step 4.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p docs/requirements/ .agent/artifacts/
 git reset -q
 git add -A -- docs/requirements/ .agent/artifacts/
 git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
   -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/"
 ```
+- Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
+- If nothing has changed: do not create a commit (no error).
 
-- Formel, Scope und Begruendung: `AGENTS.md` -> Commit Convention. Hier nur die Pfade.
-- Wenn sich nichts geaendert hat: kein Commit erzeugen (kein Fehler).
-
-## Gate
+##Gate
 Await human review of all artifacts before proceeding to Phase 2.

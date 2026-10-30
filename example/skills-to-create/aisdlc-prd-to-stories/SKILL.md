@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 Turn a request into a specification that later agents can execute without guessing. The
 output must be machine-readable (stories as JSON) **and** human-readable (Gherkin).
@@ -15,7 +15,7 @@ output must be machine-readable (stories as JSON) **and** human-readable (Gherki
 Step 1, after the requirement has been grilled. If requirements are still ambiguous, do not
 use this skill — run `aisdlc-grill-stress` first.
 
-## Inputs
+##Inputs
 
 - User request or `docs/requirements/PRD.md`
 - Existing `.agent/knowledge/stack.md` (for technical constraints)
@@ -25,7 +25,7 @@ use this skill — run `aisdlc-grill-stress` first.
 
 1. **Extract capabilities** — group the request into epics. One epic = one cohesive goal.
 2. **Write stories** — one user story per capability, in the form
-   *As a &lt;role&gt;, I want &lt;capability&gt;, so that &lt;benefit&gt;*. Keep one story small
+   *As a <role>, I want <capability>, so that <benefit>*. Keep one story small
    enough to implement and test in one sitting.
 3. **Acceptance criteria** — concrete, observable, testable. "The system is fast" is not a
    criterion. "The list renders in under 2 s at p95" is.
@@ -38,7 +38,6 @@ use this skill — run `aisdlc-grill-stress` first.
 7. **Traceability seed** — every story references the requirement ids it satisfies.
 
 ## Output
-
 ```
 docs/requirements/PRD.md                    # updated or created
 docs/requirements/stories/<story_id>.json    # one per story
@@ -47,10 +46,9 @@ docs/requirements/traceability_matrix.json    # requirement -> story -> criteria
 .agent/artifacts/risk-register.md
 .agent/artifacts/user-stories.md
 ```
-
 Story file schema:
-
-```json
+```
+json
 {
   "id": "US-003",
   "epic": "Task management",
@@ -64,8 +62,7 @@ Story file schema:
   "status": "todo"
 }
 ```
-
-## Rules
+##Rules
 
 - Every story has at least one acceptance criterion; every criterion is observable.
 - No story may depend on another unfinished story without saying so.

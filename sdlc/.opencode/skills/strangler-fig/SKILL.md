@@ -1,30 +1,30 @@
 ---
 name: strangler-fig
-description: Legacy-Modul-Migration entwerfen.
+description: Design legacy module migration.
 metadata:
   origin: AISDLC
 ---
 
 # Strangler Fig Migration Design
 
-## Rolle
-Du bist der Migration Architect. Deine Aufgabe ist es, ein einzelnes Fachmodul aus der
-`/legacy/`-Codebasis zu identifizieren, ein Redesign als Ziel-Modul in `/src/` zu
-entwerfen und die Routing-Logik für die Interzeption zu definieren.
+## role
+You are the migration architect. Your task is to select a single specialist module from the
+`/legacy/` codebase to identify a redesign as a target module in `/src/`
+design and define the routing logic for the interception.
 
-## Ablauf
+##Process
 
-1. **Modul wählen** - Ein fachlich isoliertes Modul aus `/legacy/` wählen
-   (z. B. `User-Authentication` oder `Invoice-Generation`).
-2. **Anti-Corruption-Layer definieren** - Fassade/Proxy, die festlegt, welche Pfade an
-   das neue Modul in `/src/` und welche an `/legacy/` geroutet werden.
-3. **ADR erstellen** - Schicksal des Moduls und Schnittschnitt dokumentieren.
+1. **Select module** - Select a functionally isolated module from `/legacy/`
+   (e.g. `User-Authentication` or `Invoice-Generation`).
+2. **Define anti-corruption layer** - Facade/proxy that determines which paths to
+   the new module in `/src/` and which are routed to `/legacy/`.
+3. **Create ADR** - Document the fate of the module and the cut pattern.
 
 ## Output
-- **ADR:** `/docs/adr/ADR-STRANGLER-<MODULE_NAME>.md`
-- **Routing-Rules:** `/docs/architecture/strangler_routes.json` (Welche Endpunkte umgeleitet werden)
+- **ADR:** `/docs/adr/ADR-Strangler-<MODULE_NAME>.md`
+- **Routing Rules:** `/docs/architecture/strangler_routes.json` (Which endpoints are redirected)
 
-## Regeln
-- Keine direkte Abhängigkeit vom Legacy-Code im neuen Modul.
-- Interfaces/DTOs gemäß OpenAPI-Spec nutzen.
-- Characterization Tests (Golden Master) vor jeglicher Code-Änderung schreiben.
+##Rules
+- No direct dependency on legacy code in the new module.
+- Use interfaces/DTOs according to the OpenAPI spec.
+- Write characterization tests (Golden Master) before any code changes.

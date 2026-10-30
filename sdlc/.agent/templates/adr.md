@@ -1,9 +1,9 @@
-# ADR-XXX: Titel
+# ADR-XXX: Title
 
-## Status
+##Status
 Proposed | Accepted | Rejected | Deprecated | Superseded by ADR-YYY
 
 ## Context
-## Decision
+##Decision
 ## Consequences
 ## Alternatives

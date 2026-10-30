@@ -11,35 +11,34 @@ description: Phase 4 — Grill-Me stress test for architecture validation
 
 ## Agent & Skill
 
-- **Agent:** `aisdlc-architecture`  ·  **Skill:** `aisdlc-grill-stress`
+- **Agent:** `aisdlc-architecture` · **Skill:** `aisdlc-grill-stress`
 
 
-## Steps
+##Steps
 
-1. **Architekturfehler früh finden** — bevor implementiert wird.
-2. **Schonungslose Befragung** — Designbaum aufbauen, von der Wurzel nach unten.
-3. **Review gegen Standards und Spec** als zwei unabhaengige Achsen.
-4. **Developer-Interface prüfen** über 9 Dimensionen.
+1. **Find architectural errors early** — before implementing.
+2. **Ruthless Interrogation** — Build a design tree, from the root down.
+3. **Review against Standards and Spec** as two independent axes.
+4. **Check developer interface** across 9 dimensions.
 
 ## Output
-`.agent/artifacts/` (Stresstest-Bericht, gefundenen Fehler, offene Fragen)
+`.agent/artifacts/` (stress test report, found bugs, open questions)
 
-## Regeln
+##Rules
 
-Siehe `AGENTS.md`: keine Ausgabe-Kommandos, Vertrag nach Schritt 4 eingefroren.
+See `AGENTS.md`: no output commands, contract frozen after step 4.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p docs/architecture/ .agent/artifacts/
 git reset -q
 git add -A -- docs/architecture/ .agent/artifacts/
 git commit -m "docs(sdlc-4): Stresstest-Bericht und offene Entscheidungen" \
   -m "Schritt 4 - Grill-Me-Stresstest | Agent: aisdlc-architecture | Artefakte: docs/architecture/, .agent/artifacts/"
 ```
+- Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
+- If nothing has changed: do not create a commit (no error).
 
-- Formel, Scope und Begruendung: `AGENTS.md` -> Commit Convention. Hier nur die Pfade.
-- Wenn sich nichts geaendert hat: kein Commit erzeugen (kein Fehler).
-
-## Gate
-Await human review. Bei Architekturfehlern → Rücksprung zu Phase 2.
+##Gate
+Await human review. In case of architectural errors → return to phase 2.

@@ -1,480 +1,470 @@
-# improve1 — was zu verbessern ist
+# improve1 — what needs to be improved
 
-> **Status: umgesetzt in AISDLC3.** Dieses Dokument war die Spezifikation; die
-> Umsetzung steht im Commit `feat(sdlc): A-H aus improve1.md` in AISDLC3.
-> Die Belegstellen unten stammen aus **AISDLC2** (EchoBox-Lauf) — dort ist der
-> Mangel entstanden und dort ist er gemessen.
+> **Status: implemented in AISDLC3.** This document was the specification; the
+> Implementation is in the commit `feat(sdlc): A-H from improve1.md` in AISDLC3.
+> The references below are from **AISDLC2** (EchoBox run) — that's where it is
+> Defect occurred and that is where it is measured.
 >
-> | Abschnitt | Massnahme | Umgesetzt in |
+> | Section | Measure | Implemented in |
 > |---|---|---|
-> | 3 | A — Kette als Gate-Bedingung | `PHASES.md` (GATE 2), `AGENTS.md` (HARD GATES), Workflows 08/09 |
-> | 3 | B — Matrix statisch, Check dynamisch | `PHASES.md` (Traceability), `aisdlc-traceability-check` |
-> | 3 | C — Check wird zum Füll-Werkzeug | `.agent/tools/traceability_check.py --fill` |
-> | 3 | D — Commit-Regel lernt den Nachzug | `PHASES.md` (Commit pro Schritt), `AGENTS.md` (Commit Convention) |
-> | 3 | E — Stabile AC-Kennungen | `aisdlc-prd-to-stories`, `aisdlc-test-matrix`, Workflow 01 |
-> | 9 | F — Logging-Konvention | `AGENTS.md` (Regel 13), `.agent/artifacts/logging.md`, Workflow 06, `aisdlc-security-scan` |
-> | 9 | G — Lauf-Protokoll | `AGENTS.md` (Regel 14), `PHASES.md`, `aisdlc-orchestrator`, `.agent/artifacts/run-log.jsonl` |
-> | 9 | H — Grosse Artefakte tabellarisieren | `AGENTS.md` (Regel 15), `aisdlc-grill-stress`, `aisdlc-security-scan` |
+> | 3 | A — Chain as a gate condition | `PHASES.md` (GATE 2), `AGENTS.md` (HARD GATES), Workflows 08/09 |
+> | 3 | B — Matrix static, check dynamic | `PHASES.md` (traceability), `aisdlc-traceability-check` |
+> | 3 | C — Check becomes the fill tool | `.agent/tools/traceability_check.py --fill` |
+> | 3 | D — Commit rule learns the follow-up | `PHASES.md` (commit per step), `AGENTS.md` (commit convention) |
+> | 3 | E — Stable AC identifiers | `aisdlc-prd-to-stories`, `aisdlc-test-matrix`, Workflow 01 |
+> | 9 | F — Logging Convention | `AGENTS.md` (Rule 13), `.agent/artifacts/logging.md`, Workflow 06, `aisdlc-security-scan` |
+> | 9 | G — Run Log | `AGENTS.md` (Rule 14), `PHASES.md`, `aisdlc-orchestrator`, `.agent/artifacts/run-log.jsonl` |
+> | 9 | H — Tabulate Large Artifacts | `AGENTS.md` (rule 15), `aisdlc-grill-stress`, `aisdlc-security-scan` |
 >
-> **Teil 1** — Traceability: die `sdlc-1`-Commits am Ende der Historie. Grundlage:
-> die Analyse des PromptGuard-Laufs in AISDLC (20.–21.10.2026) und die Bestätigung im
-> EchoBox-Lauf in AISDLC2 (21.–22.10.2026).
-> **Teil 2** — Logging und Lauf-Protokoll: die Pipeline hat keine maschinenlesbare
-> Spur von dem, was sie tut, und das Framework schreibt der erzeugten Anwendung kein
-> Logging vor.
+> **Part 1** — Traceability: the `sdlc-1` commits at the end of the history. Basis:
+> the analysis of the PromptGuard run in AISDLC (October 20-21, 2026) and the confirmation in
+> EchoBox run in AISDLC2 (October 21-22, 2026).
+> **Part 2** — Logging and run log: the pipeline does not have a machine-readable one
+> trace of what it is doing and the framework does not write anything to the generated application
+> Logging before.
 
 ---
 
-## 1. Der Befund
+## 1. The findings
 
-Im AISDLC-Lauf stehen am Ende **drei `sdlc-1`-Commits**, alle nach Schritt 6 und 7:
-
+The AISDLC run ends up with **three `sdlc-1` commits**, all after steps 6 and 7:
 ```
 ea9c4fc  18:37  sdlc-1  Akzeptanzkriterien mit eingefrorenem Vertrag abgeglichen
 60d891c  18:24  sdlc-1  Traceability-Matrix gegen Endstand nachgezogen
 835900d  17:15  sdlc-1  Traceability-Kette Anforderung→Story→Test→Code vervollständigt
 ```
-
-Die Agenten haben den Auslöser selbst dokumentiert
+The agents documented the trigger themselves
 (`.agent/artifacts/traceability-fill.md`):
 
-> **Schritt:** 1 (Rücksprung) · **Agent:** `aisdlc-requirements`
-> **Stand:** HEAD `c227e1c` (Schritt 7 abgeschlossen)
-> **Auslöser:** Der Traceability-Check meldete 89 Lücken: bei **allen** 89
-> Matrix-Einträgen waren `tests` **und** `code` leer.
+> **Step:** 1 (Return) · **Agent:** `aisdlc-requirements`
+> **Status:** HEAD `c227e1c` (Step 7 completed)
+> **Trigger:** The traceability check reported 89 gaps: 89 for **all**
+> Matrix entries `tests` **and** `code` were empty.
 
-Der Zustand der Matrix, gemessen:
+The state of the matrix, measured:
 
-| Stand | Anforderungen mit Test-Referenz | mit Code-Referenz |
+| Stand | Requirements with test reference | with code reference |
 |---|---|---|
-| vor `835900d` | **0 / 89** | **0 / 89** |
-| nach `835900d` | 89 / 89 | 89 / 89 |
+| before `835900d` | **0 / 89** | **0 / 89** |
+| to `835900d` | 89 / 89 | 89 / 89 |
 
-**Die Traceability-Matrix war über den gesamten Lauf ein Gerüst.** Sie wurde erst
-gefüllt, als Tests und Code existierten — also drei Schritte zu spät.
+**The Traceability Matrix was a framework throughout the entire run.** It was first
+filled when tests and code existed — three steps too late.
 
-### 1.2 Der zweite Lauf reproduziert dasselbe Muster
+### 1.2 The second run reproduces the same pattern
 
-Der EchoBox-Lauf in AISDLC2 (21.–22.10.2026) zeigt denselben Ablauf:
+The EchoBox run in AISDLC2 (October 21-22, 2026) shows the same flow:
 
-| Zeit | Commit | Schritt |
+| time | Commit | step |
 |---|---|---|
-| 21.10 17:39 | `6538d9e` docs(sdlc-1): PRD, User Stories und Traceability-Matrix | 1 — regulär |
-| 21.10 18:55 | `cc67445` docs(sdlc-1): PRD und Traceability auf den entschiedenen Stand nachgezogen | **Nachzug 1** |
-| 21.10 22:20 | `test(sdlc-5)` Teststrategie und fehlschlagende Tests | 5 |
-| 22.10 01:41 | `feat(sdlc-6)` Implementierung der Stories | 6 |
-| 22.10 02:18 | `refactor(sdlc-7)` Refactoring und Clean-up | 7 |
-| 22.10 02:28 | `825656a` docs(sdlc-1): Traceability-Matrix auf den umgesetzten Stand nachgezogen | **Nachzug 2** |
+| 10/21 5:39 p.m. | `6538d9e` docs(sdlc-1): PRD, user stories and traceability matrix | 1 — regular |
+| 10/21 6:55 p.m. | `cc67445` docs(sdlc-1): PRD and traceability updated to the final status | **Follow-up 1** |
+| 10/21 10:20 p.m. | `test(sdlc-5)` Test strategy and failing tests | 5 |
+| 10/22 01:41 | `feat(sdlc-6)` implementation of the stories | 6 |
+| 10/22 02:18 | `refactor(sdlc-7)` Refactoring and clean-up | 7 |
+| 10/22 02:28 | `825656a` docs(sdlc-1): Traceability matrix updated to the implemented status | **Follow-up 2** |
 
-Der zweite Nachzug liegt **zehn Minuten nach Schritt 7** — genau an der Stelle, an der
-Tests und Code existieren. Dieselbe Ursache, dieselbe Wirkung.
+The second follow-up is **ten minutes after step 7** — exactly at the point where
+Tests and code exist. Same cause, same effect.
 
-**Und damit ist die Regel aus D („höchstens ein Nachzug pro Schritt") im EchoBox-Lauf
-zwei Mal verletzt** — beide Male in Schritt 1. Das bestätigt die Diagnose: die Ursache
-liegt im Ablauf, nicht in der Matrix. Eine Regel gegen das Symptom hätte nichts
-geändert.
+**And this is the rule from D (“at most one follow-up per step”) in the EchoBox run
+injured twice** — both times in step 1. This confirms the diagnosis: the cause
+lies in the process, not in the matrix. A rule against the symptom would have nothing
+changed.
 
-## 2. Die vier Ursachen
+## 2. The four causes
 
-### 2.1 Die Matrix ist ein Cross-Step-Artefakt, das der Commit-Scope nicht auflösen kann
+### 2.1 The matrix is a cross-step artifact that the commit scope cannot resolve
 
-`docs/requirements/traceability_matrix.json` hat die Felder `tests` und `code`. Die
-können **erst Schritt 5/6 füllen** — dort entstehen die Tests und der Code. Die Datei
-liegt aber im Schreibbereich von `aisdlc-requirements`; der `aisdlc-execution` darf
-dort nicht schreiben.
+`docs/requirements/traceability_matrix.json` has `tests` and `code` fields. The
+can **first complete step 5/6** — this is where the tests and code are created. The file
+but is in the writing range of `aisdlc-requirements`; the `aisdlc-execution` is allowed
+don't write there.
 
-Ergebnis: sieht Schritt 5/6 die Lücke, muss der Requirements-Agent **nachgeladen**
-werden → ein zusätzlicher `sdlc-1`-Commit. Strukturell unvermeidbar.
+Result: If step 5/6 sees the gap, the requirements agent must be **reloaded**
+become → an additional `sdlc-1` commit. Structurally unavoidable.
 
-### 2.2 Gate 1 prüft die Kette nicht
-
+### 2.2 Gate 1 does not check the chain
 ```
 GATE 1 | 2 (Architektur) | PRD vollständig, Architektur und Entscheidungen ok
 ```
+Not a word about traceability. Gate 1 could pass even though **0 of 89**
+requirements had a test. If the chain had been gate condition, the gap would be
+Noticed **before** steps 5/6 — and the follow-up would have been part of step 1.
 
-Kein Wort über Traceability. Gate 1 konnte passieren, obwohl **0 von 89**
-Anforderungen einen Test hatten. Wäre die Kette Gate-Bedingung gewesen, wäre die Lücke
-**vor** Schritt 5/6 aufgefallen — und der Nachzug wäre Teil von Schritt 1 gewesen.
+### 2.3 The commit rule does not recognize the return
 
-### 2.3 Die Commit-Regel kennt den Rücksprung nicht
+“Exactly one commit per step” — step 1 has three. Formally against the rules, but the rule
+has no case for it.
 
-„Genau ein Commit pro Schritt" — Schritt 1 hat drei. Formal regelwidrig, aber die Regel
-hat keinen Fall dafür.
+### 2.4 The check came in the middle of the run
 
-### 2.4 Der Check kam mitten im Lauf
+The `aisdlc-traceability-check` was installed on October 21st 15:00, the PromptGuard run
+started on October 20th 6:26 p.m. The check reacted **correctly** (jump back, gap closed)
+— only 15 hours late and via a return jump instead of a gate.
 
-Der `aisdlc-traceability-check` wurde am 21.10 15:00 installiert, der PromptGuard-Lauf
-begann am 20.10 18:26. Der Check hat **richtig** reagiert (Rücksprung, Lücke geschlossen)
-— nur 15 Stunden zu spät und über einen Rücksprung statt über ein Gate.
+**In AISDLC2 the check is there from the beginning.** The gap must therefore be *structural*
+eliminated, not just detected earlier.
 
-**In AISDLC2 ist der Check von Anfang an da.** Die Lücke muss also *strukturell*
-beseitigt werden, nicht nur früher erkannt.
+## 3. What to do
 
-## 3. Was zu tun ist
+### A — The chain becomes the checked gate condition
 
-### A — Die Kette wird zur geprüften Gate-Bedingung
+**Problem:** The gap is only noticeable once steps 5/6 have been completed - too late for that
+a gate.
 
-**Problem:** Die Lücke fällt erst auf, wenn die Schritte 5/6 durch sind — zu spät für
-ein Gate.
+**Change:**
 
-**Änderung:**
-
-| Datei | Änderung |
+| File | Change |
 |---|---|
-| `.agent/PHASES.md` | Gate-Definition: GATE 2 bekommt die Traceability-Bedingung. Wortlaut siehe unten. |
-| `AGENTS.md` | Abschnitt „HARD GATES": dieselbe Bedingung, plus der Hinweis, dass der Check **vor** dem Gate läuft. |
-| `.agent/workflows/08-security.md` | `## Gate` um die Prüfbedingung ergänzen |
-| `.agent/workflows/09-deploy.md` | dito (GATE 2 liegt davor) |
-| `.opencode/skills/aisdlc-traceability-check/SKILL.md` | Abschnitt „Ergebnis protokollieren": der Check ist **Gate-Voraussetzung**, nicht nur ein Hinweis |
+| `.agent/PHASES.md` | Gate definition: GATE 2 gets the traceability condition. See wording below. |
+| `AGENTS.md` | “HARD GATES” section: same condition, plus the note that the check runs **before** the gate. |
+| `.agent/workflows/08-security.md` | Add the test condition to `## Gate` |
+| `.agent/workflows/09-deploy.md` | ditto (GATE 2 is in front of it) |
+| `.opencode/skills/aisdlc-traceability-check/SKILL.md` | “Record result” section: the check is a **gate requirement**, not just a hint |
 
-**Bedingungstext (GATE 2):**
+**Condition text (GATE 2):**
 
-> Traceability belegt: für jede Anforderung mit Story existiert ein Testfall **und**
-> eine Code-Referenz; der Check meldet 0 Lücken. Story ohne Akzeptanzkriterium,
-> Akzeptanzkriterium ohne Testfall oder Testfall ohne Code-Referenz blockiert das Gate.
+> Traceability proven: a test case exists for every requirement with a story **and**
+> a code reference; the check reports 0 gaps. Story without acceptance criteria,
+> Acceptance criterion without test case or test case without code reference blocks the gate.
 
-**Wichtig:** Die Prüfung läuft **mechanisch** (Werkzeug), nicht nach Augenmaß. Ein
-Gate, das der Mensch „beurteilt", ist kein Gate.
+**Important:** The test is carried out **mechanically** (tool), not by eye. A
+Gate that people “judge” is not a gate.
 
-### B — Die Matrix wird statisch, der Check wird dynamisch
+### B — The matrix becomes static, the check becomes dynamic
 
-**Problem:** `tests` und `code` in der Matrix sind Werte, die erst Schritt 5/6 kennt.
-Sie zu füllen erzwingt einen Rücksprung in Schritt 1.
+**Problem:** `tests` and `code` in the matrix are values that only step 5/6 knows.
+Filling them forces you to go back to step 1.
 
-**Änderung: die Matrix beschreibt nur noch die statische Kette.**
+**Change: the matrix only describes the static chain.**
 
-| Feld | heute | künftig |
+| field | today | future |
 |---|---|---|
-| `requirement_id` | ja | ja |
-| `story_ids` | ja | ja |
-| `acceptance_criteria` | ja | ja |
-| `features` | ja | ja |
-| `tests` | **leer bis Schritt 6** | **entfällt** |
-| `code` | **leer bis Schritt 6** | **entfällt** |
-| `coverage_state` | manuell gepflegt | **entfällt** — ergibt sich aus dem Check |
+| `requirement_id` | yes | yes |
+| `story_ids` | yes | yes |
+| `acceptance_criteria` | yes | yes |
+| `features` | yes | yes |
+| `tests` | **empty until step 6** | **not applicable** |
+| `code` | **empty until step 6** | **not applicable** |
+| `coverage_state` | manually maintained | **not applicable** — results from the check |
 
-**Die statische Kette** (Anforderung → Story → Feature) ist vollständig in Schritt 1
-bekannt und wird dort committet. **Die dynamische Kette** (Anforderung → Test → Code)
-ist eine Eigenschaft des Dateisystems und wird **jederzeit** aus ihm ermittelt.
+**The static chain** (Requirement → Story → Feature) is complete in step 1
+known and committed there. **The Dynamic Chain** (Requirement → Test → Code)
+is a property of the file system and is determined from it **at any time**.
 
-**Umgesetzt in:**
+**Implemented in:**
 
-| Datei | Änderung |
+| File | Change |
 |---|---|
-| `.opencode/skills/aisdlc-traceability-check/SKILL.md` | Trennung statisch/dynamisch beschreiben; Prüfungen 6 und 7 (Matrix ohne Test/Code) **entfallen**, stattdessen: **Test ohne Matrix-Bezug** und **Code ohne Test** sind die neuen Lücken |
-| `.agent/tools/traceability_check.py` | Die Prüfungen 6/7 drehen sich um: nicht „hat die Matrix einen Test?", sondern „gibt es einen Test, der auf keine Anforderung zeigt?" und „gibt es Code, der zu keinem Test gehört?" — plus: **Ausgabe der Matrix** (siehe C) |
-| `.agent/workflows/01-requirements.md` | Output-Liste: die Matrix enthält jetzt nur noch Anforderung → Story → Feature |
-| `.agent/workflows/05-tdd.md` | Der Check läuft hier und erzeugt den Beleg (siehe C) |
-| `.agent/workflows/08-security.md` | dito, Ergebnis ist Gate-Voraussetzung |
+| `.opencode/skills/aisdlc-traceability-check/SKILL.md` | Describe static/dynamic separationen; Tests 6 and 7 (matrix without test/code) **removed**, instead: **test without matrix reference** and **code without test** are the new gaps |
+| `.agent/tools/traceability_check.py` | Tests 6/7 revolve around: not "does the matrix have a test?" but "is there a test that points to no requirement?" and "is there any code that doesn't belong to any test?" — plus: **Output of the matrix** (see C) |
+| `.agent/workflows/01-requirements.md` | Output list: the matrix now only contains Requirement → Story → Feature |
+| `.agent/workflows/05-tdd.md` | The check runs here and creates the receipt (see C) |
+| `.agent/workflows/08-security.md` | ditto, result is gate requirement |
 
-### C — Der Check wird zum Füll-Werkzeug
+### C — The check becomes a fill tool
 
-**Problem:** Der Check **meldet** Lücken. Jemand muss sie von Hand schließen — im
-PromptGuard-Lauf der Requirements-Agent, drei Schritte zu spät.
+**Problem:** The check **reports** gaps. Someone has to close it by hand — im
+PromptGuard run the requirements agent, three steps too late.
 
-**Änderung:** `traceability_check.py` bekommt einen Modus `--fill`, der die Matrix
-**mechanisch** aus dem Dateisystem füllt:
-
+**Change:** `traceability_check.py` gets a `--fill` mode that the matrix
+**mechanically** fills from the file system:
 ```
 python3 .agent/tools/traceability_check.py --fill
 ```
+**Basic rule:** The tool **never writes a path that it cannot occupy.**
+For each test case it is checked whether it contains a story or requirements reference in the test
+carries (tag, file name or comment). Without a receipt, the field remains empty and the
+Entry ends up in the gap list. **An invented path is worse than one
+Gap** — it looks busy and it's not.
 
-**Grundregel:** Das Werkzeug **schreibt nie einen Pfad, den es nicht belegen kann.**
-Für jeden Testfall wird geprüft, ob er im Test eine Story- oder Anforderungs-Referenz
-trägt (Tag, Dateiname oder Kommentar). Ohne Beleg bleibt das Feld leer und der
-Eintrag landet in der Lückenliste. **Ein erfundener Pfad ist schlimmer als eine
-Lücke** — er sieht belegt aus und ist es nicht.
+**Goal:** The tool delivers a **proven result** instead of a list of gaps:
 
-**Ziel:** Das Werkzeug liefert statt einer Lückenliste ein **belegtes Ergebnis**:
-
-| Datei | Inhalt |
+| File | Content |
 |---|---|
-| `docs/requirements/traceability_matrix.json` | statische Kette (Anforderung → Story → Feature) + `tests`/`code`, **mechanisch gefüllt** |
-| `.agent/artifacts/traceability.md` | der Beleg: Anforderung → Test → Code, mit Prüfvermerk |
-| `.agent/artifacts/traceability-fill.md` | was gefüllt wurde, was nicht belegbar war und warum |
+| `docs/requirements/traceability_matrix.json` | static chain (requirement → story → feature) + `tests`/`code`, **mechanically filled** |
+| `.agent/artifacts/traceability.md` | the receipt: requirement → test → code, with test note |
+| `.agent/artifacts/traceability-fill.md` | what was filled, what was not verifiable and why |
 
-**Schreibbereich:** Das Werkzeug schreibt `docs/requirements/traceability_matrix.json`
-— das liegt beim `aisdlc-requirements`. Zwei Wege:
+**Write scope:** The tool writes `docs/requirements/traceability_matrix.json`
+— that depends on the `aisdlc-requirements`. Two ways:
 
-- **C1 (empfohlen):** Die Füllung ist ein **expliziter Auftrag an den
-  `aisdlc-requirements`** im Rahmen von Schritt 5: der Execution-Agent meldet die
-  offenen Referenzen, der Requirements-Agent lässt das Werkzeug laufen und committet
-  das Ergebnis. Ein Auftrag, ein Commit, kein Rücksprung.
-- **C2:** Der `aisdlc-execution` bekommt eine Ausnahme für genau diese eine Datei.
-  Bricht die Folder-Ownership auf — nur für ein Werkzeug, das die Matrix erzeugt.
+- **C1 (recommended):** The filling is an **explicit order to the
+  `aisdlc-requirements`** as part of step 5: the execution agent reports the
+  open references, the requirements agent runs the tool and commits
+  the result. One order, one commit, no return.
+- **C2:** The `aisdlc-execution` gets an exception for exactly this one file.
+  Breaks folder ownership — only for a tool that creates the matrix.
 
-**Offen:** C1 oder C2. C1 hält die Trennung sauber, kostet aber einen zusätzlichen
-Agentenwechsel. C2 ist ein Schritt kürzer, braucht eine Ausnahme in der Rechte-Matrix.
+**Open:** C1 or C2. C1 keeps the separation clean, but costs an additional one
+Agent change. C2 is one step shorter and needs an exception in the rights matrix.
 
-### D — Die Commit-Regel lernt den Nachzug
+### D — The commit rule learns the follow-up
 
-**Problem:** „Genau ein Commit pro Schritt" kennt den Fall nicht, dass ein späterer
-Schritt die Artefakte eines früheren verändert.
+**Problem:** "Exactly one commit per step" does not recognize the case that a later
+Step the artifacts of a previous one changed.
 
-**Änderung** in `.agent/PHASES.md` und `AGENTS.md`:
+**Change** in `.agent/PHASES.md` and `AGENTS.md`:
 
-> Genau ein Commit pro Schritt. **Ausnahme:** ein Schritt, der die Artefakte eines
-> früheren Schritts korrigiert (z. B. die Traceability-Matrix nach den Tests), erzeugt
-> einen zusätzlichen Commit mit dem Subject des **korrigierten** Schritts und dem
-> Zusatz `(Nachzug)`. Der Nachzug wird im Commit-Body benannt: aus welchem Schritt, aus
-> welchem Anlass.
+> Exactly one commit per step. **Exception:** a step that contains the artifacts of a
+> corrected from the previous step (e.g. the traceability matrix after the tests).
+> an additional commit with the subject of the **corrected** step and the
+> Addition `(subsequent migration)`. The follow-up is named in the commit body: from which step, from
+> what occasion.
 
-Beispiel-Subject: `docs(sdlc-1): Traceability-Matrix nachgezogen (Nachzug aus Schritt 6)`
+Example subject: `docs(sdlc-1): Traceability matrix added (added from step 6)`
 
-**Regel:** höchstens **ein** Nachzug pro Schritt. Ein zweiter Nachzug ist ein
-Zeichen dafür, dass die Ursache im Ablauf liegt, nicht in der Matrix.
+**Rule:** a maximum of **one** draw per step. A second follow-up is a
+Sign that the cause lies in the process, not in the matrix.
 
-### E — Der Vertrag bekommt die Traceability-Bezüge
+### E — The contract gets the traceability references
 
-**Problem:** Die Akzeptanzkriterien der Features kannten die Testfälle nicht
-(`ea9c4fc` musste sie nachträglich mit AC-Tags versehen).
+**Problem:** The test cases did not know the acceptance criteria of the features
+(`ea9c4fc` had to add AC tags to them afterwards).
 
-**Änderung:** Beim Erzeugen der Features in Schritt 1 bekommt jedes
-Akzeptanzkriterium eine **stabile Kennung**, die später im Test wiederkehrt:
-
+**Change:** When creating the features in step 1, each gets
+Acceptance criterion is a **stable identifier** that returns later in the test:
 ```
 # features/US-003-token-lifecycle.feature
   Szenario: Token wird beim Refresh rotiert  # AC-003-1
 ```
-
-Und der Testfall führt dieselbe Kennung:
-
-```java
+And the test case has the same identifier:
+```
+java
 @Test void ac003_1_tokenWirdBeimRefreshRotiert() { … }
 ```
+**Result:** The check can **mechanically** assign test ↔ acceptance criterion, without
+Guess. The assignment via file names remains as a fallback.
 
-**Ergebnis:** Der Check kann Test ↔ Akzeptanzkriterium **mechanisch** zuordnen, ohne
-Raten. Die Zuordnung über Dateinamen bleibt als Fallback.
+**Change** in `.opencode/skills/aisdlc-prd-to-stories/SKILL.md` (schema of stories
+and features), `.opencode/skills/aisdlc-test-matrix/SKILL.md` (naming convention of the
+test cases) and `.agent/workflows/01-requirements.md`.
 
-**Änderung** in `.opencode/skills/aisdlc-prd-to-stories/SKILL.md` (Schema der Stories
-und Features), `.opencode/skills/aisdlc-test-matrix/SKILL.md` (Namenskonvention der
-Testfälle) und `.agent/workflows/01-requirements.md`.
+## 4. Order of implementation
 
-## 4. Reihenfolge der Umsetzung
-
-| # | Schritt | Abhängig von |
+| # | step | Depending on |
 |---|---|---|
-| 1 | **E** — AC-Kennungen in Features und Testfälle | keine |
-| 2 | **B** — Matrix statisch machen, Prüfungen 6/7 drehen | 1 |
-| 3 | **C** — `--fill` im Werkzeug, Beleg-Artefakte | 2 |
-| 4 | **A** — Kette als Gate-Bedingung | 3 |
-| 5 | **D** — Nachzug-Regel in der Commit-Konvention | 4 |
+| 1 | **E** — AC identifiers in features and test cases | none |
+| 2 | **B** — Make matrix static, rotate checks 6/7 | 1 |
+| 3 | **C** — `--fill` in tool, receipt artifacts | 2 |
+| 4 | **A** — Chain as gate condition | 3 |
+| 5 | **D** — Follow-up rule in the commit convention | 4 |
 
-E vor B, weil die mechanische Zuordnung ohne stabile AC-Kennungen nicht geht.
-C vor A, weil ein Gate erst etwas prüfen kann, was es auch erzeugen kann.
+E before B because the mechanical assignment does not work without stable AC identifiers.
+C before A because a gate can only test something that it can also create.
 
-## 5. Was sich messen lässt
+## 5. What can be measured
 
-| Kennzahl | heute (PromptGuard) | Ziel |
+| Key figure | today (PromptGuard) | Target |
 |---|---|---|
-| Anforderungen ohne Test-Referenz | 89 von 89 | 0 |
-| `sdlc-1`-Commits | 3 | 1 (plus höchstens 1 Nachzug) |
-| Zeitpunkt der ersten erkannten Lücke | nach Schritt 7 | nach Schritt 5 |
-| Gate-Prüfungen, die der Mensch per Augenmaß macht | 2 von 2 | 0 von 2 |
+| Requirements without test reference | 89 of 89 | 0 |
+| `sdlc-1` commits | 3 | 1 (plus a maximum of 1 follow-up) |
+| Time of first detected gap | after step 7 | after step 5 |
+| Gate checks that people do by eye | 2 of 2 | 0 of 2 |
 
-## 6. Zu entscheiden
+## 6. To decide
 
-| Frage | Optionen | Empfehlung |
+| Question | Options | Recommendation |
 |---|---|---|
-| Wer schreibt die gefüllte Matrix? | C1 (Requirements-Agent als Auftragnehmer) · C2 (Execution mit Ausnahme) | **C1** — die Folder-Ownership bleibt sauber |
-| Wo liegt der Beleg? | nur in der Matrix · zusätzlich als Artefakt | **beides** — die Matrix ist das Arbeitsformat, das Artefakt der Gate-Vorlage |
-| Bleiben `coverage_state` und `manual_criteria`? | streichen · als Ableitung behalten | **ableiten** — sie sind von Hand gepflegte Zwillingsdaten |
-| Gilt die Nachzug-Regel nur für die Traceability? | allgemein formulieren · nur hier | **allgemein** — der Fall ist nicht matrixspezifisch |
+| Who writes the filled matrix? | C1 (Requirements Agent as Contractor) · C2 (Execution with Exception) | **C1** — the folder ownership remains clean |
+| Where is the receipt? | only in the matrix · additionally as an artifact | **both** — the matrix is ​​the working format, the artifact of the gate template |
+| Are `coverage_state` and `manual_criteria` left? | delete · keep as derivation | **derive** — they are hand curated twin data |
+| Does the follow-up rule only apply to traceability? | formulate generally · only here | **general** — the case is not matrix specific |
 
-## 7. Nicht Ziel dieser Verbesserung
+## 7. Not the target of this improvement
 
-- **Keine** Änderung an der Schrittreihenfolge. Die 9 Schritte bleiben.
-- **Keine** zusätzliche Rolle. Der Requirements-Agent bleibt der Eigentümer von
+- **No** change to step order. The 9 steps remain.
+- **No** additional role. The requirements agent remains the owner of
   `docs/requirements/`.
-- **Kein** Ersatz für `aisdlc-traceability-check`. Der Check bleibt, er wird nur
-  vollständiger und kann füllen.
-- **Keine** Rückwärtskompatibilität mit dem PromptGuard-Stand. Der ist ein
-  abgeschlossener Lauf.
+- **Not** a replacement for `aisdlc-traceability-check`. The check remains, it just becomes
+  more complete and can fill.
+- **No** backwards compatibility with the PromptGuard release. That's one
+  completed run.
 
 ---
 
-## Anhang 1: Belegstellen
+## Appendix 1: Document locations
 
-### A1 — PromptGuard-Lauf (AISDLC)
+### A1 — PromptGuard Run (AISDLC)
 
-| Beleg | Fundstelle |
+| receipt | Location |
 |---|---|
-| Auslöser des Rücksprungs | `.agent/artifacts/traceability-fill.md`, Kopf |
-| Matrix vor dem Nachzug | Commit `835900d^` — 0/89 mit `tests`, 0/89 mit `code` |
-| Matrix nach dem Nachzug | Commit `835900d` — 89/89 mit `tests`, 89/89 mit `code` |
-| AC-Tags nachträglich | Commit `ea9c4fc` — 35 Feature-Dateien, je +6 Zeilen |
-| Matrix-Recheck | Commit `60d891c` — 61 Zeilen, SEC-009 belegt |
-| Schritt 7 als Stand | Commit `c227e1c` |
-| Check war ab da | `aisdlc-traceability-check` installiert in `0d1ee9a` (21.10 15:00) |
+| Trigger of the return | `.agent/artifacts/traceability-fill.md`, head |
+| Matrix before relocation | Commit `835900d^` — 0/89 with `tests`, 0/89 with `code` |
+| Matrix after migration | Commit `835900d` — 89/89 with `tests`, 89/89 with `code` |
+| AC tags subsequently | Commit `ea9c4fc` — 35 feature files, +6 lines each |
+| Matrix Recheck | Commit `60d891c` — 61 lines, SEC-009 occupied |
+| Step 7 as a stand | Commit `c227e1c` |
+| Check was from then on | `aisdlc-traceability-check` installed in `0d1ee9a` (21.10 15:00) |
 
-### A2 — EchoBox-Lauf (AISDLC2)
+### A2 — EchoBox Run (AISDLC2)
 
-| Beleg | Fundstelle |
+| receipt |Location |
 |---|---|
-| Nachzug 1 (auf den entschiedenen Stand) | Commit `cc67445`, 21.10 18:55 |
-| Nachzug 2 (auf den umgesetzten Stand) | Commit `825656a`, 22.10 02:28 — 10 min nach `refactor(sdlc-7)` |
-| Schritt 7 als Voraussetzung | Commit `825656a^` = `refactor(sdlc-7)` |
-| Kein JSON-Artefakt | `.agent/artifacts/` — 23 Dateien, davon 0 `.json` |
-| Logging-Defekt als Zufallsfund | `.agent/artifacts/security-audit.md`, Befund **S-36** |
-| 30+ maschinenlesbare Fehler | `docs/qa/bugs/BUG-*.json` |
-| Betriebs-Runbook aus dem Deploy-Skill | `docs/execution/runbook.md` — Health/Readiness, SLI/SLO, Alerting, Rollback |
+| Subsequent migration 1 (to the decided status) | Commit `cc67445`, Oct 21 18:55 |
+| Follow-up 2 (to the implemented status) | Commit `825656a`, Oct 22 02:28 — 10 min after `refactor(sdlc-7)` |
+| Step 7 as a prerequisite | Commit `825656a^` = `refactor(sdlc-7)` |
+| Not a JSON artifact | `.agent/artifacts/` — 23 files, 0 of which are `.json` |
+| Logging defect as a chance discovery | `.agent/artifacts/security-audit.md`, Finding **S-36** |
+| 30+ Machine Readable Errors | `docs/qa/bugs/BUG-*.json` |
+| Operational runbook from the deploy skill | `docs/execution/runbook.md` — Health/Readiness, SLI/SLO, Alerting, Rollback |
 
 
 ---
 
-# Teil 2 — Logging und Lauf-Protokoll
+# Part 2 — Logging and Run Log
 
-> Zweites Verbesserungsfeld, aus dem EchoBox-Lauf. Hier geht es nicht um die
-> Anwendung, sondern um **Sichtbarkeit**: was die Pipeline tut — und was der Betrieb
-> protokolliert.
+> Second improvement area, from the EchoBox run. This isn't about them
+> application, but about **visibility**: what the pipeline does — and what the operation does
+> logged.
 
-## 8. Der Befund
+## 8. The findings
 
-### 8.1 Logging: im Framework eine Prüfung, kein Konzept
+### 8.1 Logging: in the framework a test, not a concept
 
-Das Framework nennt Logging an **drei Stellen** — alle als *Prüfung*, keine als *Vorgabe*:
+The framework mentions logging in **three places** — all as a *check*, none as a *default*:
 
-| Stelle | Was dort steht |
+| position | What it says there |
 |---|---|
-| `aisdlc-security-scan` §9 „Logging und Datenschutz" | keine Passwörter, Tokens, vollständigen Personendaten in Logs; Bewertungsstufe „Logging unvollständig" → Medium |
-| `aisdlc-deploy` | Smoke-Kriterium: „Logs zeigen keine unerwarteten Fehler" |
-| `stack/java/backend` (Stack-Agent, **nicht** Framework) | „Structured logging with correlation ID; no secrets or PII in logs" |
+| `aisdlc-security-scan` §9 “Logging and data protection” | no passwords, tokens, complete personal data in logs; Rating level “Logging incomplete” → Medium |
+| `aisdlc-deploy` | Smoke criterion: “Logs show no unexpected errors” |
+| `stack/java/backend` (stack agent, **not** framework) | "Structured logging with correlation ID; no secrets or PII in logs" |
 
-**Was fehlt:**
+**What's missing:**
 
-- **Kein Logging-Artefakt.** Kein Schritt erzeugt eines — die 23 Artefakte des
-  EchoBox-Laufs enthalten keins.
-- **Keine Regel in `AGENTS.md`/`PHASES.md`**, was die erzeugte Anwendung loggen muss:
-  Format, Korrelations-ID, Level, was *nicht* hinein darf, Retention.
-- **Keine Gate-Bedingung** zu Logging.
-- `coverage/` ist die einzige Runtime-Evidenz-Konvention — und das ist eine **Zahl**,
-  kein Log.
+- **No logging artifact.** No step produces one — the 23 artifacts of the
+  EchoBox runs do not include one.
+- **No rule in `AGENTS.md`/`PHASES.md`** what the generated application must log:
+  Format, correlation ID, level, what is *not* allowed in, retention.
+- **No gate condition** for logging.
+- `coverage/` is the only runtime evidence convention — and that's a **number**,
+  no log.
 
-**Der Beweis, dass die Lücke real ist:** Der Security-Scan fand **S-36** — eine nicht
-unterstützte Methode erzeugt **500 mit Stacktrace im Betriebsprotokoll**, belegt durch
-eine Sonde über 15 Methode/Pfad-Kombinationen. Ein reiner Logging-Defekt, gefunden
-**nur**, weil die Security-Prüfung ihn sucht. Ohne diese Prüfung wäre er
-durchgerutscht.
+**Proof that the vulnerability is real:** The security scan found **S-36** — one didn't
+supported method produces **500 with stack trace in operation log**, evidenced by
+a probe across 15 method/path combinations. A pure logging defect, found
+**only** because the security check is looking for him. Without this test he would be
+slipped through.
 
-Was es im EchoBox-Lauf immerhin gibt (aus `aisdlc-deploy`): `docs/execution/runbook.md`
-mit Health/Readiness, SLIs/SLOs, Alerting, Rollback, Purge, Secret-Rotation. Das ist die
-**Anwendung** — entstanden aus dem Deploy-Skill, nicht aus einer Logging-Regel.
+What there is in the EchoBox run (from `aisdlc-deploy`): `docs/execution/runbook.md`
+with health/readiness, SLIs/SLOs, alerting, rollback, purge, secret rotation. That's the one
+**Application** — originated from the deploy skill, not from a logging rule.
 
-### 8.2 Die Pipeline hat kein Lauf-Protokoll
+### 8.2 The pipeline has no run log
 
-Der gesamte Ablauf liegt nur in der Git-Historie und in Prosa-Artefakten. Es gibt
-**keine** maschinenlesbare Liste: welcher Schritt lief, welche Prüfung bestand, welches
-Gate erreicht wurde, wie lange, wie viele Rücksprünge.
+The entire process lies only in the Git history and prose artifacts. There is
+**not** machine-readable list: which step ran, which test passed, which one
+Gate was reached, how long, how many bounces.
 
-Konkret: `.agent/artifacts/ruecksprung-bilanz.md` ist **102 KB Prosa** (845 Zeilen,
-davon 352 Tabellenzeilen) über **Rücksprung 6** von Schritt 2. Wertvolles Wissen — aber
-nicht auswertbar, nicht zählbar, nicht vergleichbar.
+Specifically: `.agent/artifacts/ruecksprung-balance.md` is **102 KB prose** (845 lines,
+including 352 table rows) via **Return 6** from step 2. Valuable knowledge — but
+cannot be evaluated, cannot be counted, cannot be compared.
 
-Im Projekt sind **null** JSON-Artefakte unter `.agent/artifacts/`. Die einzigen
-maschinenlesbaren Dateien sind die Bug-JSONs (`docs/qa/bugs/BUG-*.json`, 30+) und die
-Traceability-Matrix. **Die Fehler des Betriebs sind Daten — der Ablauf des Betriebs
-nicht.**
+There are **zero** JSON artifacts in the projecte at `.agent/artifacts/`. The only ones
+Machine-readable files are the bug JSONs (`docs/qa/bugs/BUG-*.json`, 30+) and the
+Traceability matrix. **The errors of the operation are data — the flow of the operation
+not.**
 
-### 8.3 Zwei Kosten, die dazukommen
+### 8.3 Two additional costs
 
-| | im EchoBox-Lauf |
+| | in EchoBox Run |
 |---|---|
-| Artefakte insgesamt | 23 Dateien, 1,5 MB |
-| davon Prosa ohne maschinenlesbare Form | 21 Dateien |
-| Laufzeit, in der ein Schritt nach dem anderen lag | nicht messbar (nur aus den Commit-Zeitstempeln rekonstruierbar) |
-| Rücksprünge | 6 in Schritt 2 allein, 2 davon in Schritt 1 |
+| Total artifacts | 23 files, 1.5 MB |
+| of which prose without machine-readable form | 21 files |
+| Running time in which one step followed the other | not measurable (can only be reconstructed from the commit timestamps) |
+| Jumps | 6 in step 2 alone, 2 of them in step 1 |
 
-## 9. Was zu tun ist
+## 9. What to do
 
-### F — Eine Logging-Konvention ins Framework
+### Q — A logging convention into the framework
 
-**Problem:** Was geloggt wird, entscheidet der Stack-Agent — oder niemand. Ein
-Logging-Defekt wie S-36 wird nur gefunden, wenn die Security-Prüfung ihn sucht.
+**Problem:** What gets logged is decided by the stack agent — or no one. A
+Logging defects like S-36 are only found when the security check is looking for them.
 
-**Änderung:**
+**Change:**
 
-| Datei | Änderung |
+| File | Change |
 |---|---|
-| `AGENTS.md` | Neue Regel: die erzeugte Anwendung loggt **strukturiert** — je Zeile ein Ereignis mit Korrelations-ID, Ereignistyp, Mandant, Ergebnis, Dauer. **Nie** Nutzdaten, Secrets, Tokens, vollständige Personendaten. |
-| `.agent/PHASES.md` | Neues Artefakt in der Schritt-6-Liste: `.agent/artifacts/logging.md` — Log-Schema, verbotene Inhalte, Retention, Korrelations-ID-Fluss |
-| `.agent/workflows/06-implementation.md` | Output-Liste um `logging.md` ergänzen; der Feature-Slice-Skill verweist darauf |
-| `.opencode/skills/aisdlc-security-scan/SKILL.md` | §9 von „Prüfung" zu „geprüfte Konvention": prüft **gegen** `.agent/artifacts/logging.md`, nicht gegen eine erfundene Erwartung |
-| `.opencode/skills/aisdlc-containerize/SKILL.md` | Health-Check und Logausgabe gehören zusammen — der Container schreibt in ein format, das der Health-Check liest |
+| `AGENTS.md` | New rule: the created application logs **structured** - one event per line with correlation ID, event type, client, result, duration. **Never** payloads, secrets, tokens, complete personal data. |
+| `.agent/PHASES.md` | New artifact in step 6 list: `.agent/artifacts/logging.md` — Log schema, prohibited content, retention, correlation ID flow |
+| `.agent/workflows/06-implementation.md` | Add `logging.md` to output list; the feature slice skill points to |
+| `.opencode/skills/aisdlc-security-scan/SKILL.md` | §9 from "test" to "tested convention": checks **against** `.agent/artifacts/logging.md`, not against an invented expectation |
+| `.opencode/skills/aisdlc-containerize/SKILL.md` | Health check and log output belong together - the container writes in a format that the health check reads
 
-**Ergebnis:** S-36 wäre eine **systematische Klasse** (Logging-Konvention verletzt),
-nicht ein Zufallsfund. Und die Konvention wird einmal geschrieben statt in jedem Stack
-neu erfunden.
+**Result:** S-36 would be a **systematic class** (logging convention violated),
+not a chance find. And the convention is written once instead of in every stack
+reinvented.
 
-### G — Ein Lauf-Protokoll als Daten
+### G — A run log as data
 
-**Problem:** Der Ablauf ist nur aus Prosa und Commit-Zeitstempeln rekonstruierbar.
-Ohne Daten keine Messung — und die letzten Verbesserungen wurden aus dem Gefühl
-entschieden, nicht aus der Historie.
+**Problem:** The flow can only be reconstructed from prose and commit timestamps.
+Without data, there can be no measurement — and the final improvements came from feeling
+decided, not from history.
 
-**Änderung:** eine Datei `.agent/run-log.jsonl` — **eine Zeile je Ereignis**, append-only:
-
-```json
+**Change:** a file `.agent/run-log.jsonl` — **one line per event**, append-only:
+```
+json
 {"ts":"2026-10-22T01:41:03Z","event":"step_start","step":6,"agent":"aisdlc-execution"}
 {"ts":"2026-10-22T02:18:41Z","event":"step_end","step":6,"commit":"825656a","duration_s":2258}
 {"ts":"2026-10-22T02:28:11Z","event":"jump_back","from":7,"to":1,"reason":"Traceability-Matrix unvollstaendig"}
 {"ts":"2026-10-22T02:29:02Z","event":"gate","gate":1,"result":"approved","by":"human"}
 {"ts":"2026-10-22T02:30:00Z","event":"check","name":"traceability_check","result":"fail","gaps":178}
 ```
+**Who writes:** the orchestrator (`aisdlc-orchestrator`). He is the only one
+Step boundaries and gates sees. A step agent knows his step, but not that one
+Process.
 
-**Wer schreibt:** der Orchestrator (`aisdlc-orchestrator`). Er ist der Einzige, der
-Schrittgrenzen und Gates sieht. Ein Schritt-Agent kennt seinen Schritt, aber nicht den
-Ablauf.
+**Change:**
 
-**Änderung:**
-
-| Datei | Änderung |
+| File | Change |
 |---|---|
-| `.opencode/agents/aisdlc-orchestrator.md` | Pflicht: je Schrittstart/-ende, Gate und Prüfergebnis eine Zeile nach `.agent/run-log.jsonl` schreiben. Das Artefakt gehört in jeden Schritt-Commit (`.agent/artifacts/` ist überall im Scope). |
-| `.agent/artifacts/` | `run-log.jsonl` als **eigenes** Artefakt, nicht in `.agent/` — es ist ein Artefakt des Laufs, kein Teil des Frameworks |
-| `AGENTS.md` | Regel: „Jeder Schritt beginnt und endet mit einer Zeile im Lauf-Protokoll" |
+| `.opencode/agents/aisdlc-orchestrator.md` | Mandatory: write a line after `.agent/run-log.jsonl` for each step start/end, gate and test result. The artifact belongs in every step commit (`.agent/artifacts/` is in scope everywhere). |
+| `.agent/artifacts/` | `run-log.jsonl` as its **own** artifact, not in `.agent/` — it is an artifact of the run, not part of the framework |
+| `AGENTS.md` | Rule: “Each step begins and ends with a line in the run log” |
 
-**Ergebnis:** Leerlauf, Rücksprung-Zyklen und Schritt-Dauern werden messbar. Und die
-nächste Verbesserungsrunde wird **aus den Daten** entschieden, nicht aus dem Gefühl.
+**Result:** Idle, bounce cycles and step durations become measurable. And those
+Next round of improvements will be decided **by data**, not by feeling.
 
-### H — Große Artefakte tabellarisieren
+### H — Tabulate large artifacts
 
-**Problem:** `ruecksprung-bilanz.md` (102 KB Prosa) ist auffindbar, aber nicht
-auswertbar. Wer „wie viele Rücksprünge gab es und welche Befunde blieben offen"
-fragt, muss 102 KB lesen.
+**Problem:** `ruecksprung-balance.md` (102 KB prose) can be found, but not
+evaluable. Who “how many relapses were there and which findings remained open”
+asks, needs to read 102 KB.
 
-**Änderung:** Jedes Artefakt über ~20 KB bekommt **eine Tabelle am Kopf**:
-Befund, Schwere, Status, wo behoben. Die Herleitung bleibt darunter. Die Tabelle ist
-der Einstieg, die Herleitung der Beleg.
+**Change:** Every artifact over ~20 KB gets **a table at the top**:
+Findings, severity, status, where resolved. The derivation remains below. The table is
+the introduction, the derivation of the evidence.
 
-**Änderung** in `AGENTS.md` (Regel „Output") und in den Skills, die große Berichte
-erzeugen (`aisdlc-grill-stress`, `aisdlc-security-scan`).
+**Change** in `AGENTS.md` (rule "Output") and in the skills that have large reports
+generate (`aisdlc-grill-stress`, `aisdlc-security-scan`).
 
-## 10. Reihenfolge der Umsetzung (Teil 2)
+## 10. Sequence of implementation (part 2)
 
-| # | Schritt | Abhängig von |
+| # | step | Depending on |
 |---|---|---|
-| 1 | **G** — Lauf-Protokoll | keine — liefert die Daten, mit denen F und H bewertet werden |
-| 2 | **F** — Logging-Konvention | G (der Betrieb zeigt, wo Logs fehlen) |
-| 3 | **H** — Artefakte tabellarisieren | G (die Tabelle zeigt, welche Artefakte es betrifft) |
+| 1 | **G** — Run Log | none — provides the data used to evaluate F and H |
+| 2 | **F** — Logging Convention | G (the operation shows where logs are missing) |
+| 3 | **H** — Tabulate Artifacts | G (the table shows which artifacts are affected) |
 
-**G zuerst:** Ohne Daten ist die Reihenfolge von F und H geraten. Mit dem Lauf-Protokoll
-lässt sich messen, welche Artefakte die teuersten sind und wo Logging fehlt.
+**G first:** Without data, the order of F and H is guessed. With the running protocol
+It is possible to measure which artifacts are the most expensive and where logging is missing.
 
-## 11. Was sich messen lässt
+## 11. What can be measured
 
-| Kennzahl | heute | Ziel |
+| Key figure | today | Target |
 |---|---|---|
-| Maschinenlesbare Artefakte | 3 von 23 | 23 von 23 |
-| Schritt-Dauern messbar | nein (nur Commit-Zeitstempel) | ja, aus dem Lauf-Protokoll |
-| Rücksprünge zählbar | nein (nur aus der Prosa) | ja, aus dem Lauf-Protokoll |
-| Logging-Vorgaben im Framework | 0 | 1 (Regel + Artefakt) |
-| Logging-Defekte als systematische Klasse | 0 (S-36 per Zufallsfund) | 1 (Prüfung gegen die Konvention) |
+| Machine-readable artifacts | 3 of 23 | 23 of 23 |
+| Step durations measurable | no (commit timestamp only) | yes, from the run log |
+| Returns countable | no (only from prose) | yes, from the run log |
+| Logging specifications in the framework | 0 | 1 (rule + artifact) |
+| Logging defects as a systematic class | 0 (S-36 by chance discovery) | 1 (Test against the Convention) |
 
-## 12. Zu entscheiden
+## 12. To decide
 
-| Frage | Optionen | Empfehlung |
+| Question | Options | Recommendation |
 |---|---|---|
-| Wo liegt das Lauf-Protokoll? | `.agent/run-log.jsonl` · `.agent/artifacts/run-log.jsonl` | **`.agent/artifacts/`** — es ist ein Artefakt des Laufs, kein Teil des Frameworks. Sonst wäre es beim Kopieren des Frameworks dabei und würde in fremden Läufen verwirren. |
-| Schreibt der Orchestrator oder ein Werkzeug? | Orchestrator · Werkzeug mit Hook | **Orchestrator** — er sieht Schrittgrenzen und Gates; ein Werkzeug müsste dafür in jeden Schritt eingebaut werden |
-| Wie lange bleibt das Protokoll? | ein Lauf · 30 Tage · unbegrenzt | **ein Lauf** (im Artefakt des Laufs) — die Historie steht ohnehin in Git |
-| Wird die Logging-Konvention Teil des Frameworks oder des Stacks? | Framework · Stack | **Framework** — sie ist stackunabhängig (Korrelations-ID, keine Nutzdaten). Der Stack liefert nur die *Umsetzung* (Logback, JSON-Format). |
+| Where is the running log? | `.agent/run-log.jsonl` · `.agent/artifacts/run-log.jsonl` | **`.agent/artifacts/`** — it is an artifact of the run, not part of the framework. Otherwise it would be present when copying the framework and would cause confusion in foreign runs. |
+| Does the orchestrator write or a tool? | Orchestrator · Tool with Hook | **Orchestrator** — he sees step boundaries and gates; a tool would have to be built into every step |
+| How long does the log last? | one run · 30 days · unlimited | **a run** (in the run artifact) — the history is in Git | anyway
+| Will the logging convention be part of the framework or the stack? | Framework · Stack | **Framework** — it is stack independent (correlation ID, no payload). The stack only provides the *implementation* (logback, JSON format). |

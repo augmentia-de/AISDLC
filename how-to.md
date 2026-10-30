@@ -1,188 +1,186 @@
-# How-To: Wann welcher Agent und welcher Skill aktiv sein sollte
+# How-To: When which agent and which skill should be active
 
-## Übersicht
+## Overview
 
-Das Projekt hat **6 Primary-Agents** und **7 Skills**. Die Agenten sind *Rollen*, die Skills
-sind *Verfahrens-Schritte*. Pro Schritt ist **genau ein** Agent der Haupt-Agent; Skills
-werden zusätzlich geladen, wenn der Schritt sie braucht.
+The project has **6 primary agents** and **7 skills**. The agents are *roles*, the skills
+are *procedural steps*. Per step, **exactly one** agent is the main agent; Skills
+are additionally loaded if the step needs them.
 
-| Ebene | Umfang | Ort |
+| level | Scope | Location |
 |---|---|---|
-| **Schritt** | 9 Arbeits-Schritte (01–09) | `.agent/workflows/` |
-| **Instanz** | 5 Orchestrator-Prozesse (phase0–4) | `.agent/prompts/multi-instance/` |
-| **Agent** | 6 Rollen | `.opencode/agents/` |
-| **Skill** | 7 Verfahrens-Schritte | `.opencode/skills/` |
+| **Step** | 9 work steps (01-09) | `.agent/workflows/` |
+| **Instance** | 5 Orchestrator processes (phase0-4) | `.agent/prompts/multi-instance/` |
+| **Agent** | 6 rolls | `.opencode/agents/` |
+| **Skill** | 7 procedural steps | `.opencode/skills/` |
 
-**Single Source of Truth:** `.agent/PHASES.md` (Schritt → Instanz → Agent → Skill → Gate).
+**Single Source of Truth:** `.agent/PHASES.md` (Step → Instance → Agent → Skill → Gate).
 
-## Die 6 Agents
+## The 6 Agents
 
-| Agent-ID | Rolle | Default? | Schreibt in |
+| Agent ID | role | Default? | Writes in |
 |---|---|---|---|
-| `aisdlc-requirements` | Requirements Orchestrator (Schritt 1 + 1a) | **ja** | `docs/requirements/` |
-| `aisdlc-architecture` | Architecture Orchestrator (Schritt 2–4) | nein | `docs/architecture/`, `docs/api/`, `docs/adr/` |
-| `aisdlc-execution` | Execution Orchestrator (Schritt 5–7) | nein | `src/`, `tests/`, `docs/execution/` |
-| `aisdlc-qa` | QA & Compliance Orchestrator (Schritt 8–9) | nein | `tests/`, `docs/qa/` |
-| `stack/java/backend` | Java/Spring-Backend-Implementierung | nein | `src/`, `tests/`, `docs/execution/` |
-| `stack/react/frontend` | React/TypeScript-Frontend-Implementierung | nein | `src/`, `tests/`, `docs/execution/` |
-| *(Original)* `build` | Generalist | nein | überall |
+| `aisdlc-requirements` | Requirements Orchestrator (Step 1 + 1a) | **yes** | `docs/requirements/` |
+| `aisdlc-architecture` | Architecture Orchestrator (Step 2-4) | no | `docs/architecture/`, `docs/api/`, `docs/adr/` |
+| `aisdlc-execution` | Execution Orchestrator (Step 5-7) | no | `src/`, `tests/`, `docs/execution/` |
+| `aisdlc-qa` | QA & Compliance Orchestrator (Step 8-9) | no | `tests/`, `docs/qa/` |
+| `stack/java/backend` | Java/Spring backend implementation | no | `src/`, `tests/`, `docs/execution/` |
+| `stack/react/frontend` | React/TypeScript frontend implementation | no | `src/`, `tests/`, `docs/execution/` |
+| *(Original)* `build` | Generalist | no | everywhere |
 
-**Default-Agent:** `aisdlc-requirements` — eine neue Session startet in Schritt 1.
+**Default agent:** `aisdlc-requirements` — a new session starts in step 1.
 
-## Die 7 Skills
+## The 7 skills
 
-| Skill | Wann | Herkunft |
+| Skill | When | Origin |
 |---|---|---|
-| `aisdlc-grill-stress` | Schritt 1a + 4 — Designbaum, Deepening, Standards/Spec als zwei Achsen | mattpocock (grilling, codebase-design), wshobson |
-| `aisdlc-simplify` | Schritt 3 + 7 — verhaltenserhaltend vereinfachen, Dead Code, Schulden | ECC (code-simplifier, refactor-cleaner), wshobson |
-| `aisdlc-tdd` | Schritt 5 — RED/GREEN/REFACTOR, Failure-Paths, Workflow-Invarianten | superpowers, ECC, nnennandukwe |
-| `aisdlc-security-scan` | Schritt 8 — read-only Audit, OWASP Top 10 | ECC, wshobson |
-| `aisdlc-deploy` | Schritt 9 — Pipeline, Rollout, Validierung, Smoke, SLO, Runbook | wshobson, ECC |
-| `strangler-fig` | Legacy-Modul-Migration entwerfen | eigen |
-| `module-migration` | Legacy-Modul umsetzen (Characterization Tests) | eigen |
-| `test-self-correction` | Fehlgeschlagene Tests reparieren | eigen |
+| `aisdlc-grill-stress` | Step 1a + 4 — Design Tree, Deepening, Standards/Spec as Two Axes | mattpocock (grilling, codebase design), wshobson |
+| `aisdlc-simplify` | Step 3 + 7 — simplify behavior, dead code, debt | ECC (code simplifier, refactor cleaner), wshobson |
+| `aisdlc-tdd` | Step 5 — RED/GREEN/REFACTOR, failure paths, workflow invariants | superpowers, ECC, nnennandukwe |
+| `aisdlc-security-scan` | Step 8 — read-only audit, OWASP Top 10 | ECC, wshobson |
+| `aisdlc-deploy` | Step 9 — Pipeline, Rollout, Validation, Smoke, SLO, Runbook | wshobson, ECC |
+| `strangler-fig` | Design legacy module migration | own |
+| `module-migration` | Implement legacy module (characterization tests) | own |
+| `test-self-correction` | Fix failed tests | own |
 
-**Warum Skills statt eigener Agents:** Simplify, TDD, Security und Deploy sind *Verfahren*,
-keine Rollen. Als Skill kostet der Schritt 0 Token, bis er gebraucht wird, und der
-zuständige Agent bleibt der einzige Schreiber.
-
----
-
-## Schritt-für-Schritt
-
-### Schritt 1 — Anforderungserhebung
-
-**Agent:** `aisdlc-requirements` (Default) · **Instanz:** `phase1` · **Skill:** `aisdlc-grill-stress` (1a)
-
-Erstellt PRD, User Stories, `.feature`-Dateien, Traceability Matrix, Risk Register.
-
-**Wechsel zu Schritt 2**, wenn PRD, Stories und Acceptance Criteria vollständig und geprüft sind.
-**Eskalation:** `REQUIREMENT_GAP` → zurück zu Schritt 1.
-
-### Schritt 2 — Konzept & Architektur-Design
-
-**Agent:** `aisdlc-architecture` · **Instanz:** `phase2` · **Skill:** keiner
-
-Erstellt `docs/api/openapi.yaml`, C4-Diagramme, ADRs, Domain-Modell.
-
-**🚧 GATE 1** — danach anhalten, Zusammenfassung zeigen, **menschliche Freigabe abwarten**.
-
-### Schritt 3 — Simplify & Reduktion
-
-**Agent:** `aisdlc-architecture` · **Instanz:** `phase2` · **Skill:** `aisdlc-simplify`
-
-Überdimensionierte Teile der Architektur reduzieren, **bevor** der Stresstest läuft.
-
-### Schritt 4 — Grill-Me-Stresstest
-
-**Agent:** `aisdlc-architecture` · **Instanz:** `phase2` · **Skill:** `aisdlc-grill-stress`
-
-Architektur stress-testen: Designbaum abfragen, Deepening-Opportunitäten finden,
-Standards- und Spec-Achse getrennt prüfen.
-
-**Eskalation:** Architekturfehler → zurück zu Schritt 2.
-
-### Schritt 5 — Test-Driven Setup
-
-**Agent:** `aisdlc-execution` · **Instanz:** `phase3` · **Skill:** `aisdlc-tdd`
-
-Teststrategie, Testebenen, Failure-Paths, Workflow-Invarianten.
-
-### Schritt 6 — KI-Code-Generation
-
-**Agent:** `aisdlc-execution` · **Instanz:** `phase3` · **Skill:** keiner
-
-Parallele Build-Streams (Backend / Frontend / Infra), synchronisiert über `openapi.yaml`.
-
-**Eskalation:** fehlende Tests → zurück zu Schritt 5.
-
-### Schritt 7 — Code-Refactoring & Clean-up
-
-**Agent:** `aisdlc-execution` · **Instanz:** `phase3` · **Skill:** `aisdlc-simplify`
-
-**Zweiter Simplify-Durchlauf** auf dem fertigen Code: jetzt sieht man defensiven Code,
-der durch Tests ersetzt wurde, und Abstraktionen, die sich nicht bewährt haben.
-
-**Eskalation:** unsauberer Code → zurück zu Schritt 6.
-
-### Schritt 8 — Sicherheit & Compliance Scan
-
-**Agent:** `aisdlc-qa` · **Instanz:** `phase4` · **Skill:** `aisdlc-security-scan`
-
-Read-only Audit: AuthN/AuthZ, Secrets, Injection, XSS, Container, Abhängigkeiten, OWASP Top 10.
-
-**🚧 GATE 2** — danach anhalten, Befunde zeigen, **menschliche Freigabe abwarten**.
-
-### Schritt 9 — Deployment & Betrieb
-
-**Agent:** `aisdlc-qa` · **Instanz:** `phase4` · **Skill:** `aisdlc-deploy`
-
-Pipeline, Rollout-Strategie, Pre-Flight, Smoke-Tests, Promotion, Rollback, SLOs, Runbook.
-
-**Eskalation:** Produktions-Incident → zurück zu Schritt 2.
+**Why skills instead of your own agents:** Simplify, TDD, Security and Deploy are *procedures*,
+no roles. As a skill, the step costs 0 tokens until it is needed, and the
+The responsible agent remains the only writer.
 
 ---
 
-## Commit pro Schritt
+## Step-by-step
 
-**Jeder Schritt erzeugt genau einen Commit.** Ein Schritt ist erst abgeschlossen, wenn sein
-Commit existiert. Der Commit entsteht **vor** dem Gate — das Gate prüft den fertigen Commit.
+### Step 1 — Requirements Gathering
 
-```bash
+**Agent:** `aisdlc-requirements` (Default) · **Instance:** `phase1` · **Skill:** `aisdlc-grill-stress` (1a)
+
+Created PRD, User Stories, `.feature` files, Traceability Matrix, Risk Register.
+
+**Go to Step 2** if PRD, Stories and Acceptance criteria are complete and checked.
+**Escalation:** `REQUIREMENT_GAP` → back to step 1.
+
+### Step 2 — Concept & Architectural Design
+
+**Agent:** `aisdlc-architecture` · **Instance:** `phase2` · **Skill:** none
+
+Created `docs/api/openapi.yaml`, C4 diagrams, ADRs, domain model.
+
+**🚧 GATE 1** — then pause, show summary, **wait for human approval**.
+
+### Step 3 — Simplify & Reduce
+
+**Agent:** `aisdlc-architecture` · **Instance:** `phase2` · **Skill:** `aisdlc-simplify`
+
+Reduce oversized parts of the architecture **before** running the stress test.
+
+### Step 4 — Grill-Me Stress Test
+
+**Agent:** `aisdlc-architecture` · **Instance:** `phase2` · **Skill:** `aisdlc-grill-stress`
+
+Stress-testing architecture: querying the design tree, finding deepening opportunities,
+Check standards and spec axles separately.
+
+**Escalation:** Architectural error → back to step 2.
+
+### Step 5 — Test-Driven Setup
+
+**Agent:** `aisdlc-execution` · **Instance:** `phase3` · **Skill:** `aisdlc-tdd`
+
+Test strategy, test levels, failure paths, workflow invariants.
+
+### Step 6 — AI code generation
+
+**Agent:** `aisdlc-execution` · **Instance:** `phase3` · **Skill:** none
+
+Parallel build streams (backend/frontend/infra), synchronized via `openapi.yaml`.
+
+**Escalation:** missing tests → back to step 5.
+
+### Step 7 — Code Refactoring & Clean-up
+
+**Agent:** `aisdlc-execution` · **Instance:** `phase3` · **Skill:** `aisdlc-simplify`
+
+**Second Simplify pass** on the finished code: now you see defensive code,
+that has been replaced by tests and abstractions that have not proven successful.
+
+**Escalation:** dirty code → back to step 6.
+
+### Step 8 — Security & Compliance Scan
+
+**Agent:** `aisdlc-qa` · **Instance:** `phase4` · **Skill:** `aisdlc-security-scan`
+
+Read-only Audit: AuthN/AuthZ, Secrets, Injection, XSS, Containers, Dependencies, OWASP Top 10.
+
+**🚧 GATE 2** — then stop, show findings, **wait for human approval**.
+
+### Step 9 — Deployment & Operations
+
+**Agent:** `aisdlc-qa` · **Instance:** `phase4` · **Skill:** `aisdlc-deploy`
+
+Pipeline, rollout strategy, pre-flight, smoke testing, promotion, rollback, SLOs, runbook.
+
+**Escalation:** Production incident → back to step 2.
+
+---
+
+## Commit per step
+
+**Each step produces exactly one commit.** A step is not complete until its
+Commit exists. The commit is created **before** the gate — the gate checks the finished commit.
+```
+bash
 mkdir -p docs/requirements/ .agent/artifacts/
 git reset -q
 git add -A -- docs/requirements/ .agent/artifacts/
 git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
   -m "Schritt 1 - Anforderungserhebung | Agent: aisdlc-requirements | Artefakte: docs/requirements/, .agent/artifacts/"
 ```
-
-| Regel | Bedeutung |
+| Rule | Meaning |
 |---|---|
-| Subject | `<type>(sdlc-<n>): <Kurzbeschreibung>` |
-| Body | `Schritt <n> - <Schrittname> \| Agent: <agent-id> \| Artefakte: <pfade>` |
-| Scope | nur der Schritt-Scope wird gestaged — technisch erzwungen |
-| Reihenfolge | Commit vor dem Gate bzw. vor dem Handoff |
-| Leer | nichts geändert → kein Commit, keine Leer-Commits |
-| Push | die Pipeline pusht nie — `git push` bleibt menschliche Entscheidung |
+| Subject | `<type>(sdlc-<n>): <Short description>` |
+| Bodysuit | `Step <n> - <step name> \| Agent: <agent-id> \| Artifacts: <paths>` |
+| Scope | only the step scope is staged — technically enforced |
+| Order | Commit before the gate or before the handoff |
+| Empty | nothing changed → no commit, no empty commits |
+| Push | the pipeline never pushes — `git push` remains a human decision |
 
-Das Scope ist technisch erzwungen: der Index wird geleert, dann nur der Schritt-Scope
-gestaged. `git reset -q` unstaged fremde Arbeit, löscht sie aber nicht.
+The scope is technically enforced: the index is emptied, then only the step scope
+staged. `git reset -q` unstages someone else's work, but doesn't delete it.
 
-Zwei Gründe, warum nicht `git commit -- <pfade>`: der Pathspec bricht ab, sobald ein
-Scope-Pfad keine getrackten Dateien hat — und der Weg über `--pathspec-from-file` ist
-unter dem globalen `rtk`-Plugin kaputt (`rtk` rewritet `git diff` und hängt einen
-„Changes:"-Block an, der wiederum mit „empty string is not a valid pathspec" abbricht).
+Two reasons why not `git commit -- <paths>`: the pathspec aborts as soon as a
+Scope path has no tracked files - and the route is via `--pathspec-from-file`
+broken under the global `rtk` plugin (`rtk` rewrites `git diff` and hangs a
+"Changes:" block, which in turn terminates with "empty string is not a valid pathspec").
 
-Subject und Pfade pro Schritt: `.agent/PHASES.md` → "Commit pro Schritt".
+Subject and paths per step: `.agent/PHASES.md` → "Commit per step".
 
 ---
 
-## Regeln für den Agenten-Wechsel
+## Agent change rules
 
-### 1. Schritt-Reihenfolge einhalten
+### 1. Follow the sequence of steps
 
-Die Schritte bauen aufeinander auf. Nicht Schritt 6 starten, bevor Schritt 2 freigegeben ist.
+The steps build on each other. Do not start step 6 until step 2 is enabled.
 
-### 2. Agenten nicht mischen
+### 2. Do not mix agents
 
-Pro Schritt ist **genau ein** Agent der Haupt-Agent. Zwei Agents mit verschiedenen
-Schreibrechten gleichzeitig aktiv führen zu widersprüchlichen Rechten.
+**Exactly one** agent is the main agent per step. Two agents with different
+Write permissions active at the same time lead to conflicting permissions.
 
-### 3. Wechseln ohne Neustart
-
-```bash
+### 3. Switch without rebooting
+```
+bash
 Tab                               # nächster Agent (vorwärts)
 Shift+Tab                         # vorheriger Agent (rückwärts)
 Ctrl+X, dann a                   # Agentenliste (oder /agents)
 opencode run --agent <agent-id> "Auftrag"
 opencode reload                  # Config ohne Neustart übernehmen
+`
 ```
+default_agent` in `.opencode/opencode.jsonc` works **only for new sessions** — one
+existing session retains its saved agent.
 
-`default_agent` in `.opencode/opencode.jsonc` wirkt **nur für neue Sessions** — eine
-bestehende Session behält ihren gespeicherten Agenten.
-
-### 3a. Wann wechseln? — nach der Freigabe, vor dem nächsten Schritt
-
+### 3a. When to change? — after approval, before the next step
 ```
 Schritt N läuft  →  Agent committet  →  GATE: Artefakte vorstellen
                                                     │
@@ -193,71 +191,68 @@ Schritt N läuft  →  Agent committet  →  GATE: Artefakte vorstellen
                               wechseln, dann Schritt N+1    selben Agenten
                               starten                       (bleibt aktiv)
 ```
+**Change after release, not before.** Reason:
 
-**Nach der Freigabe wechseln, nicht vorher.** Grund:
+- The gate checkpoint belongs to the step just completed. The agent who
+  Step has delivered, remains active until you have decided - questions and
+  Corrections end up with the same agent with the same writing permission.
+- Switching before release takes away the right of the requirements agent
+  `docs/requirements/`. A correction to the PRD would then be blocked.
+- Only the agent of the next step may be active when this step begins —
+  `aisdlc-architecture` is only allowed to write `docs/architecture/`, `docs/api/`, `docs/adr/`.
 
-- Der Gate-Checkpoint gehört zu dem gerade abgeschlossenen Schritt. Der Agent, der den
-  Schritt geliefert hat, bleibt aktiv, bis du entschieden hast — Rückfragen und
-  Korrekturen landen bei demselben Agenten mit demselben Schreibrecht.
-- Vor der Freigabe zu wechseln nimmt dem Requirements-Agenten das Recht auf
-  `docs/requirements/`. Eine Korrektur an der PRD wäre dann blockiert.
-- Erst der Agent des nächsten Schritts darf aktiv sein, wenn dieser Schritt beginnt —
-  `aisdlc-architecture` darf nur `docs/architecture/`, `docs/api/`, `docs/adr/` schreiben.
+**Context:** There is no automatic context transfer between steps — that
+is wanted. The new agent reads the artifacts from the file system (PRD, `openapi.yaml`,
+`.agent/artifacts/`). That's why the commit **before** the gate is important: the new agent
+works on a versioned, clean basis.
 
-**Kontext:** Es gibt keinen automatischen Kontext-Transfer zwischen den Schritten — das
-ist gewollt. Der neue Agent liest die Artefakte vom Dateisystem (PRD, `openapi.yaml`,
-`.agent/artifacts/`). Deshalb ist der Commit **vor** dem Gate wichtig: der neue Agent
-arbeitet auf einem versionierten, sauberen Stand.
+### 4. Reload skills, don't improvise
 
-### 4. Skills nachladen, nicht improvisieren
-
-Wenn ein Schritt ein Skill hat, dieses Skill laden statt das Verfahren zu improvisieren:
-
-```text
+If a step has a skill, load that skill instead of improvising the procedure:
+```
+text
 Nutze das Skill aisdlc-security-scan für den Security-Audit.
 ```
-
-### 5. Subagenten bei Bedarf delegieren
-
-```text
+### 5. Delegate subagents when necessary
+```
+text
 Nutze den stack/java/backend-Subagenten, um die Persistenzschicht zu prüfen.
 ```
-
-Subagenten laufen in eigener Kind-Session mit frischem Kontext — das Ergebnis kommt als
-Zusammenfassung zurück.
+Subagents run in their own child session with a fresh context - the result comes as
+Summary back.
 
 ---
 
-## Stack-Schicht
+## Stack layer
 
-Das Framework ist **stackagnostisch**. Es kennt keine Bibliothekspfade, keine
-stack-spezifischen Skills und keinen Stack-Agenten. Alles, was vom Projekt abhängt,
-liegt in **`opencode.jsonc` im Projekt-Root**.
+The framework is **stack agnostic**. It doesn't know any library paths, none
+stack-specific skills and no stack agent. Everything that depends on the project
+is located in **`opencode.jsonc` in the project root**.
 
-| Ebene | Datei | Inhalt | Wird ersetzt bei |
+| level | File | Content | Will be replaced at |
 |---|---|---|---|
-| Framework | `.opencode/opencode.jsonc` | `default_agent`, `experimental`, Framework-Skills, Subagenten, Shell | nie |
-| Stack | `opencode.jsonc` (Root) | `skills.paths`, `skill`-Allowlist, Stack-Subagenten | jedem Stack-Wechsel |
-| Stack-Wissen | `.agent/knowledge/` | `stack.md`, `schema.sql`, `openapi.yaml` | Phase 2 des Projekts |
-| Stack-Agenten | `.opencode/agents/stack/<tech>/` | die stack-spezifischen Rollen | jedem Stack-Wechsel |
+| Framework | `.opencode/opencode.jsonc` | `default_agent`, `experimental`, framework skills, subagents, shell | never |
+| stack | `opencode.jsonc` (Root) | `skills.paths`, `skill` allowlist, stack subagents | every stack change |
+| Stack knowledge | `.agent/knowledge/` | `stack.md`, `schema.sql`, `openapi.yaml` | Phase 2 of the project |
+| Stack Agents | `.opencode/agents/stack/<tech>/` | the stack-specific roles | every stack change |
 
-**Warum zwei Config-Dateien:** OpenCode merged Config-Dateien additiv — `skills`-Pfade
-werden **kombiniert**, `permissions`-Regeln **angehängt**, keines wird ersetzt. Die
-Reihenfolge ist fest: Root-Config zuerst, `.opencode/`-Config danach, Agent-Frontmatter
-zuletzt; letzter Treffer gewinnt.
+**Why two config files:** OpenCode merges config files additively — `skills` paths
+are **combined**, `permissions` rules **appended**, none are replaced. The
+The order is fixed: root config first, `.opencode/` config after, agent front matter
+last; last; last hit wins.
 
-Daraus folgt genau eine Regel:
+This leads to exactly one rule:
 
-> **Der Catch-all-Deny gehört in die Stack-Schicht, die positiven Regeln in die
-> Framework-Schicht.**
+> **The catch-all deny belongs in the stack layer, the positive rules in the
+> Framework layer.**
 
-Sonst hebt die Framework-Regel (`skill: *` → deny, weiter hinten) die
-Stack-Erlaubnisse (`springboot-*` → allow, weiter vorn) wieder auf — genau das war
-im Referenzlauf der Fehler, den die Agent-Frontmatter verursacht hatten.
+Otherwise the framework rule (`skill: *` → deny, further back) overrides it
+Stack permissions (`springboot-*` → allow, above) again - that's exactly what happened
+in the reference run the error caused by the agent front matter.
 
-**Beispiel Stack-Schicht für Spring Boot + React:**
-
-```jsonc
+**Example stack layer for Spring Boot + React:**
+```
+jsonc
 {
   "skills": { "paths": [ "<pfad>/ECC/skills", "<pfad>/wshobson-agents/plugins/backend-development/skills" ] },
   "permissions": [
@@ -273,102 +268,99 @@ im Referenzlauf der Fehler, den die Agent-Frontmatter verursacht hatten.
   ]
 }
 ```
+**Paths are machine dependent.** Absolute paths break when moving. Two ways:
+`skills.paths` relative to the working directory (`./skills` if the libraries
+are vendored there) or a vendor step that brings the library skills into the
+Project copied.
 
-**Pfade sind maschinenabhängig.** Absolute Pfade brechen beim Umzug. Zwei Wege:
-`skills.paths` relativ zum Arbeitsverzeichnis (`./skills`, wenn die Bibliotheken
-dorthin vendoriert sind) oder ein Vendor-Schritt, der die Bibliotheks-Skills ins
-Projekt kopiert.
+## Stack level
 
-## Stack-Ebene
-
-Stack-Wissen kommt **nicht** aus eigenen Dateien, sondern per `skills.paths` direkt aus den
-Bibliotheken. Kein Kopieren, keine Drift:
-
-```jsonc
+Stack knowledge **doesn't** come from your own files, but directly from them via `skills.paths`
+Libraries. No copying, no drift:
+```
+jsonc
 "skills": { "paths": ["/…/ECC/skills", "/…/wshobson-agents/plugins/backend-development/skills", …] }
 ```
-
-| Stack | Verfügbar über | ≈ Token Beschreibungen |
+| stack | Available via | ≈ Token Descriptions |
 |---|---|---|
 | Java + Spring | `stack/java/backend` + `springboot-*`, `java-*` | 342 |
-| React / TypeScript | `stack/react/frontend` + `react-*`, `typescript-*` | 1.029 |
-| Python, Go, Rust, .NET | Stack-Agent anlegen + `python-*` usw. | ≈ 2.281 gesamt |
+| React/TypeScript | `stack/react/frontend` + `react-*`, `typescript-*` | 1,029 |
+| Python, Go, Rust, .NET | Create stack agent + `python-*` etc. | ≈ 2,281 total |
 
-**Eigenen Stack-Agent anlegen:**
-
-```bash
+**Create your own stack agent:**
+```
+bash
 mkdir -p .opencode/agents/stack/python
 # .opencode/agents/stack/python/backend.md anlegen  →  ID: stack/python/backend
 ```
+Then in `opencode.jsonc` allow: `{ "action": "subagent", "resource": "stack/*", "effect": "allow" }`
+(the `stack/*` entry covers all stacks).
 
-Dann in `opencode.jsonc` erlauben: `{ "action": "subagent", "resource": "stack/*", "effect": "allow" }`
-(der `stack/*`-Eintrag deckt alle Stacks ab).
-
-**Stack wechseln:** `default_agent` in `.opencode/opencode.jsonc` umsetzen, z. B. von
-`aisdlc-requirements` auf `stack/java/backend`, und `opencode reload` ausführen.
+**Change stack:** Convert `default_agent` to `.opencode/opencode.jsonc`, e.g. B. from
+`aisdlc-requirements` on `stack/java/backend`, and run `opencode reload`.
 
 ---
 
-## Berechtigungen (wer darf was)
+## Permissions (who can do what)
 
-| Agent | Lesen | Schreiben | Shell |
+| agent | Read | Write | Shell |
 |---|---|---|---|
-| `aisdlc-requirements` | alles | `docs/requirements/` | ask |
-| `aisdlc-architecture` | alles | `docs/architecture/`, `docs/api/`, `docs/adr/` | ask |
-| `aisdlc-execution` | alles | `src/`, `tests/`, `docs/execution/` | ask |
-| `aisdlc-qa` | alles | `tests/`, `docs/qa/` | ask |
-| `stack/java/backend` | alles | `src/`, `tests/`, `docs/execution/` | ask |
-| `stack/react/frontend` | alles | `src/`, `tests/`, `docs/execution/` | ask |
-| `build` | alles | alles | ask (außer git status/diff/log) |
+| `aisdlc-requirements` | everything | `docs/requirements/` | ask |
+| `aisdlc-architecture` | everything | `docs/architecture/`, `docs/api/`, `docs/adr/` | ask |
+| `aisdlc-execution` | everything | `src/`, `tests/`, `docs/execution/` | ask |
+| `aisdlc-qa` | everything | `tests/`, `docs/qa/` | ask |
+| `stack/java/backend` | everything | `src/`, `tests/`, `docs/execution/` | ask |
+| `stack/react/frontend` | everything | `src/`, `tests/`, `docs/execution/` | ask |
+| `build` | everything | everything | ask (except git status/diff/log) |
 
-**Wichtig:** Ein Agent darf nur in seine zugewiesenen Verzeichnisse schreiben. Versuche
-außerhalb werden blockiert. `build` bleibt bewusst allmächtig.
-
----
-
-## Eskalation und Rücksprung
-
-| Situation | Signal | Rücksprung zu |
-|---|---|---|
-| Unklare oder unvollständige Anforderung | `REQUIREMENT_GAP` | Schritt 1 |
-| Undurchführbares Design | `ARCHITECTURAL_BLOCKER` | Schritt 2 |
-| Fehlende Tests bei Implementierung | (implizit) | Schritt 5 |
-| Unsauberer Code | (implizit) | Schritt 7 |
-| Security-Vulnerability | (implizit) | Schritt 6 |
-| Produktions-Incident | (implizit) | Schritt 2 |
+**Important:** An agent is only allowed to write to its assigned directories. Try
+outside are blocked. `build` intentionally remains omnipotent.
 
 ---
 
-## Typische Fehler
+## Escalation and rebound
 
-| Fehler | Ursache | Lösung |
+| Situation | Signal | Return to |
 |---|---|---|
-| Agent ändert Dateien außerhalb seines Bereichs | Falscher Agent aktiv | `Shift+Tab` zum richtigen Agenten wechseln |
-| Agent schreibt nicht in das erwartete Verzeichnis | Permissions zu restriktiv | `opencode debug agents` prüfen, Permissions in `opencode.jsonc` kontrollieren |
-| Stack-Skill wird nicht gefunden | `skills.paths` zu eng gefiltert | `skill`-Allowlist in `opencode.jsonc` um das Präfix erweitern |
-| Agent kennt die API-Spec nicht | `docs/api/openapi.yaml` fehlt | Schritt 2 zuerst abschließen |
-| Tests schlagen fehl, Agent gibt auf | Kein Self-Correction-Loop | `aisdlc-qa` nutzt `{{TEST_RESULTS_JSON}}` — bei manueller Ausführung: Fehlerlog an OpenCode zurückgeben |
-| Agent vergisst Kontext aus vorherigem Schritt | Kein automatischer Kontext-Transfer | Artefakte (PRD, openapi.yaml) müssen vorhanden sein — der Agent liest sie beim Start |
-| Falsche Workflow-Datei gewählt | Zwei Prompt-Familien | `.agent/PHASES.md` als Single Source of Truth nutzen |
+| Unclear or incomplete requirement | `REQUIREMENT_GAP` | Step 1 |
+| Unfeasible design | `ARCHITECTURAL_BLOCKER` | Step 2 |
+| Missing tests during implementation | (implicit) | Step 5 |
+| Dirty code | (implicit) | Step 7 |
+| Security vulnerability | (implicit) | Step 6 |
+| Production Incident | (implicit) | Step 2 |
 
 ---
 
-## Modell wählen
+## Typical errors
 
-Aktuell läuft **jeder** Agent auf dem Modell der Session — es ist kein `model:`-Feld
-gesetzt, also erbt jeder Subagent das Session-Modell. Im ersten Volllauf war das
-`minimax-m3.1-flash-free`, ein kostenloses Flash-Modell. Die Wahl ist an **drei**
-Stellen konfigurierbar; die Präzedenz ist: **Aufruf > Agent > Session**.
-
-| Ebene | Wo | Wirkung |
+| Error | Cause | Solution |
 |---|---|---|
-| **Session** | `opencode run --model provider/model` | Modell der Session. Alle Agenten **ohne** eigenes `model:` erben es — das schließt die Rollen-Agenten und den Orchestrator ein. |
-| **Agent** | `model: provider/model` im Frontmatter | Fester Modell-Bindung für genau diesen Agenten. Überschreibt die Session. |
-| **Subagent-Aufruf** | `model:`-Parameter beim Start des Subagenten | Gilt nur für diesen einen Aufruf. Überschreibt Agent und Session. |
+| Agent modifies files outside its scope | Wrong agent active | `Shift+Tab` to switch to the correct agent |
+| Agent does not write to the expected directory | Permissions too restrictive | Check `opencode debug agents`, check permissions in `opencode.jsonc` |
+| Stack skill not found | `skills.paths` filtered too narrowly | Expand `skill`-Allowlist in `opencode.jsonc` with the prefix |
+| Agent does not know the API spec | `docs/api/openapi.yaml` is missing | Complete step 2 first |
+| Tests fail, agent gives up | No self-correction loop | `aisdlc-qa` uses `{{TEST_RESULTS_JSON}}` — when run manually: return error log to OpenCode |
+| Agent forgets context from previous step | No automatic context transfer | Artifacts (PRD, openapi.yaml) must be present — the agent reads them at startup |
+| Wrong workflow file selected | Two Prompt Families | Use `.agent/PHASES.md` as a single source of truth |
 
-Beispiele:
+---
 
-```yaml
+## Select model
+
+Currently, **every** agent runs on the session's model — it is not a `model:` field
+set, so each subagent inherits the session model. That was in the first full run
+`minimax-m3.1-flash-free`, a free flash model. The election is on **three**
+Positions configurable; the precedence is: **Call > Agent > Session**.
+
+| level | Where | Effect |
+|---|---|---|
+| **Session** | `opencode run --model provider/model` | Model of the session. All agents **without** their own `model:` inherit it — this includes the role agents and the orchestrator. |
+| **Agent** | `model: provider/model` in Frontmatter | Fixed model binding for this exact agent. Overwrites the session. |
+| **Subagent call** | `model:` parameter when starting subagent | Only applies to this one call. Overwrites agent and session. |
+
+Examples:
+```
+yaml
 # .opencode/agents/aisdlc-architecture.md  — Designarbeit braucht das starke Modell
 ---
 description: ...
@@ -378,28 +370,28 @@ permissions: ...
 ---
 ```
 
-```bash
+```
+bash
 # Ein Lauf mit einem anderen Modell für die ganze Pipeline
 opencode run --model provider/model --agent aisdlc-orchestrator "Starte die Pipeline …"
 ```
+**Why there is a separate level per agent:** the steps cost a lot
+different. Step 2 (Contract, Scheme, 20 ADRs) and Step 6 (Implementation)
+are expensive and prone to errors; Step 3 (Simplify) and Step 7 (Refactoring)
+are more mechanical. With one `model:` per agent you only pay where it counts.
+Without this tier, **every** step inherits the session model — even the expensive ones.
 
-**Warum es eine eigene Stufe je Agent gibt:** die Schritte kosten sehr
-unterschiedlich. Schritt 2 (Vertrag, Schema, 20 ADRs) und Schritt 6 (Implementierung)
-sind teuer und fehleranfällig; Schritt 3 (Simplify) und Schritt 7 (Refactoring)
-sind mechanischer. Mit einem `model:` pro Agent zahlt man nur dort, wo es zählt.
-Ohne diese Stufe erbt **jeder** Schritt das Session-Modell — auch die teuren.
+**Important:** `model:` in frontmatter overrides the session selection. Who at the start
+If you choose a model, you will only receive it from agents who do not have their own `model:`.
+An agent with `model:` in front matter **always** uses this model — even in a
+Session in which another was elected.
 
-**Wichtig:** `model:` im Frontmatter überschreibt die Session-Auswahl. Wer beim Start
-ein Modell wählt, bekommt es nur bei den Agenten, die kein eigenes `model:` führen.
-Ein Agent mit `model:` im Frontmatter nutzt **immer** dieses Modell — auch in einer
-Session, in der ein anderes gewählt wurde.
-
-Der Varianten-Suffix (`#high`, `#reasoning`) hängt an der Modell-ID:
+The variant suffix (`#high`, `#reasoning`) is attached to the model ID:
 `model: provider/model#variant`.
 
-## Schnellreferenz
-
-```bash
+## Quick Reference
+```
+bash
 # Phase starten (Default ist aisdlc-requirements)
 opencode
 opencode run --agent aisdlc-architecture "Entwirf die API für [Feature]"
@@ -419,14 +411,13 @@ opencode reload
 # Nachsehen, was geladen ist
 opencode debug agents
 ```
-
-| Datei | Inhalt |
+| File | Content |
 |---|---|
-| `AGENTS.md` | Regeln, Gates, Folder Ownership, Phase-Skills |
-| `.agent/PHASES.md` | Schritt → Instanz → Agent → Skill → Gate |
-| `.agent/workflows/` | 9 Workflow-Dateien, je Schritt |
-| `.agent/prompts/orchestrator/` | Prompts für den Ein-Orchestrator-Modus |
-| `.agent/prompts/multi-instance/` | Prompts für den Server-Betrieb (0–4 Instanzen) |
-| `.opencode/agents/` | 6 Primary-Agents |
+| `AGENTS.md` | Rules, Gates, Folder Ownership, Phase Skills |
+| `.agent/PHASES.md` | Step → Instance → Agent → Skill → Gate |
+| `.agent/workflows/` | 9 workflow files, per step |
+| `.agent/prompts/orchestrator/` | Single Orchestrator Mode Prompts |
+| `.agent/prompts/multi-instance/` | Prompts for server operation (0-4 instances) |
+| `.opencode/agents/` | 6 primary agents |
 | `.opencode/skills/` | 7 Skills |
-| `how-to.md` | dieses Dokument |
+| `how-to.md` | this document |

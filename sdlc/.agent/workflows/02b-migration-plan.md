@@ -2,7 +2,7 @@
 description: Phase 2b — Migration plan (strangler-fig / module-migration)
 ---
 
-# Migration Plan Workflow
+# Migration plan workflow
 
 ## Prerequisites
 
@@ -15,14 +15,14 @@ description: Phase 2b — Migration plan (strangler-fig / module-migration)
 - **Agent:** `aisdlc-architecture`
 - **Skill:** `aisdlc-migration-plan`, `strangler-fig`, `aisdlc-glossary-adr`
 
-## Steps
+##Steps
 
-1. **Zielbild** — Zielarchitektur, Modulgrenzen, neue Verträge (nur wo nötig).
-2. **Mapping** — Alt → Neu (Modul, Route, Tabelle, Job). Datei: `docs/migration/mapping.md` (oder `.json`).
-3. **Anti-Corruption Layer** — Adapter/ACL zwischen Alt und Neu definieren.
-4. **Cutover-Strategie** — Schrittweise Umschaltung (Routing, Feature-Flags, Canary).
-5. **Datenmigration** — Skripte, Idempotenz, Rollback, Validierung.
-6. **Backout-Plan** — Wie man zurückkommt (ohne Datenverlust).
+1. **Target image** — Target architecture, module boundaries, new contracts (only where necessary).
+2. **Mapping** — Old → New (Module, Route, Table, Job). File: `docs/migration/mapping.md` (or `.json`).
+3. **Anti-Corruption Layer** — Define adapter/ACL between old and new.
+4. **Cutover strategy** — Gradual switching (routing, feature flags, canary).
+5. **Data Migration** — Scripts, Idempotence, Rollback, Validation.
+6. **Backout Plan** — How to get back (without losing data).
 7. **ADRs** — `migration/strategy`, `cutover`, `rollback`, `data-migration`.
 
 ## Output
@@ -34,22 +34,21 @@ description: Phase 2b — Migration plan (strangler-fig / module-migration)
 - `docs/adr/ADR-xxx-migration-*.md`
 - `.agent/artifacts/migration-plan.md`
 
-## Regeln
+##Rules
 
-- Contract-Freeze gilt **nicht** für Adapter/ACL. Nur neue externe/public Verträge sind eingefroren.
-- Keine Big-Bang-Umschaltung ohne Cutover-Gate.
-- Datenmigrationsskripte müssen idempotent und mit Rollback versehen sein.
+- Contract freeze **does not** apply to adapters/ACLs. Only new external/public contracts are frozen.
+- No big bang switching without cutover gate.
+- Data migration scripts must be idempotent and rollbacked.
 
 ## Commit
-
-```bash
+```
+bash
 mkdir -p docs/migration/ docs/adr/ .agent/artifacts/
 git reset -q
 git add -A -- docs/migration/ docs/adr/ .agent/artifacts/
 git commit -m "docs(sdlc-2b): Migration-Plan und Cutover-Strategie" \
   -m "Schritt 2b - Migration-Plan | Agent: aisdlc-architecture | Artefakte: docs/migration/, docs/adr/, .agent/artifacts/"
 ```
-
 ## HARD GATE
 
-**GATE 1 (Migration):** Menschliche Freigabe von Zielbild, Mapping und Cutover-Strategie vor Implementierung.
+**GATE 1 (Migration):** Human approval of target image, mapping and cutover strategy before implementation.

@@ -1,94 +1,93 @@
 ---
 name: aisdlc-openapi-first
-description: Phase 2/6: API-Vertrag entwerfen und gegen ihn implementieren.
+description: Phase 2/6: Design and implement API contract against it.
 metadata:
-  origin: eigenes Framework-Verfahren; Handwerk aus ECC/api-design + ECC/api-design-principles
+  origin: own framework procedure; Craft from ECC/api-design + ECC/api-design-principles
 ---
 
-## Wann
+## When
 
-- **Phase 2**, beim Entwurf des Vertrags
-- **Phase 6**, beim Bauen von Routen, DTOs und Handlern gegen den Vertrag
+- **Phase 2**, when drafting the contract
+- **Phase 6**, when building routes, DTOs and handlers against the contract
 
-Nicht in Phase 6 den Vertrag ändern. Was sich nicht ausdrücken lässt, geht zurück
-nach Phase 2.
+Do not change the contract in phase 6. What cannot be expressed goes back
+after phase 2.
 
-## Zwei Schichten — nicht verwechseln
+## Two layers - don't confuse them
 
-| Schicht | Zuständig | Liefert |
+| layer | Responsible | Delivers |
 |---|---|---|
-| **Verfahren** (dieser Skill) | das Framework | **wann**, **welche Artefakte**, **welche Prüfungen** |
-| **Handwerk** | `api-design`, `api-design-principles` (vendoriert) | **wie** man REST-Entwürfe, Statuscodes, Fehlerbodies und Versionierung baut |
+| **Procedure** (this skill) | the framework | **when**, **which artifacts**, **which tests** |
+| **Craft** | `api-design`, `api-design-principles` (vendored) | **how** to build REST designs, status codes, error bodies and versioning |
 
-Dieser Skill ersetzt das Handwerk nicht. Er sagt dem Agenten, **welchen**
-Stack-Skill er für **welchen** Teil des Vertrags lädt, und hält fest, was am Ende
-als Artefakt vorliegen muss.
+This skill does not replace crafting. He tells the agent **which one**
+Stack skill he loads for **which** part of the contract, and records what at the end
+must be present as an artifact.
 
-## Das eiserne Gesetz
-
-```text
+## The iron law
+```
+text
 KEIN ENDPOINT OHNE VOLLSTAENDIGE OPERATION IM VERTRAG
 ```
+An endpoint with no documented error response, no authorization information and no
+Description is not a contract, but a guess.
 
-Ein Endpoint ohne dokumentierte Fehlerantwort, ohne Autorisierungsangabe und ohne
-Beschreibung ist kein Vertrag, sondern eine Vermutung.
+## The contract
 
-## Der Vertrag
+`docs/api/openapi.yaml` is the single source of truth. Everything else follows from this:
+Schemas, DTOs, routes, client calls, tests.
 
-`docs/api/openapi.yaml` ist die Single Source of Truth. Alles andere folgt daraus:
-Schemas, DTOs, Routen, Client-Aufrufe, Tests.
-
-| Feld | Regel |
+| field | Rule |
 |---|---|
-| `operationId` | stabil, camelCase, eindeutig im gesamten Vertrag |
-| `summary` | eine Zeile, was die Operation tut |
-| `description` | Randbedingungen, Seiteneffekte, Idempotenz |
-| `parameters` | inkl. Validierung (min/max/format/enum) und Herkunft (path/query/header) |
-| `requestBody` | Pflichtfelder, Formate, Beispiele |
-| `responses` | mindestens Erfolg **und** jede Fehlerantwort |
-| `security` | welche Rolle das braucht — oder ausdrücklich `none` |
-| `tags` | Feature-Bereich |
+| `operationId` | stable, camelCase, clear throughout the contract |
+| `summary` | one line what the operation does |
+| `description` | Boundary conditions, side effects, idempotence |
+| `parameters` | including validation (min/max/format/enum) and origin (path/query/header) |
+| `requestBody` | Required fields, formats, examples |
+| `responses` | at least success **and** any error response |
+| `security` | what role that needs — or explicitly `none` |
+| `tags` | Feature area |
 
-**Das Handwerk dafür:** `api-design` (Resource-Naming, Statuscodes, Pagination,
-Fehlerbodies, Versionierung, Rate-Limiting) und `api-design-principles` (die
-allgemeinen REST-Prinzipien).
+**The craft for this:** `api-design` (resource naming, status codes, pagination,
+Error bodies, versioning, rate limiting) and `api-design-principles` (the
+general REST principles).
 
-## Vorgehen
+## Procedure
 
-### 1. Anforderungen extrahieren
+### 1. Extract requirements
 
-Aus `docs/requirements/PRD.md`, `.agent/artifacts/user-stories.md` und
-`docs/requirements/features/*.feature` jede Story auf ihre Operation abbilden. Eine
-Story ohne Operation und eine Operation ohne Story sind beides Befunde.
+From `docs/requirements/PRD.md`, `.agent/artifacts/user-stories.md` and
+`docs/requirements/features/*.feature` map each story to its operation. One
+Story without surgery and surgery without story are both findings.
 
-### 2. Gegen das Schema prüfen
+### 2. Check against the schema
 
-Jedes Feld in Request und Response muss im Datenbankschema existieren, mit gleichem
-Typ und gleicher Nullbarkeit. **Abweichungen melden, das Schema nicht stillschweigend
-ändern.** Wenn das Schema falsch ist, ist das ein eigener Befund mit eigenem ADR.
+Every field in request and response must exist in the database schema, with the same
+Type and equal nullability. **Report discrepancies, the scheme is not tacit
+change.** If the pattern is incorrect, that is a separate finding with its own ADR.
 
-**Das Handwerk dafür:** `database-migrations`, `postgresql-table-design`.
+**The craft for this:** `database-migrations`, `postgresql-table-design`.
 
-### 3. Reihenfolge bestimmen
+### 3. Determine the order
 
-Nach Abhängigkeit sortieren: geteilte Schemas zuerst, dann Endpunkte ohne
-Abhängigkeit, dann die aggregierenden. So entsteht kein halbfertiger Zwischenstand.
+Sort by dependency: shared schemas first, then endpoints without
+Dependency, then the aggregating ones. This means there is no half-finished interim result.
 
-### 4. Contract-Tests schreiben
+### 4. Write contract tests
 
-Je Operation: Statuscode, Pflichtfelder, Fehlerformat. **Antwort mit
-undokumentierten Feldern ist ein Fehler** — der Test schlägt dann fehl, bis Vertrag
-und Implementierung übereinstimmen.
+Per operation: status code, mandatory fields, error format. **Answer with
+undocumented fields is an error** — the test then fails until contract
+and implementation match.
 
-### 5. Implementieren
+### 5. Implement
 
-Route, Validierung, Service-Aufruf, Fehlermapping, dann der Test. In dieser
-Reihenfolge. Validierung am Rand (Request), Geschäftsregeln im Service, Invarianten
-im Modell.
+Route, validation, service call, error mapping, then the test. In this one
+Order. Validation at the edge (request), business rules in the service, invariants
+in the model.
 
-## Fehlerformat — eine Form für alle
-
-```json
+## Error format — one form for everyone
+```
+json
 {
   "type": "https://errors.example.com/validation-failed",
   "title": "Validation failed",
@@ -97,61 +96,59 @@ im Modell.
   "instance": "/tasks"
 }
 ```
-
-| Status | Wann |
+| Status | When |
 |---|---|
-| 400 | syntaktisch fehlerhafte Anfrage |
-| 401 | nicht angemeldet |
-| 403 | angemeldet, aber nicht berechtigt |
-| 404 | Ressource existiert nicht **oder** ist für diese Organisation nicht sichtbar |
-| 409 | Konflikt mit dem aktuellen Zustand |
-| 422 | semantisch ungültig (Validierung) |
-| 429 | Rate-Limit überschritten |
-| 500 | unerwarteter Fehler — kein Stacktrace, kein internes Detail |
+| 400 | syntactically incorrect request |
+| 401 | not logged in |
+| 403 | logged in but not authorized |
+| 404 | Resource does not exist **or** is not visible to this organization |
+| 409 | Conflict with current state |
+| 422 | semantically invalid (validation) |
+| 429 | Rate limit exceeded |
+| 500 | unexpected error — no stack trace, no internal detail |
 
-Die Detailmeldung sagt, **was** zu tun ist, nicht nur, was schiefging.
+The detail message tells **what** to do, not just what went wrong.
 
-## Abgleich mit der Traceability
+## Comparison with traceability
 
-Nach dem Schreiben des Vertrags und nach dem Schreiben der Tests gehört der Abgleich
-der Kette Anforderung → Story → Feature → Test → Code:
-
-```bash
+After writing the contract and after writing the tests comes the reconciliation
+the chain Requirement → Story → Feature → Test → Code:
+```
+bash
 python3 .agent/tools/traceability_check.py
 ```
+**A filled matrix is not evidence** — an entry that refers to a test,
+that no one has written counts as a gap. See `aisdlc-traceability-check`.
 
-**Eine gefüllte Matrix ist kein Beleg** — ein Eintrag, der auf einen Test verweist,
-den niemand geschrieben hat, zählt als Lücke. Siehe `aisdlc-traceability-check`.
+##Rules
 
-## Regeln
-
-- Pagination, Filterung und Sortierung sind **Teil des Vertrags**, keine
-  Implementierungsdetails. Ohne sie in der Liste ist die Liste nicht reparierbar.
-- Mandantentrennung gehört in den Vertrag: jeder Lese- und Schreibpfad trägt
-  `organisation_id`-Scope. Fehlt er, ist das ein Befund, kein Detail.
-- Der Vertrag wird **nach Schritt 4** eingefroren (Ende des Stresstests), nicht nach
-  Gate 1. Gate 1 nach Schritt 2 prüft die *Richtung* — der Vertrag ist dort noch ein
-  Entwurf. Im ersten Volllauf fand der Stresstest 13 Vertragsdefekte, alle **nach**
-  der Einfrierung, und jeder davon hat Schema, Code und Tests invalidiert.
-  Eine Abweichung nach dem Freeze braucht einen **Rücksprung zu Schritt 2** — keine
-  stille Änderung im Code, keine neue Revision im Vorbeigehen.
-- Ein Feld ohne Zweck und eine Operation ohne Zweck werden entfernt, nicht dokumentiert.
-- Fehlerantworten sind Pflicht. Ein Vertrag ohne Fehlerformat ist unvollständig.
+- Pagination, filtering and sorting are **part of the contract**, none
+  Implementation details. Without them in the list, the list is not repairable.
+- Client separation is part of the contract: each read and write path carries
+  `organization_id` scope. If it is missing, that is a finding, not a detail.
+- The contract will be frozen **after step 4** (end of the stress test), not after
+  Gate 1. Gate 1 after step 2 checks the *direction* — the contract is still there
+  Draft. In the first full run, the stress test found 13 contract defects, all **after**
+  of freezing, and each of them has invalidated schema, code and tests.
+  A deviation after the freeze requires a **return to step 2** - none
+  silent change in the code, no new revision in passing.
+- A field without a purpose and an operation without a purpose are removed, not documented.
+- Error answers are mandatory. A contract without an error format is incomplete.
 
 ## Output
 
-- `docs/api/openapi.yaml` — der eingefrorene Vertrag
-- `.agent/artifacts/api-review.md` — Schema-Abweichungen und offene Fragen
-- Zuordnung Story → Operation, mit Lücken als Liste (nicht als Prozentzahl)
+- `docs/api/openapi.yaml` — the frozen contract
+- `.agent/artifacts/api-review.md` — Schema discrepancies and open questions
+- Assignment Story → Operation, with gaps as a list (not as a percentage)
 
-## Stack-Skills
+## Stack skills
 
-> Die Namen sind die der **Stack-Schicht** des Projekts (`opencode.jsonc`,
-> `skills/`). Der Workflow dieses Skills gilt auch ohne sie — sie liefern nur
-> das Handwerk, nicht das Verfahren.
-| Wofür | Skill |
+> The names are those of the project's **stack layer** (`opencode.jsonc`,
+> `skills/`). The workflow of this skill applies without them — they just deliver
+> the craft, not the process.
+| For what | Skill |
 |---|---|
-| REST-Entwurf, Statuscodes, Fehlerbodies, Versionierung | `api-design` |
-| REST-Prinzipien, GraphQL-vs-REST | `api-design-principles` |
-| Datenbank-Typen, Migrationen | `database-migrations`, `postgresql-table-design` |
-| Vertrag als Quelle für beide Seiten | `contract-first` |
+| REST design, status codes, error bodies, versioning | `api-design` |
+| REST principles, GraphQL vs REST | `api-design-principles` |
+| Database types, migrations | `database-migrations`, `postgresql-table-design` |
+| Contract as a source for both sides | `contract-first` |

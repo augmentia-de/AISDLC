@@ -5,7 +5,7 @@ metadata:
   origin: draft for AISDLC
 ---
 
-## Purpose
+##Purpose
 
 Make coverage provable: every requirement must be traceable to a test, and every test to a
 piece of code. Without the matrix, "we tested it" is a claim, not a fact.
@@ -16,7 +16,7 @@ piece of code. Without the matrix, "we tested it" is a claim, not a fact.
 - Step 5 — verify coverage before implementation starts.
 - Before gate 1 — the reviewer needs the gaps list.
 
-## Inputs
+##Inputs
 
 - `docs/requirements/stories/*.json`
 - `docs/requirements/features/*.feature`
@@ -32,14 +32,14 @@ piece of code. Without the matrix, "we tested it" is a claim, not a fact.
    to a module is reported as unattributed.
 4. **Check the inverse** — every test file must be reachable from at least one criterion.
    Orphaned tests are usually the residue of a removed feature.
-5. **Report gaps** — as a list, not as a percentage. A matrix that is 87 % complete is
+5. **Report gaps** — as a list, not as a percentage. A matrix that is 87% complete
    less useful than a list of the 13 missing criteria.
 
 ## Output
 
 `docs/requirements/traceability_matrix.json`:
-
-```json
+```
+json
 {
   "generated_at": "2026-01-01T00:00:00Z",
   "entries": [
@@ -57,10 +57,9 @@ piece of code. Without the matrix, "we tested it" is a claim, not a fact.
   ]
 }
 ```
-
 Plus `.agent/artifacts/traceability.md` — the human-readable gap list for the gate review.
 
-## Rules
+##Rules
 
 - Only reference tests that exist. Do not plan coverage in the matrix.
 - A criterion that cannot be automated is marked `manual`, not silently dropped.
