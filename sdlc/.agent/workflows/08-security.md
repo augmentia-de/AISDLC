@@ -6,7 +6,7 @@ description: Phase 8 — Security and compliance scan
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read your phase prompt: `.agent/prompts/orchestrator/04_orchestrator_testing.md`.
 
 ## Checks

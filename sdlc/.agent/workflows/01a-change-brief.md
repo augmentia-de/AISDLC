@@ -6,7 +6,7 @@ description: Phase 1a — Change brief (delta flow for hotfix/patch/small featur
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - `.agent/config.json` has `change_flow.enforce_classification: true`.
 
 ## Agent & Skill

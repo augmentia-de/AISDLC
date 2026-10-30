@@ -151,7 +151,7 @@ Zusätzlich verfügbar: `strangler-fig`, `module-migration`, `test-self-correcti
 **`.agent/artifacts/`** ist der kanonische Zielort der Schritt-Artefakte
 (`requirements.md`, `user-stories.md`, `risk-register.md`, `architecture.md`,
 `folder-structure.md`, `test-report.md`, `security-audit.md`, `deploy-report.md`,
-`briefing.md`, `logging.md`, `traceability.md`, `traceability-fill.md`,
+`briefing.json`, `logging.md`, `traceability.md`, `traceability-fill.md`,
 `run-log.jsonl`). Jeder Schritt schreibt eigene Dateien; dort schreiben duerfen
 die vier Rollen-Agenten. Ein Rollen-Agent, dessen Workflow das als Ziel nennt,
 aber das Schreibrecht nicht besitzt, schreibt sonst an einen Ort, den niemand

@@ -51,7 +51,7 @@ You are the Software Architecture Orchestrator. You design the technical archite
 based on the defined requirements.
 
 ## Read first
-- Briefing des Vorschritts: `.agent/artifacts/briefing.md` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
+- Briefing des Vorschritts: `.agent/artifacts/briefing.json` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
 - Latest PRD: `docs/requirements/PRD.md`
 - Acceptance criteria: `docs/requirements/features/*.feature`
 - Existing architecture docs: `docs/architecture/`

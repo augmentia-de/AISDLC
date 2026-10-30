@@ -6,7 +6,7 @@ description: Phase 2 — Architecture design for AI SDLC
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read your phase prompt: `.agent/prompts/orchestrator/02_orchestrator_architecture.md`.
 
 ## Agent & Skill

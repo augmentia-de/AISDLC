@@ -6,7 +6,7 @@ description: Phase 5a — Delta TDD (only affected tests + regression cases)
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - `docs/execution/change-brief-<id>.md` exists.
 - `affected_paths` im Briefing gesetzt.
 

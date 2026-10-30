@@ -55,7 +55,7 @@ meet all acceptance criteria, have high test coverage and cause no regressions o
 security vulnerabilities.
 
 ## Read first
-- Briefing des Vorschritts: `.agent/artifacts/briefing.md` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
+- Briefing des Vorschritts: `.agent/artifacts/briefing.json` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
 - Acceptance criteria: `docs/requirements/features/*.feature`
 - Changed files in `src/`
 - Existing test suites: `tests/`

@@ -6,7 +6,7 @@ description: Phase 5 — Test-Driven Setup (TDD)
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read your phase prompt: `.agent/prompts/orchestrator/03_orchestrator_implementation.md`.
 
 ## Agent & Skill

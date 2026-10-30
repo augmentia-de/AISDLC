@@ -6,7 +6,7 @@ description: Phase 6 — Implementation and coding (parallel build streams)
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read your phase prompt: `.agent/prompts/orchestrator/03_orchestrator_implementation.md`.
 
 ## Parallel Build Streams

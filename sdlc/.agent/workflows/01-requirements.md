@@ -6,7 +6,7 @@ description: Phase 1 — Requirements gathering for AI SDLC
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read your phase prompt: `.agent/prompts/orchestrator/01_orchestrator_requirements.md`.
 
 ## Agent & Skill

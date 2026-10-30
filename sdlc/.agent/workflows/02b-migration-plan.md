@@ -6,7 +6,7 @@ description: Phase 2b — Migration plan (strangler-fig / module-migration)
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read `docs/migration/*` (Assessment output).
 - Read your phase prompt: `.agent/prompts/orchestrator/02_orchestrator_architecture.md`.
 

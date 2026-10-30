@@ -6,7 +6,7 @@ description: Phase 4 — Grill-Me stress test for architecture validation
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read your phase prompt: `.agent/prompts/orchestrator/02_orchestrator_architecture.md`.
 
 ## Agent & Skill

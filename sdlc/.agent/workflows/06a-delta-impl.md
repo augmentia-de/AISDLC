@@ -6,7 +6,7 @@ description: Phase 6a — Delta implementation (slim, focused on affected paths)
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - `docs/execution/change-brief-<id>.md` exists.
 
 ## Agent & Skill

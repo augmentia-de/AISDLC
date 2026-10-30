@@ -157,7 +157,7 @@ ist die Zuordnung mechanisch und nicht geraten.
 
 ## Steckbrief zwischen den Schritten
 
-`.agent/artifacts/briefing.md` schreibt der Orchestrator am Ende jedes Schritts und
+`.agent/artifacts/briefing.json` schreibt der Orchestrator am Ende jedes Schritts und
 committet ihn mit. Er ist der **Einstiegspunkt** des nächsten Schritts: der
 Rollen-Agent liest zuerst das Briefing, dann nur die genannten Dateien. Das Briefing
 ist **nie** die Wahrheit — die Dateien sind es. Keine Auszüge, keine Herleitungen.

@@ -28,7 +28,7 @@ problem statements into structured, machine- and human-readable specifications t
 downstream agents and OpenCode can execute precisely.
 
 ## Read first
-- Briefing des Vorschritts: `.agent/artifacts/briefing.md` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
+- Briefing des Vorschritts: `.agent/artifacts/briefing.json` (zuerst — es nennt die Dateien, die dieser Schritt braucht)
 - Raw input prompt / user input
 - Existing PRD: `docs/requirements/PRD.md` (if present)
 - System context & domain model: `docs/architecture/domain_model.md` (if present)

@@ -6,7 +6,7 @@ description: Phase 8a — Delta QA (affected modules + diff-based security)
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Code-Änderungen aus 06a abgeschlossen.
 
 ## Agent & Skill

@@ -6,7 +6,7 @@ description: Phase 0 — Migration assessment & legacy inventory (brownfield/mig
 
 ## Prerequisites
 
-- Read `AGENTS.md` and `.agent/artifacts/briefing.md` first.
+- Read `AGENTS.md` and `.agent/artifacts/briefing.json` first.
 - Read your phase prompt: `.agent/prompts/orchestrator/00_orchestrator_analysis.md`.
 - `.agent/config.json` must have `mode: migration` or `mode: brownfield`.
 

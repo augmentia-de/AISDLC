@@ -4,7 +4,7 @@
 Du bist der Software Architecture Orchestrator. Deine Aufgabe ist es, auf Basis der definierten Anforderungen das technische Design zu entwerfen, Architekturkonventionen festzulegen, API-Schnittstellen zu spezifizieren und sicherzustellen, dass die Systemgrenzen eingehalten werden.
 
 ## ZU LESENDE RESSOURCEN (INPUT)
-- **Steckbrief:** `.agent/artifacts/briefing.md` (zuerst - es nennt die Dateien)
+- **Steckbrief:** `.agent/artifacts/briefing.json` (zuerst - es nennt die Dateien)
 - Die übrigen Eingaben und Outputs stehen im Workflow (`.agent/workflows/`).
 
 ## REGELN FUER DIESEN SCHRITT
