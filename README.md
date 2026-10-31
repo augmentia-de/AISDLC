@@ -134,9 +134,12 @@ AISDLC/
 │   └── e2e/                                 # End-to-End-Tests
 ├── coverage/                        (✍️ CI / Test-Runner)
 │   └── coverage-summary.json                # Coverage-Report als Qualitätsschranke (Quality Gate)
+├── docs/                            # Zusätzliche Dokumentation
+│   ├── how-to.md                    # Anleitung / Stack-Schicht
+│   ├── lessons-learned.md           # Beobachtungen aus dem Referenzlauf
+│   ├── nohitl.md                    # Betriebsmodus ohne Human-in-the-Loop
+│   └── history/                     # Design-Notizen (improve*.md)
 ├── example/                         # Referenz-Anwendung als Formatvorbild
-├── lessons-learned.md               # Beobachtungen aus dem Referenzlauf
-└── nohitl.md                        # Betriebsmodus ohne Human-in-the-Loop
 ```
 **Two layers.** The framework (`.opencode/`, `.agent/`, `AGENTS.md`) is
 stack-agnostic — it knows no library paths and no stack. The
@@ -252,7 +255,7 @@ Six primary agents are defined in `.opencode/agents/`:
 | `test-self-correction` | as required |
 
 Each agent has folder-scoped write permissions and its own system prompt.
-Details: `how-to/how-to.md`, mapping: `.agent/PHASES.md`.
+Details: `docs/how-to.md`, mapping: `.agent/PHASES.md`.
 
 ### Stack knowledge from the libraries (without copies)
 

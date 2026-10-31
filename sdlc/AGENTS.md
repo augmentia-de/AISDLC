@@ -4,7 +4,7 @@
 
 **Two layers.** Framework (`.opencode/`, `.agent/`, `AGENTS.md`) is stack agnostic.
 Stack layer in `opencode.jsonc` (root) is replaced per stack; the framework remains
-untouched. Details: `how-to.md` → “stack layer”.
+untouched. Details: `docs/how-to.md` → "stack layer".
 
 AI SDLC: AI agent-assisted software development cycle. The orchestrator controls it
 Process, OpenCode executes. Write rights per agent, phase assignment in
