@@ -48,7 +48,7 @@ Inline documentation (JSDoc/Docstrings).
 Project README at root (`README.md`) with quickstart, build/test/run and structure.
 Commits (Conventional Commits) and PR descriptions.
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4.
 
@@ -67,13 +67,31 @@ git commit -m "feat(sdlc-6): Implementierung der Stories" \
 ## Logging
 
 The application logs **structured**: one line per event with correlation ID,
-Event type, tenant, outcome and duration. **No** payload, no secrets, none
-Tokens, not complete personal data sets.
+event type, tenant, outcome and duration. **No** payload, no secrets, no
+tokens, no complete personal data sets.
 
 The convention is enshrined in `.agent/artifacts/logging.md` — the
-Security Scan later checks **against this file**, not against its own
-Expectation. It is created in the same step as the code because it comes from the code
-follows out.
+security scan later checks **against this file**, not against its own
+expectation. It is created in the same step as the code because it follows
+from the code.
 
-##Gate
+### File logging (mandatory)
+
+Exactly **two** log files, each rotating at **2 MB**. Nothing else is logged.
+
+| File | Content | Rotation |
+|---|---|---|
+| `chat.log` | Chat/conversation history: one JSON event per user-visible action (`created`, `commented`, `status_changed`, `updated`) with correlation ID, event, tenant, outcome, status and duration | 2 MB, keep 5 archives |
+| `error.log` | Errors with stack trace, server-side only — never in the response body | 2 MB, keep 5 archives |
+
+- **Chat history is the event stream, not the message text.** IDs and event type
+  yes; comment body, title, description and any other payload no (rule 11).
+- One line per event, machine-readable JSON — format per `.agent/artifacts/logging.md`.
+- No debug/trace output, no framework noise, no request dumps. The root logger
+  is `ERROR`; chat events use their own logger category.
+- The log directory is configurable (`*_LOG_DIR`, default `./data/logs`) and, in
+  Docker, a volume — logs must survive a container restart.
+- The console mirrors `ERROR` only, so `docker logs` is not empty.
+
+## Gate
 If tests are missing → return to phase 5.

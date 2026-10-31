@@ -120,7 +120,7 @@ python3 .agent/tools/traceability_check.py
 **A filled matrix is not evidence** — an entry that refers to a test,
 that no one has written counts as a gap. See `aisdlc-traceability-check`.
 
-##Rules
+## Rules
 
 - Pagination, filtering and sorting are **part of the contract**, none
   Implementation details. Without them in the list, the list is not repairable.

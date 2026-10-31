@@ -14,7 +14,7 @@ description: Phase 5 — Test-Driven Setup (TDD)
 - **Agent:** `aisdlc-execution` · **Skill:** `aisdlc-tdd`, `aisdlc-test-matrix`, `aisdlc-traceability-check`
 
 
-##Steps
+## Steps
 
 1. **Tests before code** — write a failing test, then implement it.
 2. **Choose level consciously** — Unit tests for pure logic, integration tests for interfaces.
@@ -26,7 +26,7 @@ description: Phase 5 — Test-Driven Setup (TDD)
 ## Output
 `.agent/artifacts/` (test strategy, test cases)
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4.
 
@@ -56,5 +56,5 @@ The **document** (`.agent/artifacts/traceability.md`) is sent from a separate or
 creates the requirements agent — `--fill`, see `aisdlc-traceability-check`. distress
 in this step: the execution agent is not allowed to write `docs/requirements/`.
 
-##Gate
+## Gate
 If the interface is unclear → return to phase 3 (Simplify).

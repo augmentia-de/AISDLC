@@ -7,7 +7,7 @@
 > If this file is still at the template level, that is itself a finding:
 > “Logging convention not committed”.
 
-##Principle
+## Principle
 ```
 text
 EINE ZEILE JE EREIGNIS

@@ -56,9 +56,9 @@ For existing systems. Strangler fig/module migration, parallel operation, cutove
 
 Special features: Adapters/ACL between old and new are excluded from the contract freeze. Migration scripts must be idempotent; Backout plan mandatory.
 
-### C) Delta Flow (Hotfix/Patch/Small Feature)
+### C) Delta Flow (Hotfix/Patch/Small Feature/Refactor)
 
-For small changes without full PRD/architecture. Requirement: `change.type in {hotfix, patch}`, `contract_impact in {none, internal}`, `breaking == false`.
+For small changes without full PRD/architecture. Requirement: `change.type in {hotfix, patch, feature, refactor}`, `contract_impact in {none, internal}`, `breaking == false`. `refactor` is always `contract_impact: none` and behaviour-preserving — it has no new ACs; the existing tests are the acceptance.
 
 | # | step | Workflow | agent |
 |---|---|---|---|
@@ -72,7 +72,7 @@ GATE 1 is skipped; GATE 2 as **light** (affected ACs only). For `contract_impact
 ### Routing rules (short version)
 
 - `mode == migration/brownfield` → assessment (0a) + migration plan (2b) + cutover gate.
-- `change.type in {hotfix, patch}` + internal + non-breaking → delta flow.
+- `change.type in {hotfix, patch, feature, refactor}` + internal/none + non-breaking → delta flow.
 - Otherwise → Greenfield full run.
 - Fast-Track (MVP) only with `allow_fast_track: true` and the above delta condition.
 

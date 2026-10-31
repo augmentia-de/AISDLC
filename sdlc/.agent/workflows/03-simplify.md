@@ -14,7 +14,7 @@ description: Phase 3 — Simplify & Reduction (before the stress test)
 - **Agent:** `aisdlc-architecture` · **Skill:** `aisdlc-simplify`
 
 
-##Steps
+## Steps
 
 1. **Identify complexity** — which parts of the architecture are oversized?
 2. **Reduce** — keep only what is necessary, eliminate over-engineering.
@@ -23,7 +23,7 @@ description: Phase 3 — Simplify & Reduction (before the stress test)
 ## Output
 `.agent/artifacts/` (updated architecture, reduction report)
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4.
 
@@ -39,5 +39,5 @@ git commit -m "refactor(sdlc-3): Architektur vereinfacht" \
 - Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
 - If nothing has changed: do not create a commit (no error).
 
-##Gate
+## Gate
 Await human review. If there is too much complexity → return to phase 2.

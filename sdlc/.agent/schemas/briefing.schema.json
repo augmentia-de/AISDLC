@@ -19,7 +19,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "type": { "type": "string", "enum": ["hotfix", "patch", "feature", "chore"] },
+        "type": { "type": "string", "enum": ["hotfix", "patch", "feature", "chore", "refactor"] },
         "scope": { "type": "string", "enum": ["local", "module", "cross-module"] },
         "contract_impact": { "type": "string", "enum": ["none", "internal", "external", "public"] },
         "breaking": { "type": "boolean" },

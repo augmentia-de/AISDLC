@@ -14,7 +14,7 @@ description: Phase 1 — Requirements gathering for AI SDLC
 - **Agent:** `aisdlc-requirements` · **Skill:** `aisdlc-grill-stress`, `aisdlc-prd-to-stories`, `aisdlc-traceability-check`
 
 
-##Steps
+## Steps
 
 1. **Analysis of the requirement** for ambiguities, edge cases and conflicting goals.
 2. **Decomposition** into technical epics, user stories and BDD scenarios.
@@ -36,7 +36,7 @@ All artifacts written to `.agent/artifacts/` and `docs/requirements/`.
   (**only the static half**; the test and code references come later from the
   file system, see `aisdlc-traceability-check`)
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4.
 
@@ -52,5 +52,5 @@ git commit -m "docs(sdlc-1): PRD, User Stories und Traceability-Matrix" \
 - Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
 - If nothing has changed: do not create a commit (no error).
 
-##Gate
+## Gate
 Await human review of all artifacts before proceeding to Phase 2.

@@ -2,7 +2,7 @@
 description: Primary agent for Phase 1 (Requirements & Analysis). Translates vague requirements into PRD, User Stories, BDD scenarios, acceptance criteria and traceability matrix. Writes only in docs/requirements. Use at the start of a feature or on REQUIREMENT_GAP.
 # 'all' = primary (directly selectable by humans) and subagent (from
 # Orchestrator can be started). Without 'all' the agent cannot run as a subagent.
-fashion: all
+mode: all
 color: "#4a90d9"
 # Safety net against endless loops, NOT the finished criterion:
 # the agent decides when the step is finished (output list
@@ -49,7 +49,7 @@ downstream agents and OpenCode can execute precisely.
 - Mode: Read-Only / Explore. Ask OpenCode to check the existing codebase under `src`
   and list affected modules/files for the requirement.
 
-##Rights
+## Rights
 - Read: everything. Write: only `docs/requirements/`.
 - `src/` and `tests/` are read-only for you.
 

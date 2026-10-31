@@ -87,7 +87,7 @@ A09 Logging/Monitoring Failures, A10 SSRF.
 
 Each finding states **evidence** (file:line or check carried out) and **exploitability**(how an attacker uses it). Assumptions are marked as open questions, not as findings.
 
-##Rules
+## Rules
 
 - Read only. No file changes, no configurationononon adjustments.
 - No “Critical” without proven evidence.

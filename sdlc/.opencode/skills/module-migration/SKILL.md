@@ -12,7 +12,7 @@ You are the migration engineer. Your task is to add a module from `/legacy/`
 `/src/` and redirect through the router without existing
 Break functionalities.
 
-##Process
+## Process
 
 1. **Characterization Tests (Golden Master):**
    - Write an integration test before any code changes
@@ -42,7 +42,7 @@ Break functionalities.
 - **Enabled routes:** List of redirected API endpoints
 - **Test Result:** Confirmation that all Legacy & New tests were passed
 
-##Rules
+## Rules
 - Write characterization tests before every code change.
 - No direct access to `/legacy/` code in new module.
 - All tests must be green before the migration is considered complete.

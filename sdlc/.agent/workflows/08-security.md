@@ -26,7 +26,7 @@ description: Phase 8 — Security and compliance scan
 ## Output
 `.agent/artifacts/security-audit.md` with findings rated: Critical / High / Medium / Low.
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4.
 

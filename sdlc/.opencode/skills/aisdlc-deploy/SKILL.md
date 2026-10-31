@@ -20,13 +20,21 @@ Check before deploying and start **only if the conditions are met**:
 ## 1. Pipeline stages
 ```
 text
-Build -> Test -> Security-Scan -> Package -> Staging -> Smoke -> Approval -> Prod
+Build -> Test -> Security-Scan -> Package -> Local Docker (mandatory) -> Smoke -> [Staging -> Smoke -> Approval] -> Prod
 ```
 Each stage has: **Entry criterion, an executable check, a result, a
-Termination criterion.** No step without a clear result - "green" or "red", not "looks good".
+termination criterion.** No step without a clear result - "green" or "red", not "looks good".
+
+**Local Docker is the first deploy target.** It is mandatory and needs no cloud
+credentials: `docker compose -f infra/docker-compose.yml build` and `up -d`, then
+health check and smoke tests against `127.0.0.1`. Staging and production only run
+when an environment is configured; otherwise the deploy report says "not configured".
 
 **Approval gates** where a mistake would be expensive: before staging (after security scan) and before
 Production (after smoke tests).
+
+**Log check is part of the deploy.** `chat.log` and `error.log` must exist,
+rotate at 2 MB (step 6, "File logging") and contain no payload.
 
 ## 2. Rollout strategies
 
@@ -49,13 +57,14 @@ Scheme allows rolling, contract only after complete rollout.
 - Rollback path specifically: which image, which command, how long.
 - Versioned artifact (digest/tag), no `latest`.
 
-## 4. Smoke testing for staging
+## 4. Smoke testing — local Docker first, then staging
 
 1. Health endpoint responds.
 2. A representative end-to-end flavor runs through (create, read, change, delete).
 3. Authentication and authorization take effect (401/403 as expected).
 4. Dependencies accessible (DB, queue, external API).
 5. Logs do not show unexpected errors.
+6. The two log files exist, rotate at 2 MB and contain no payload.
 
 ## 5. Promotion and rollback
 

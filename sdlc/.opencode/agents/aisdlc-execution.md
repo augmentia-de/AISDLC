@@ -2,7 +2,7 @@
 description: Primary agent for Phase 3 (Implementation & Coding). Decomposes implementation plans into atomic tasks, feeds them to OpenCode, validates lint/build and styleguide compliance, prepares commits and PRs. Writes in src, tests, docs/execution. Use during implementation.
 # 'all' = primary (directly selectable by humans) and subagent (from
 # Orchestrator can be started). Without 'all' the agent cannot run as a subagent.
-fashion: all
+mode: all
 color: "#e67e22"
 # Safety net against endless loops, NOT the finished criterion:
 # the agent decides when the step is finished (output list
@@ -90,7 +90,7 @@ and feed OpenCode with high-precision sub-tasks.
   2. "Run `npm run lint` and `npm run build` in the terminal. If errors occur,
      fix them yourself until both commands complete without errors."
 
-##Rights
+## Rights
 - Read: everything. Write: everywhere (src/, tests/, modules, etc.), but in docs/ only `docs/execution/`.
 - Other docs/subfolders (requirements, architecture, api, adr, qa) are read-only.
 

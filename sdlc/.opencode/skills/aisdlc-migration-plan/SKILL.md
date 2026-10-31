@@ -17,7 +17,7 @@ EINE MIGRATION, DIE AUF EINER LIVE-DATENBANK FALSCH IST, IST EIN INCIDENT
 ```
 The plan must run with the **previous** application version.
 
-##Expand/Contract
+## Expand/Contract
 
 | phase | Action | Safe with old code? |
 |---|---|---|
@@ -43,7 +43,7 @@ But the application is rolled back? A migration without an answer to this is not
 - Rollback section per migration
 - `.agent/artifacts/migration-plan.md`
 
-##Rules
+## Rules
 
 - Every migration is idempotent or carries an explicit "once" marker.
 - Backfills are batched, resumable and rate limited.

@@ -38,7 +38,7 @@
 - <e.g. E.g. "the contract is frozen" - a contract defect is a finding for
   a jump back to step 2, no change in passing.>
 
-##Tools
+## Tools
 
 | Purpose | Command |
 |---|---|

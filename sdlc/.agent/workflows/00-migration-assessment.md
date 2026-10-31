@@ -15,7 +15,7 @@ description: Phase 0 — Migration assessment & legacy inventory (brownfield/mig
 - **Agent:** `aisdlc-requirements` (or `aisdlc-architecture` for tech-heavy systems)
 - **Skill:** `module-migration`, `strangler-fig`
 
-##Steps
+## Steps
 
 1. **Inventory** — Modules, Routes, Jobs, Integrations, Databases, Queues, Cron, Config files.
 2. **Contract discovery** — Existing API contracts (OpenAPI/GraphQL/WSDL), implicit DTOs, error formats.
@@ -32,7 +32,7 @@ description: Phase 0 — Migration assessment & legacy inventory (brownfield/mig
 - `docs/migration/scope.md`
 - `.agent/artifacts/migration-assessment.md`
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4 (only for **new** external/public contracts).
 **No** contract freeze applies to adapters between old/new.
@@ -48,6 +48,6 @@ git commit -m "docs(sdlc-0): Migration-Assessment und Legacy-Inventar" \
 ```
 - If nothing has changed: do not create a commit (no error).
 
-##Gate
+## Gate
 
 Optional (MVP) / Mandatory (Enterprise): Human release of scope before migration plan is created.

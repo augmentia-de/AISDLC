@@ -78,7 +78,7 @@ json
   "status": "todo"
 }
 ```
-##Rules
+## Rules
 
 - **Each** acceptance criteria has an identifier `AC-<story>-<nr>`, and **each**
   Feature scenario carries them. In the end, a scenario without an identifier cannot be verified.

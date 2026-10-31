@@ -14,7 +14,7 @@ description: Phase 2 — Architecture design for AI SDLC
 - **Agent:** `aisdlc-architecture` · **Skill:** `aisdlc-openapi-first`, `aisdlc-glossary-adr`, `aisdlc-migration-plan`
 
 
-##Steps
+## Steps
 
 1. **Evaluate design options** and select appropriate design patterns/architectures.
 2. **Specify API interfaces** (request/response schemas, types, status codes) in `docs/api/openapi.yaml`.
@@ -30,7 +30,7 @@ description: Phase 2 — Architecture design for AI SDLC
 - Artifacts to `.agent/artifacts/` (architecture.md, folder-structure.md).
 - Docs to `docs/architecture/`, `docs/api/`, `docs/adr/`.
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4.
 

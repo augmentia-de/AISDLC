@@ -9,18 +9,18 @@ Single source of truth for step → instance → agent → skill → gate. Three
 | 0 Legacy analysis | — | phase0 | — | — | optional | optional | optional |
 | 0a Migration assessment | 00-migration-assessment.md | phase0 | aisdlc-requirements | module-migration, strangler-fig | optional | optional | yes (migration) |
 | 1 Requirements | 01-requirements.md | phase1 | aisdlc-requirements | grill-stress, prd-to-stories, traceability-check | — | yes | yes |
-| 1a Change brief (delta) | 01a-change-brief.md | phase1 | aisdlc-requirements | grill-stress (opt.) | — | yes (hotfix/patch) | yes |
+| 1a Change brief (delta) | 01a-change-brief.md | phase1 | aisdlc-requirements | grill-stress (opt.) | — | yes (delta) | yes |
 | 2 Architecture | 02-architecture.md | phase2 | aisdlc-architecture | openapi-first, glossary-adr, migration-plan | GATE 1 | minimal | yes |
 | 2b Migration plan | 02b-migration-plan.md | phase2 | aisdlc-architecture | migration-plan, strangler-fig, glossary-adr | GATE 1 (migration) | optional | yes (migration) |
 | 3 Simplify | 03-simplify.md | phase2 | aisdlc-architecture | simplify | — | no | yes |
 | 4 Grill-Me stress | 04-grill-me-stress.md | phase2 | aisdlc-architecture | grill-stress | contract freeze | optional | yes |
 | 5 TDD setup | 05-tdd.md | phase3 | aisdlc-execution | tdd, test-matrix, traceability-check | — | optional | yes |
-| 5a Delta TDD | 05a-delta-tdd.md | phase3 | aisdlc-execution | tdd | — | yes (hotfix/patch) | yes |
+| 5a Delta TDD | 05a-delta-tdd.md | phase3 | aisdlc-execution | tdd | — | yes (delta) | yes |
 | 6 Implementation | 06-implementation.md | phase3 | aisdlc-execution | feature-scaffold, containerize | — | yes | yes |
-| 6a Delta impl | 06a-delta-impl.md | phase3 | aisdlc-execution | feature-scaffold (opt.), simplify | — | yes (hotfix/patch) | yes |
+| 6a Delta impl | 06a-delta-impl.md | phase3 | aisdlc-execution | feature-scaffold (opt.), simplify | — | yes (delta) | yes |
 | 7 Refactoring | 07-refactoring.md | phase3 | aisdlc-execution | simplify | — | optional | yes |
 | 8 Security | 08-security.md | phase4 | aisdlc-qa | security-scan | GATE 2 | minimal | yes |
-| 8a Delta QA | 08a-delta-qa.md | phase4 | aisdlc-qa | security-scan | GATE 2 (light) | yes (hotfix/patch) | yes |
+| 8a Delta QA | 08a-delta-qa.md | phase4 | aisdlc-qa | security-scan | GATE 2 (light) | yes (delta) | yes |
 | 9 Deploy | 09-deploy.md | phase4 | aisdlc-qa | ci-pipeline, containerize, deploy | — | yes | yes |
 
 Skills are procedures, not roles. `aisdlc-*` = process; stack skills = craft. Loaded on demand.
@@ -73,7 +73,7 @@ Static half (Requirement → Story → Feature) in Step 1: `docs/requirements/tr
 
 - `greenfield`: steps 1–9.
 - `migration`/`brownfield`: 0a + 2b + CUTOVER-GATE.
-- Delta (hotfix/patch/feature, internal, non-breaking, module scope): 1a → 5a → 6a → 8a.
+- Delta (hotfix/patch/feature/refactor, internal, non-breaking, module scope): 1a → 5a → 6a → 8a.
 
 ## Agents
 

@@ -2,7 +2,7 @@
 description: Primary agent for Phase 2 (Architecture & System Design). Designs technical architecture, specifies APIs, creates C4 diagrams and ADRs on top of the PRD. Writes in docs/architecture, docs/api, docs/adr. Use after requirements are complete.
 # 'all' = primary (directly selectable by humans) and subagent (from
 # Orchestrator can be started). Without 'all' the agent cannot run as a subagent.
-fashion: all
+mode: all
 color: "#7b68ee"
 # Safety net against endless loops, NOT the finished criterion:
 # the agent decides when the step is finished (output list
@@ -73,7 +73,7 @@ based on the defined requirements.
 - Mode: Plan. Ask OpenCode to read `docs/api/openapi.yaml` and create a step-by-step
   plan for implementing the new API stubs, DTOs and types in `src/types` and `src/controllers`.
 
-##Rights
+## Rights
 - Read: everything. Write: `docs/architecture/`, `docs/api/`, `docs/adr/`.
 - `src/` and `tests/` are read-only.
 

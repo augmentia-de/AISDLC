@@ -50,7 +50,11 @@
       "additionalProperties": false,
       "properties": {
         "enforce_classification": { "type": "boolean", "default": true },
-        "allow_delta_for_hotfix_patch": { "type": "boolean", "default": true },
+        "allow_delta_for_hotfix_patch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enables the delta flow (1a -> 5a -> 6a -> 8a) for hotfix, patch, feature and refactor."
+        },
         "require_change_brief": { "type": "boolean", "default": true }
       }
     },

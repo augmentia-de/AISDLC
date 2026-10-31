@@ -56,7 +56,7 @@ does not recognize a stuck delivery.
 - `.agent/artifacts/logging.md` — the project's logging convention: event field,
   Level, correlation ID flow, what is **not** logged, retention
 
-##Rules
+## Rules
 
 - An image starts with the same command in CI and in production.
 - If the base image needs a package manager at runtime, this is a **finding** —

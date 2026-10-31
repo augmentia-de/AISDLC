@@ -43,7 +43,7 @@ the build, not into a file that you read.
   Rollback trigger
 - `docs/execution/CHANGELOG.md` on a release
 
-##Rules
+## Rules
 
 - Every job has an explicit pass or fail criteria. None
   "continue on error" in a gate job.

@@ -14,7 +14,7 @@ description: Phase 6a — Delta implementation (slim, focused on affected paths)
 - **Agent:** `aisdlc-execution`
 - **Skill:** `aisdlc-feature-scaffold` (only if needed), `aisdlc-simplify`
 
-##Steps
+## Steps
 
 1. **Implement** only the files mentioned in `affected_paths`.
 2. **No parallel streams** — focused single stream.
@@ -27,11 +27,14 @@ description: Phase 6a — Delta implementation (slim, focused on affected paths)
 - Code in `src/`, `tests/`.
 - `.agent/artifacts/` (Delta report).
 
-##Rules
+## Rules
 
 - Change only `affected_paths`; everything else read-only.
 - No refactoring outside of the fix scope (that's step 7).
 - No `openapi.yaml` change without jump-back.
+- `refactor`: behaviour-preserving only — structure, naming and dead code; no new feature,
+  no contract/schema change, no test weakened or deleted. Verify the affected suite after
+  every step (`aisdlc-simplify` is the procedure).
 
 ## Commit
 ```

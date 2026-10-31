@@ -22,7 +22,7 @@
 **Decided:** <e.g. B. Spring Boot 3.x (Web, Security, Validation, Persistence)>
 **Why:** <Reason>
 
-##Database
+## Database
 
 **Decided:** <e.g. B. PostgreSQL 16>
 **Why:** <Reason — Relationality, RLS, GDPR>
@@ -69,7 +69,7 @@ Database, not against a mock>
 Architecture phase is byte-identical to the canonical path — forcing a mirror test
 that. See the scheme decision in the associated ADR.
 
-##Contract
+## Contract
 
 `openapi.yaml` in this directory is a **reference** to `docs/api/openapi.yaml`,
 no copy. The contract is maintained in exactly one place.

@@ -38,7 +38,7 @@ Feature and reflects its structure.
 - Short report: story ID, criteria covered, files, test result
 - Update of the traceability matrix for the criteria covered
 
-##Rules
+## Rules
 
 -One story per view. No second story in the same run.
 - No schema change without migration plan (`aisdlc-migration-plan`).

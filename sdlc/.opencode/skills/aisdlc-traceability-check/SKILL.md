@@ -110,7 +110,7 @@ keeps the separation clean.
 Steps plus `(follow-up)`. At most one per step — a second means that
 the cause lies in the process.
 
-##Rules
+## Rules
 
 - **Always check after** the matrix update, never before - otherwise you will measure it
   old status.

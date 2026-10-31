@@ -14,7 +14,7 @@ description: Phase 7 — Code refactoring and clean-up (second simplify pass)
 - **Agent:** `aisdlc-execution` · **Skill:** `aisdlc-simplify`
 
 
-##Steps
+## Steps
 
 1. **Simplify** — Simplify code, preserving behavior (like phase 3, but on finished code).
 2. **Remove Dead Code** — with test verification after each step.
@@ -24,7 +24,7 @@ description: Phase 7 — Code refactoring and clean-up (second simplify pass)
 ## Output
 Refactored code in `src/`, `tests/`.
 
-##Rules
+## Rules
 
 See `AGENTS.md`: no output commands, contract frozen after step 4.
 
@@ -40,5 +40,5 @@ git commit -m "refactor(sdlc-7): Refactoring und Clean-up" \
 - Formula, scope and justification: `AGENTS.md` -> Commit Convention. Here just the paths.
 - If nothing has changed: do not create a commit (no error).
 
-##Gate
+## Gate
 If the code is unclean → return to phase 6.

@@ -41,12 +41,12 @@ Read `.agent/config.json`. Determine the path:
    - `current_step == 9` → cutover gate before final switchover (see PHASES.md)
 2. **Change classification** (if `change_flow.enforce_classification == true`):
    - Read `change` block from `.agent/artifacts/briefing.json`.
-   - `type in {hotfix, patch, feature}` and `contract_impact in {none, internal}` and `scope in {local, module}` and `breaking == false` → **Delta-Flow**: `1a` → `5a` → `6a` → `8a`. Skip GATE 1. GATE 2 as **light** (affected ACs only).
+   - `type in {hotfix, patch, feature, refactor}` and `contract_impact in {none, internal}` and `scope in {local, module}` and `breaking == false` → **Delta-Flow**: `1a` → `5a` → `6a` → `8a`. Skip GATE 1. GATE 2 as **light** (affected ACs only).
    - `contract_impact in {external, public}` or `breaking == true` or `scope == cross-module` → **full path** (steps 1-9). GATE 1 and GATE 2 full.
    - `contract_impact in {external, public}` or change to `docs/api/openapi.yaml` → **never** delta flow or fast track. Full phases + contract review.
 3. **Fast-Track (MVP)**: Only with `profile == mvp` and `allow_fast_track == true` and the above delta condition. Otherwise full path.
 
-##Process
+## Process
 1. **State first**: Read `.agent/state.json`. Use `current_step` + `status`. Fallback only to Git if `state.json` is missing.
 2. **Delegate**: Start exactly **one** role agent as a subagent for the step. Only pass filenames, not contents.
 3. **Commit**: Agent commits itself after workflow. Check `git log --oneline -3`. Update `last_commit` + `history` in `state.json`.
@@ -55,7 +55,7 @@ Read `.agent/config.json`. Determine the path:
 6. **Log**: Write event to `.agent/artifacts/run-log.jsonl` (step_start/end, gate, check).
    When using skills, also `skill_start`/`skill_end`er `.agent/tools/skill_log.py`.
 
-##Rules
+## Rules
 - **1 subagent / step** - never parallel
 - **1 commit / step** - check Subject `<type>(sdlc-<n>): ...`
 - **Delegate only** - edit is locked

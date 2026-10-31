@@ -62,7 +62,7 @@ but replace it with a new one.
 - `docs/adr/ADR-<ID>-<title>.md`
 - `.agent/artifacts/adr-index.md` — one line per ADR for the gate template
 
-##Rules
+## Rules
 
 - One decision per ADR.
 - If an agent cannot find the reasons for a decision, the ADR is missing.

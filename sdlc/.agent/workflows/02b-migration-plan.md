@@ -15,7 +15,7 @@ description: Phase 2b — Migration plan (strangler-fig / module-migration)
 - **Agent:** `aisdlc-architecture`
 - **Skill:** `aisdlc-migration-plan`, `strangler-fig`, `aisdlc-glossary-adr`
 
-##Steps
+## Steps
 
 1. **Target image** — Target architecture, module boundaries, new contracts (only where necessary).
 2. **Mapping** — Old → New (Module, Route, Table, Job). File: `docs/migration/mapping.md` (or `.json`).
@@ -34,7 +34,7 @@ description: Phase 2b — Migration plan (strangler-fig / module-migration)
 - `docs/adr/ADR-xxx-migration-*.md`
 - `.agent/artifacts/migration-plan.md`
 
-##Rules
+## Rules
 
 - Contract freeze **does not** apply to adapters/ACLs. Only new external/public contracts are frozen.
 - No big bang switching without cutover gate.

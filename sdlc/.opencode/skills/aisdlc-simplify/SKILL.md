@@ -52,7 +52,7 @@ Classify results by risk:
 | **CAREFUL** | dynamic imports, reflection, registration via string |
 | **RISKY** | Part of a public API, referenced from outside |
 
-##Process
+## Process
 
 1. **Analyze** - Run detection tools in parallel, classify results.
 2. **Verify** - search for all references for each candidate (including dynamic ones),

@@ -12,7 +12,7 @@ You are the migration architect. Your task is to select a single specialist modu
 `/legacy/` codebase to identify a redesign as a target module in `/src/`
 design and define the routing logic for the interception.
 
-##Process
+## Process
 
 1. **Select module** - Select a functionally isolated module from `/legacy/`
    (e.g. `User-Authentication` or `Invoice-Generation`).
@@ -24,7 +24,7 @@ design and define the routing logic for the interception.
 - **ADR:** `/docs/adr/ADR-Strangler-<MODULE_NAME>.md`
 - **Routing Rules:** `/docs/architecture/strangler_routes.json` (Which endpoints are redirected)
 
-##Rules
+## Rules
 - No direct dependency on legacy code in the new module.
 - Use interfaces/DTOs according to the OpenAPI spec.
 - Write characterization tests (Golden Master) before any code changes.

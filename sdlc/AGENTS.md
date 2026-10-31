@@ -72,7 +72,7 @@ Skills are procedures, not roles. Verfahren from `aisdlc-*`, craft from stack sk
 
 - `REQUIREMENT_GAP` → jump to Phase 1.
 - `ARCHITECTURAL_BLOCKER` → jump to Phase 2 + git reset affected `src/`.
-- **Fast-Track/Delta**: MVP + `allow_fast_track` + `change_flow`; `hotfix`/`patch`/`feature` with `contract_impact` in {none, internal}, `scope` in {local, module}, `breaking=false` → Delta-Flow (1a→5a→6a→8a). Never for `external/public` or `openapi.yaml` changes.
+- **Fast-Track/Delta**: MVP + `allow_fast_track` + `change_flow`; `hotfix`/`patch`/`feature`/`refactor` with `contract_impact` in {none, internal}, `scope` in {local, module}, `breaking=false` → Delta-Flow (1a→5a→6a→8a). `refactor` is always `contract_impact: none` and `breaking: false`. Never for `external/public` or `openapi.yaml` changes.
 - **Migration** (`mode=migration`/`brownfield`): contract freeze does not apply to adapters/ACL; CUTOVER-GATE required.
 
 ## Secrets

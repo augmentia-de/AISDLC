@@ -2,7 +2,7 @@
 description: Primary agent for Phase 4 (Testing & Quality Assurance). Ensures new code meets acceptance criteria, coverage reaches thresholds and has no regressions or security issues. Writes in tests and docs/qa. Use in the test phase.
 # 'all' = primary (directly selectable by humans) and subagent (from
 # Orchestrator can be started). Without 'all' the agent cannot run as a subagent.
-fashion: all
+mode: all
 color: "#2ecc71"
 # Safety net against endless loops, NOT the finished criterion:
 # the agent decides when the step is finished (output list
@@ -79,7 +79,7 @@ security vulnerabilities.
   `docs/requirements/features/<feature>.feature`." then "Run the test runner. If a test
   fails, analyze the output, adjust `src/` or the test, repeat until all tests are GREEN."
 
-##Rights
+## Rights
 - Read: everything. Write: everywhere (src/, tests/, modules, etc.), but in docs/ only `docs/qa/`.
 - Other docs/subfolders are read-only.
 

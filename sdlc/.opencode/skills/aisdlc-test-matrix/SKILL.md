@@ -67,7 +67,7 @@ The file itself has **no** identifier — it can cover multiple criteria.
 
 So machine readable in `docs/requirements/traceability_matrix.json`.
 
-##Rules
+## Rules
 
 - One criterion, at least one case. Without a case it is a gap.
 - **Each test case carries the identifier of its acceptance criterion.** Without it, the
